@@ -35,14 +35,28 @@ const DEFAULT_DATA = {
       },
       maxHP: 12,
       armorClass: 16,
+      proficiencyBonus: 2,
+      speed: 30,
+      hitDice: '1d10',
+      savingThrows: ['strength', 'constitution'],
       skills: ['Athletics', 'Intimidation'],
+      proficiencies: {
+        armor: ['Light Armor', 'Medium Armor', 'Heavy Armor', 'Shields'],
+        weapons: ['Simple Weapons', 'Martial Weapons'],
+        tools: []
+      },
+      features: ['Second Wind', 'Fighting Style: Defense'],
+      spells: [],
       inventory: [
-        { item: 'Longsword', equipped: true, quantity: 1 },
+        { item: 'Longsword', equipped: true, quantity: 1, damage: '1d8+3' },
         { item: 'Chain Mail', equipped: true, quantity: 1 },
         { item: 'Shield', equipped: true, quantity: 1 },
-        { item: 'Healing Potion', equipped: false, quantity: 2 }
+        { item: 'Healing Potion', equipped: false, quantity: 2 },
+        { item: 'Backpack', equipped: false, quantity: 1 },
+        { item: 'Bedroll', equipped: false, quantity: 1 },
+        { item: 'Rations (days)', equipped: false, quantity: 10 }
       ],
-      backstory: 'A brave warrior trained in the art of combat.'
+      backstory: 'A brave warrior trained in the art of combat, seeking glory and honor on the battlefield.'
     },
     {
       id: 'template_wizard',
@@ -61,14 +75,33 @@ const DEFAULT_DATA = {
       },
       maxHP: 8,
       armorClass: 12,
-      skills: ['Arcana', 'Investigation'],
+      proficiencyBonus: 2,
+      speed: 30,
+      hitDice: '1d6',
+      savingThrows: ['intelligence', 'wisdom'],
+      skills: ['Arcana', 'Investigation', 'History'],
+      proficiencies: {
+        armor: [],
+        weapons: ['Daggers', 'Darts', 'Slings', 'Quarterstaffs', 'Light Crossbows'],
+        tools: []
+      },
+      features: ['Arcane Recovery', 'Spellcasting'],
+      spells: [
+        { name: 'Fire Bolt', level: 0, damage: '1d10' },
+        { name: 'Mage Hand', level: 0 },
+        { name: 'Magic Missile', level: 1, damage: '3d4+3' },
+        { name: 'Shield', level: 1 },
+        { name: 'Detect Magic', level: 1 }
+      ],
       inventory: [
-        { item: 'Quarterstaff', equipped: true, quantity: 1 },
+        { item: 'Quarterstaff', equipped: true, quantity: 1, damage: '1d6' },
         { item: 'Spellbook', equipped: false, quantity: 1 },
         { item: 'Robes', equipped: true, quantity: 1 },
-        { item: 'Component Pouch', equipped: false, quantity: 1 }
+        { item: 'Component Pouch', equipped: false, quantity: 1 },
+        { item: 'Backpack', equipped: false, quantity: 1 },
+        { item: 'Ink and Quill', equipped: false, quantity: 1 }
       ],
-      backstory: 'A scholar of the arcane arts seeking knowledge and power.'
+      backstory: 'A scholarly elf who has spent years studying the arcane arts in ancient libraries, now seeking practical experience.'
     },
     {
       id: 'template_rogue',
@@ -87,14 +120,28 @@ const DEFAULT_DATA = {
       },
       maxHP: 10,
       armorClass: 14,
-      skills: ['Stealth', 'Sleight of Hand', 'Deception'],
+      proficiencyBonus: 2,
+      speed: 25,
+      hitDice: '1d8',
+      savingThrows: ['dexterity', 'intelligence'],
+      skills: ['Stealth', 'Sleight of Hand', 'Deception', 'Acrobatics'],
+      proficiencies: {
+        armor: ['Light Armor'],
+        weapons: ['Simple Weapons', 'Hand Crossbows', 'Longswords', 'Rapiers', 'Shortswords'],
+        tools: ['Thieves\' Tools']
+      },
+      features: ['Sneak Attack (1d6)', 'Thieves\' Cant', 'Expertise'],
+      spells: [],
       inventory: [
-        { item: 'Shortsword', equipped: true, quantity: 1 },
-        { item: 'Dagger', equipped: true, quantity: 2 },
+        { item: 'Shortsword', equipped: true, quantity: 1, damage: '1d6+3' },
+        { item: 'Dagger', equipped: true, quantity: 2, damage: '1d4+3' },
         { item: 'Leather Armor', equipped: true, quantity: 1 },
-        { item: 'Thieves\' Tools', equipped: false, quantity: 1 }
+        { item: 'Thieves\' Tools', equipped: false, quantity: 1 },
+        { item: 'Backpack', equipped: false, quantity: 1 },
+        { item: 'Crowbar', equipped: false, quantity: 1 },
+        { item: 'Dark Cloak', equipped: false, quantity: 1 }
       ],
-      backstory: 'A nimble thief with a mysterious past and quick reflexes.'
+      backstory: 'A nimble halfling who grew up on the streets, learning to survive by wit and stealth.'
     },
     {
       id: 'template_cleric',
@@ -113,14 +160,34 @@ const DEFAULT_DATA = {
       },
       maxHP: 11,
       armorClass: 15,
-      skills: ['Medicine', 'Religion'],
+      proficiencyBonus: 2,
+      speed: 25,
+      hitDice: '1d8',
+      savingThrows: ['wisdom', 'charisma'],
+      skills: ['Medicine', 'Religion', 'Insight'],
+      proficiencies: {
+        armor: ['Light Armor', 'Medium Armor', 'Shields'],
+        weapons: ['Simple Weapons'],
+        tools: []
+      },
+      features: ['Divine Domain: Life', 'Channel Divinity', 'Spellcasting'],
+      spells: [
+        { name: 'Sacred Flame', level: 0, damage: '1d8' },
+        { name: 'Guidance', level: 0 },
+        { name: 'Cure Wounds', level: 1, healing: '1d8+3' },
+        { name: 'Bless', level: 1 },
+        { name: 'Shield of Faith', level: 1 }
+      ],
       inventory: [
-        { item: 'Mace', equipped: true, quantity: 1 },
+        { item: 'Mace', equipped: true, quantity: 1, damage: '1d6+2' },
         { item: 'Scale Mail', equipped: true, quantity: 1 },
         { item: 'Shield', equipped: true, quantity: 1 },
-        { item: 'Holy Symbol', equipped: false, quantity: 1 }
+        { item: 'Holy Symbol', equipped: false, quantity: 1 },
+        { item: 'Backpack', equipped: false, quantity: 1 },
+        { item: 'Prayer Book', equipped: false, quantity: 1 },
+        { item: 'Healing Potion', equipped: false, quantity: 2 }
       ],
-      backstory: 'A devoted servant of the gods, bringing healing and hope to those in need.'
+      backstory: 'A devoted dwarf cleric who serves their deity with unwavering faith, dedicated to healing the wounded and protecting the innocent.'
     }
   ],
   characters: [],

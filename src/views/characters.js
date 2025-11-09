@@ -135,7 +135,18 @@ export function renderCharacterCreator(state = {}) {
     },
     maxHP: 10,
     armorClass: 10,
+    proficiencyBonus: 2,
+    speed: 30,
+    hitDice: '1d10',
+    savingThrows: [],
     skills: [],
+    proficiencies: {
+      armor: [],
+      weapons: [],
+      tools: []
+    },
+    features: [],
+    spells: [],
     inventory: [],
     backstory: ''
   };
@@ -212,9 +223,25 @@ export function renderCharacterCreator(state = {}) {
             </div>
           </div>
           
+          <div class="grid grid-2 mb-3">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Speed (ft)</label>
+              <input type="number" id="char-speed" value="${formData.speed}" min="0">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Hit Dice</label>
+              <input type="text" id="char-hitdice" value="${formData.hitDice}" placeholder="e.g., 1d10">
+            </div>
+          </div>
+          
           <div class="mb-3">
             <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Skills (comma-separated)</label>
             <input type="text" id="char-skills" value="${formData.skills.join(', ')}" placeholder="e.g., Athletics, Stealth, Perception">
+          </div>
+          
+          <div class="mb-3">
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Features & Traits (comma-separated)</label>
+            <input type="text" id="char-features" value="${formData.features.join(', ')}" placeholder="e.g., Second Wind, Sneak Attack">
           </div>
           
           <div class="mb-3">
@@ -285,7 +312,10 @@ function applyTemplate(templateId) {
   document.getElementById('char-level').value = template.level;
   document.getElementById('char-hp').value = template.maxHP;
   document.getElementById('char-ac').value = template.armorClass;
+  document.getElementById('char-speed').value = template.speed;
+  document.getElementById('char-hitdice').value = template.hitDice;
   document.getElementById('char-skills').value = template.skills.join(', ');
+  document.getElementById('char-features').value = template.features.join(', ');
   document.getElementById('char-backstory').value = template.backstory;
   
   // Update stats
@@ -304,12 +334,15 @@ function applyTemplate(templateId) {
 function saveCharacter(existingId = null) {
   const data = loadData();
   
+  const level = parseInt(document.getElementById('char-level').value);
+  const profBonus = Math.floor((level - 1) / 4) + 2;
+  
   const character = {
     id: existingId || `char_${Date.now()}`,
     name: document.getElementById('char-name').value.trim(),
     race: document.getElementById('char-race').value,
     class: document.getElementById('char-class').value,
-    level: parseInt(document.getElementById('char-level').value),
+    level: level,
     stats: {
       strength: parseInt(document.getElementById('stat-strength').value),
       dexterity: parseInt(document.getElementById('stat-dexterity').value),
@@ -320,7 +353,14 @@ function saveCharacter(existingId = null) {
     },
     maxHP: parseInt(document.getElementById('char-hp').value),
     armorClass: parseInt(document.getElementById('char-ac').value),
+    proficiencyBonus: profBonus,
+    speed: parseInt(document.getElementById('char-speed').value) || 30,
+    hitDice: document.getElementById('char-hitdice').value.trim() || '1d10',
+    savingThrows: existingId ? data.characters.find(c => c.id === existingId).savingThrows : [],
     skills: document.getElementById('char-skills').value.split(',').map(s => s.trim()).filter(s => s),
+    proficiencies: existingId ? data.characters.find(c => c.id === existingId).proficiencies : { armor: [], weapons: [], tools: [] },
+    features: document.getElementById('char-features').value.split(',').map(s => s.trim()).filter(s => s),
+    spells: existingId ? data.characters.find(c => c.id === existingId).spells : [],
     inventory: existingId ? data.characters.find(c => c.id === existingId).inventory : [],
     backstory: document.getElementById('char-backstory').value.trim(),
     createdAt: existingId ? data.characters.find(c => c.id === existingId).createdAt : new Date().toISOString(),

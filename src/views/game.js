@@ -6,7 +6,7 @@
 import { loadData, saveData, debouncedSave } from '../utils/storage.js';
 import { navigateTo } from '../router.js';
 import { sendChatCompletion, parseStreamingResponse } from '../utils/openrouter.js';
-import { rollDice, formatRoll, parseRollRequests } from '../utils/dice.js';
+import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from '../utils/dice.js';
 
 let currentGameId = null;
 let isStreaming = false;
@@ -264,6 +264,10 @@ export async function renderGame(state = {}) {
   if (game.messages.length === 0) {
     await startGame(game, character);
   }
+  
+  // Update last played timestamp
+  game.lastPlayedAt = new Date().toISOString();
+  saveData(data);
 }
 
 function renderMessages(messages) {
@@ -289,6 +293,7 @@ function renderMessages(messages) {
 }
 
 async function startGame(game, character) {
+  const data = loadData();
   const systemPrompt = buildSystemPrompt(character, game);
   
   const initialMessage = {
@@ -303,8 +308,10 @@ async function startGame(game, character) {
     hidden: true
   });
   
+  saveData(data);
+  
   // Request initial scene
-  await sendMessage(game, 'Begin the adventure. Describe the opening scene and set the stage for the player.');
+  await sendMessage(game, 'Begin the adventure. Describe the opening scene and set the stage for the player. Use LOCATION[name] to set the starting location.');
 }
 
 async function handlePlayerInput() {
@@ -408,18 +415,47 @@ async function sendMessage(game, userText) {
 }
 
 async function processGameCommands(game, character, text) {
+  const data = loadData();
+  
+  // Parse location updates
+  const locationMatch = text.match(/LOCATION\[([^\]]+)\]/);
+  if (locationMatch) {
+    game.currentLocation = locationMatch[1];
+  }
+  
   // Check for combat start
-  if (text.includes('COMBAT_START')) {
+  const combatStartMatch = text.match(/COMBAT_START\[([^\]]+)\]/);
+  if (combatStartMatch) {
     game.combat.active = true;
     game.combat.round = 1;
-    // TODO: Parse enemy data and set up initiative
+    
+    // Add system message
+    game.messages.push({
+      id: `msg_${Date.now()}_combat`,
+      role: 'system',
+      content: `⚔️ Combat has begun! ${combatStartMatch[1]}`,
+      timestamp: new Date().toISOString(),
+      hidden: false,
+      metadata: { combatEvent: 'start' }
+    });
   }
   
   // Check for combat end
-  if (text.includes('COMBAT_END')) {
+  const combatEndMatch = text.match(/COMBAT_END\[([^\]]+)\]/);
+  if (combatEndMatch) {
     game.combat.active = false;
     game.combat.round = 0;
     game.combat.initiative = [];
+    
+    // Add system message
+    game.messages.push({
+      id: `msg_${Date.now()}_combat`,
+      role: 'system',
+      content: `✓ Combat ended: ${combatEndMatch[1]}`,
+      timestamp: new Date().toISOString(),
+      hidden: false,
+      metadata: { combatEvent: 'end' }
+    });
   }
   
   // Check for damage
@@ -429,7 +465,18 @@ async function processGameCommands(game, character, text) {
     const amount = parseInt(damageMatch[2]);
     
     if (target.toLowerCase() === 'player') {
+      const oldHP = game.currentHP;
       game.currentHP = Math.max(0, game.currentHP - amount);
+      
+      // Add system message
+      game.messages.push({
+        id: `msg_${Date.now()}_damage`,
+        role: 'system',
+        content: `💔 You take ${amount} damage! (${oldHP} → ${game.currentHP} HP)`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { damage: amount }
+      });
     }
   }
   
@@ -440,47 +487,105 @@ async function processGameCommands(game, character, text) {
     const amount = parseInt(healMatch[2]);
     
     if (target.toLowerCase() === 'player') {
+      const oldHP = game.currentHP;
       game.currentHP = Math.min(character.maxHP, game.currentHP + amount);
+      const actualHealing = game.currentHP - oldHP;
+      
+      // Add system message
+      game.messages.push({
+        id: `msg_${Date.now()}_heal`,
+        role: 'system',
+        content: `💚 You heal ${actualHealing} HP! (${oldHP} → ${game.currentHP} HP)`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { healing: actualHealing }
+      });
     }
   }
   
-  // Process roll requests
+  // Process roll requests - AI requests rolls, we perform them locally
   const rollRequests = parseRollRequests(text);
-  for (const request of rollRequests) {
-    const result = rollDice(request.notation);
-    
-    // Add roll result as system message
-    game.messages.push({
-      id: `msg_${Date.now()}_roll`,
-      role: 'system',
-      content: formatRoll(result),
-      timestamp: new Date().toISOString(),
-      hidden: false,
-      metadata: { diceRoll: result }
-    });
+  if (rollRequests.length > 0) {
+    for (const request of rollRequests) {
+      let result;
+      
+      // Handle advantage/disadvantage
+      if (request.type === 'advantage') {
+        result = rollAdvantage(request.notation);
+      } else if (request.type === 'disadvantage') {
+        result = rollDisadvantage(request.notation);
+      } else {
+        result = rollDice(request.notation);
+      }
+      
+      // Add roll result as system message
+      const rollMessage = {
+        id: `msg_${Date.now()}_roll_${Math.random()}`,
+        role: 'system',
+        content: formatRoll(result) + (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? '✓ Success!' : '✗ Failure'}` : ''),
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { 
+          diceRoll: result,
+          dc: request.dc,
+          success: request.dc ? result.total >= request.dc : null
+        }
+      };
+      
+      game.messages.push(rollMessage);
+      
+      // Send roll result back to AI for narrative continuation
+      await sendRollResultToAI(game, result, request);
+    }
   }
+  
+  saveData(data);
+}
+
+async function sendRollResultToAI(game, rollResult, request) {
+  // Build a message with the roll result for AI context
+  const resultText = `[Roll Result: ${rollResult.notation} = ${rollResult.total}${request.dc ? `, DC ${request.dc} - ${rollResult.total >= request.dc ? 'SUCCESS' : 'FAILURE'}` : ''}]`;
+  
+  // This will be sent in the next message context automatically
+  // The AI will see the roll result and continue the narrative
 }
 
 function buildSystemPrompt(character, game) {
+  const modStr = (stat) => {
+    const mod = Math.floor((stat - 10) / 2);
+    return mod >= 0 ? `+${mod}` : `${mod}`;
+  };
+  
   return `You are the Dungeon Master for a D&D 5e adventure. The player is:
 
 **${character.name}** - Level ${character.level} ${character.race} ${character.class}
-- HP: ${game.currentHP}/${character.maxHP}
-- AC: ${character.armorClass}
-- STR: ${character.stats.strength}, DEX: ${character.stats.dexterity}, CON: ${character.stats.constitution}
-- INT: ${character.stats.intelligence}, WIS: ${character.stats.wisdom}, CHA: ${character.stats.charisma}
+- HP: ${game.currentHP}/${character.maxHP}, AC: ${character.armorClass}, Speed: ${character.speed}ft
+- Proficiency Bonus: +${character.proficiencyBonus}
+- STR: ${character.stats.strength} (${modStr(character.stats.strength)}), DEX: ${character.stats.dexterity} (${modStr(character.stats.dexterity)}), CON: ${character.stats.constitution} (${modStr(character.stats.constitution)})
+- INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(', ')}
+- Features: ${character.features.join(', ')}
+${character.spells.length > 0 ? `- Spells: ${character.spells.map(s => s.name).join(', ')}` : ''}
+
+**IMPORTANT - Structured Output Tags:**
+- LOCATION[name] - Update current location (e.g., LOCATION[Dark Forest])
+- ROLL[notation|type|DC] - Request a dice roll (e.g., ROLL[1d20+3|normal|15] or ROLL[1d20+2|advantage|12])
+  - Types: normal, advantage, disadvantage
+  - The app will perform the roll and show you the result
+- COMBAT_START[description] - Start combat (e.g., COMBAT_START[Two goblins attack!])
+- COMBAT_END[outcome] - End combat (e.g., COMBAT_END[Victory!])
+- DAMAGE[target|amount] - Apply damage (e.g., DAMAGE[player|5])
+- HEAL[target|amount] - Apply healing (e.g., HEAL[player|8])
 
 **Guidelines:**
-1. Create an engaging, atmospheric narrative
-2. Be concise but descriptive (2-4 paragraphs max)
-3. When dice rolls are needed, use: ROLL[notation|type|DC] (e.g., ROLL[1d20+3|normal|15])
-4. For combat, use: COMBAT_START[enemies] and COMBAT_END[outcome]
-5. For damage: DAMAGE[target|amount] (e.g., DAMAGE[player|5])
-6. For healing: HEAL[target|amount]
-7. Explain game mechanics naturally for beginners
-8. Present choices and consequences
-9. Track the story and maintain consistency
+1. Create engaging, atmospheric narratives (2-4 paragraphs max)
+2. When player actions require checks, use ROLL tags - the app handles the dice
+3. Always tag location changes with LOCATION
+4. Tag combat start/end, damage, and healing
+5. After requesting a roll, wait for the result before continuing
+6. Explain mechanics naturally for beginners
+7. Present meaningful choices
+8. Maintain story consistency
 
 Current location: ${game.currentLocation}
 ${game.combat.active ? `Currently in combat (Round ${game.combat.round})` : ''}

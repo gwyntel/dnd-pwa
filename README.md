@@ -1,141 +1,147 @@
 # D&D PWA
 
-A progressive web app for single-player D&D-style text adventures powered by LLMs via OpenRouter.
+A progressive web app for single-player D&D-style text adventures powered by AI via OpenRouter.
 
-## Features (Phase 1 - Foundation)
+## Features
 
-✅ **Project Setup**
-- Vite-based vanilla JavaScript project
-- Mobile-first responsive design
-- Dark/Light/Auto theme support
-- PWA manifest
+### Current (v1.0)
+- **OpenRouter Authentication**: PKCE OAuth flow for secure API access
+- **Character Management**: Create custom D&D 5e characters or use templates
+- **AI-Powered Gameplay**: Dynamic narrative generation using LLMs
+- **Combat System**: Automatic combat detection and turn-based battles
+- **Dice Rolling**: Built-in dice roller with D&D standard notation
+- **Model Selection**: Choose from 100+ AI models on OpenRouter
+- **Temperature Control**: Adjust AI creativity from focused (0) to creative (2)
+- **Multiple Campaigns**: Manage multiple games with independent states
+- **Data Management**: Export/import your games and characters
+- **Dark/Light Theme**: Auto-detection or manual theme selection
+- **PWA Support**: Install as a standalone app
 
-✅ **Authentication**
-- OpenRouter PKCE OAuth flow
-- Direct API key input option
-- Session-based token storage
-
-✅ **Data Management**
-- localStorage wrapper with schema validation
-- Export/Import functionality
-- Auto-save support
-- Storage usage tracking
-
-✅ **Basic UI Shell**
-- Home/Dashboard view
-- Settings page
-- Client-side routing
-- Responsive navigation
+### In Development
+- **Suggested Actions**: AI-powered action suggestions (streaming fix in progress)
+- **Worlds/Settings System**: Create reusable campaign settings and worlds
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20.19+ or 22.12+
-- OpenRouter account (for API access)
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- OpenRouter account (free at [openrouter.ai](https://openrouter.ai))
 
 ### Installation
 
-1. Clone the repository:
-```bash
-cd dnd-pwa
-```
+1. **Clone the repository**
+   \`\`\`bash
+   git clone https://github.com/gwyntel/dnd-pwa.git
+   cd dnd-pwa
+   \`\`\`
 
-2. Install dependencies:
-```bash
-npm install
-```
+2. **Install dependencies**
+   \`\`\`bash
+   npm install
+   \`\`\`
 
-3. Start development server:
-```bash
-npm run dev
-```
+3. **Run development server**
+   \`\`\`bash
+   npm run dev
+   \`\`\`
 
-4. Open your browser to `http://localhost:5173`
+4. **Build for production**
+   \`\`\`bash
+   npm run build
+   \`\`\`
 
-### Building for Production
+### Deployment
+Built for static hosting on Cloudflare Pages, but works on any static host:
+- Vercel
+- Netlify
+- GitHub Pages
+- Any CDN or static file server
 
-```bash
-npm run build
-```
+## Usage
 
-The built files will be in the `dist/` directory, ready for deployment to Cloudflare Pages or any static hosting service.
+1. **Authenticate** with OpenRouter (OAuth or API key)
+2. **Create a Character** using templates or custom stats
+3. **Start a New Game** and select your character
+4. **Play!** The AI DM will guide your adventure
+
+### Tips
+- **New to D&D?** Use character templates and the AI will explain rules as you play
+- **Long press models** in the model selector to view details on OpenRouter
+- **Adjust temperature** in settings to control AI creativity
+- **Export your data** regularly to back up your adventures
 
 ## Project Structure
 
-```
+\`\`\`
 dnd-pwa/
-├── public/
-│   └── manifest.json          # PWA manifest
+├── public/           # Static assets
 ├── src/
-│   ├── utils/
-│   │   ├── auth.js           # OpenRouter OAuth & API key handling
-│   │   ├── storage.js        # localStorage wrapper
-│   │   └── openrouter.js     # OpenRouter API integration
-│   ├── views/
-│   │   ├── home.js           # Home/Dashboard view
-│   │   └── settings.js       # Settings page
-│   ├── router.js             # Client-side routing
-│   ├── style.css             # Global styles with theming
-│   └── main.js               # Application entry point
-├── index.html
+│   ├── utils/        # Helper functions (storage, API, auth)
+│   ├── views/        # Page components
+│   ├── main.js       # App entry point
+│   ├── router.js     # Client-side routing
+│   └── style.css     # Global styles
+├── index.html        # App shell
 └── package.json
-```
+\`\`\`
 
-## Phase 1 Completion Status
+## Technology Stack
 
-- [x] Project setup with Vite
-- [x] OpenRouter authentication flow
-- [x] Basic UI shell with routing
-- [x] localStorage wrapper with data schema
-- [x] Theme system (light/dark/auto)
-- [x] Settings page
-- [x] Export/Import functionality
+- **Framework**: Vanilla JavaScript (ES6+)
+- **Build Tool**: Vite
+- **Storage**: localStorage
+- **AI Provider**: OpenRouter
+- **Hosting**: Cloudflare Pages (static)
 
-## Next Steps (Phase 2)
+## Roadmap
 
-- [ ] Character creator with templates
-- [ ] Character list view
-- [ ] Model selector UI
-- [ ] Character data CRUD operations
+### v1.1 - Enhanced Suggestions
+- ✅ Fix streaming action bubbles display
+- ⬜ Separate suggestion model (cheaper/faster)
+- ⬜ Click-to-use action suggestions
 
-## Development
+### v1.2 - Worlds System
+- ⬜ Create custom campaign settings
+- ⬜ Template worlds (Fantasy, Sci-Fi, Horror, etc.)
+- ⬜ AI-generated world descriptions
+- ⬜ Reuse worlds across games
 
-### Available Scripts
+### v1.3 - Google Drive Sync
+- ⬜ OAuth for Google Drive
+- ⬜ Auto-sync game data
+- ⬜ Conflict resolution
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+### v1.4 - Advanced Features
+- ⬜ Custom system prompts per game
+- ⬜ Character portrait uploads
+- ⬜ Sound effects and ambient audio
+- ⬜ Detailed game statistics
 
-### Authentication Options
-
-**Option 1: OAuth (Recommended)**
-1. Click "Connect with OpenRouter"
-2. Authorize the application
-3. You'll be redirected back with access token
-
-**Option 2: Direct API Key**
-1. Get your API key from [OpenRouter](https://openrouter.ai/keys)
-2. Enter it in the "Use API Key" field
-3. Key is stored in sessionStorage (cleared on tab close)
-
-## Tech Stack
-
-- **Vanilla JavaScript** (ES6+)
-- **Vite** - Build tool and dev server
-- **CSS Variables** - Theming system
-- **localStorage** - Data persistence
-- **sessionStorage** - Auth token storage
-- **OpenRouter API** - LLM integration
-
-## License
-
-MIT
+### v1.5 - Sharing & Community
+- ⬜ Export/import individual characters
+- ⬜ Share adventure templates
+- ⬜ Community character library
 
 ## Contributing
 
-This is a personal project, but suggestions and feedback are welcome!
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Acknowledgments
 
-- Built for the D&D community
-- Powered by [OpenRouter](https://openrouter.ai)
+- OpenRouter for AI model access
+- D&D 5e System Reference Document
+- Community contributors
+
+## Support
+
+For issues or questions:
+- Open an issue on GitHub
+- Contact: [your-email]
+
+---
+
+Built with ❤️ for tabletop RPG enthusiasts

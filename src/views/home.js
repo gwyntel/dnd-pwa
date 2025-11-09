@@ -2,53 +2,54 @@
  * Home view - Dashboard with game list
  */
 
-import { loadData } from '../utils/storage.js';
-import { navigateTo } from '../router.js';
-import { isAuthenticated } from '../utils/auth.js';
+import { loadData } from "../utils/storage.js"
+import { navigateTo } from "../router.js"
+import { isAuthenticated } from "../utils/auth.js"
 
 export function renderHome() {
-  const app = document.getElementById('app');
-  const data = loadData();
-  
+  const app = document.getElementById("app")
+  const data = loadData()
+
   // Check authentication
   if (!isAuthenticated()) {
-    app.innerHTML = renderAuthPrompt();
-    return;
+    app.innerHTML = renderAuthPrompt()
+    return
   }
-  
+
   app.innerHTML = `
     <nav>
       <div class="container">
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
     </nav>
     
     <div class="container">
-      <div class="flex justify-between items-center mb-4">
+      <div class="flex justify-between items-center mb-4" style="margin-top: 1rem;">
         <h1>Your Adventures</h1>
         <button id="new-game-btn" class="btn">+ New Game</button>
       </div>
       
       ${data.games.length === 0 ? renderEmptyState() : renderGameList(data.games, data.characters)}
     </div>
-  `;
-  
+  `
+
   // Event listeners
-  document.getElementById('new-game-btn')?.addEventListener('click', () => {
-    navigateTo('/game/new');
-  });
-  
+  document.getElementById("new-game-btn")?.addEventListener("click", () => {
+    navigateTo("/game/new")
+  })
+
   // Game card click handlers
-  document.querySelectorAll('.game-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const gameId = card.dataset.gameId;
-      navigateTo(`/game/${gameId}`);
-    });
-  });
+  document.querySelectorAll(".game-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const gameId = card.dataset.gameId
+      navigateTo(`/game/${gameId}`)
+    })
+  })
 }
 
 function renderAuthPrompt() {
@@ -77,7 +78,7 @@ function renderAuthPrompt() {
         <p>The AI will guide you through the rules as you play.</p>
       </div>
     </div>
-  `;
+  `
 }
 
 function renderEmptyState() {
@@ -90,35 +91,34 @@ function renderEmptyState() {
         <button id="quick-start-btn" class="btn-secondary">Quick Start</button>
       </div>
     </div>
-  `;
+  `
 }
 
 function renderGameList(games, characters) {
-  const sortedGames = [...games].sort((a, b) => 
-    new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt)
-  );
-  
+  const sortedGames = [...games].sort((a, b) => new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt))
+
   return `
     <div class="grid grid-2">
-      ${sortedGames.map(game => {
-        const character = characters.find(c => c.id === game.characterId);
-        const lastPlayed = new Date(game.lastPlayedAt);
-        const now = new Date();
-        const diffMs = now - lastPlayed;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-        
-        let timeAgo;
-        if (diffMins < 1) timeAgo = 'Just now';
-        else if (diffMins < 60) timeAgo = `${diffMins}m ago`;
-        else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
-        else timeAgo = `${diffDays}d ago`;
-        
-        return `
+      ${sortedGames
+        .map((game) => {
+          const character = characters.find((c) => c.id === game.characterId)
+          const lastPlayed = new Date(game.lastPlayedAt)
+          const now = new Date()
+          const diffMs = now - lastPlayed
+          const diffMins = Math.floor(diffMs / 60000)
+          const diffHours = Math.floor(diffMs / 3600000)
+          const diffDays = Math.floor(diffMs / 86400000)
+
+          let timeAgo
+          if (diffMins < 1) timeAgo = "Just now"
+          else if (diffMins < 60) timeAgo = `${diffMins}m ago`
+          else if (diffHours < 24) timeAgo = `${diffHours}h ago`
+          else timeAgo = `${diffDays}d ago`
+
+          return `
           <div class="card game-card" data-game-id="${game.id}" style="cursor: pointer;">
             <h3>${game.title}</h3>
-            <p class="text-secondary">${character?.name || 'Unknown'} - Level ${character?.level || 1} ${character?.class || ''}</p>
+            <p class="text-secondary">${character?.name || "Unknown"} - Level ${character?.level || 1} ${character?.class || ""}</p>
             <div class="flex justify-between items-center mt-2">
               <span class="text-secondary" style="font-size: 0.875rem;">
                 HP: ${game.currentHP}/${character?.maxHP || 0}
@@ -127,14 +127,19 @@ function renderGameList(games, characters) {
                 ${timeAgo}
               </span>
             </div>
-            ${game.currentLocation ? `
+            ${
+              game.currentLocation
+                ? `
               <p class="text-secondary mt-2" style="font-size: 0.875rem;">
                 📍 ${game.currentLocation}
               </p>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
-        `;
-      }).join('')}
+        `
+        })
+        .join("")}
     </div>
-  `;
+  `
 }

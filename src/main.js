@@ -11,6 +11,7 @@ import { renderModels } from "./views/models.js"
 import { renderCharacters, renderCharacterCreator } from "./views/characters.js"
 import { renderTemplates } from "./views/templates.js"
 import { renderGameList, renderGame } from "./views/game.js"
+import { renderWorlds } from "./views/worlds.js"
 import {
   startAuth,
   handleAuthCallback,
@@ -47,6 +48,7 @@ function init() {
   registerRoute("/", handleHome)
   registerRoute("/settings", renderSettings)
   registerRoute("/models", renderModels)
+  registerRoute("/worlds", renderWorlds)
   registerRoute("/characters", renderCharacters)
   registerRoute("/characters/templates", renderTemplates)
   registerRoute("/characters/new", handleNewCharacter)

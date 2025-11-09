@@ -21,6 +21,7 @@ export function renderGameList() {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
@@ -77,6 +78,24 @@ function renderGameCreator(data) {
         </div>
         
         <div class="mb-3">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">World Setting *</label>
+          <select id="game-world" required>
+            ${data.worlds
+              .map(
+                (world) => `
+              <option value="${world.id}" ${world.isDefault ? "selected" : ""}>
+                ${world.name}${world.isDefault ? " (Default)" : ""}
+              </option>
+            `,
+              )
+              .join("")}
+          </select>
+          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+            <a href="/worlds">Manage worlds</a>
+          </p>
+        </div>
+        
+        <div class="mb-3">
           <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Narrative Model</label>
           <select id="game-model">
             <option value="">Use default (${data.settings.defaultNarrativeModel || "not set"})</option>
@@ -96,6 +115,7 @@ async function createGame() {
   const data = loadData()
   const characterId = document.getElementById("game-character").value
   const title = document.getElementById("game-title").value.trim()
+  const worldId = document.getElementById("game-world").value
   const model = document.getElementById("game-model").value || data.settings.defaultNarrativeModel
 
   if (!model) {
@@ -109,11 +129,18 @@ async function createGame() {
     return
   }
 
+  const world = data.worlds.find((w) => w.id === worldId)
+  if (!world) {
+    alert("World not found.")
+    return
+  }
+
   const gameId = `game_${Date.now()}`
   const game = {
     id: gameId,
     title,
     characterId,
+    worldId, // Added worldId to game
     narrativeModel: model,
     currentHP: character.maxHP,
     currentLocation: "Unknown",
@@ -164,6 +191,7 @@ export async function renderGame(state = {}) {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
@@ -381,8 +409,11 @@ function stripTags(text) {
   // Remove HEAL tags
   cleaned = cleaned.replace(/HEAL\[([^\]]+)\]/g, "")
 
-  // Remove ACTION tags
-  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/\n*ACTION\[([^\]]+)\]\n*/g, "")
+
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
+
+  cleaned = cleaned.trim()
 
   return cleaned
 }
@@ -435,12 +466,18 @@ async function startGame(game, character) {
 
 async function handlePlayerInput() {
   const input = document.getElementById("player-input")
+  const submitButton = document.querySelector('#chat-form button[type="submit"]')
   const text = input.value.trim()
 
   if (!text || isStreaming) return
 
   input.value = ""
+  isStreaming = true
   input.disabled = true
+  if (submitButton) {
+    submitButton.disabled = true
+    submitButton.textContent = "Sending..."
+  }
 
   const data = loadData()
   const game = data.games.find((g) => g.id === currentGameId)
@@ -465,7 +502,6 @@ async function handlePlayerInput() {
 }
 
 async function sendMessage(game, userText) {
-  isStreaming = true
   const data = loadData()
   const character = data.characters.find((c) => c.id === game.characterId)
 
@@ -551,9 +587,14 @@ async function sendMessage(game, userText) {
   } finally {
     isStreaming = false
     const input = document.getElementById("player-input")
+    const submitButton = document.querySelector('#chat-form button[type="submit"]')
     if (input) {
       input.disabled = false
       input.focus()
+    }
+    if (submitButton) {
+      submitButton.disabled = false
+      submitButton.textContent = "Send"
     }
   }
 }
@@ -755,23 +796,18 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         </form>
       `
 
-      // Re-attach event listeners to new action bubbles
-      document.querySelectorAll(".action-bubble").forEach((bubble) => {
-        bubble.addEventListener("click", (e) => {
-          const action = e.target.dataset.action
-          const input = document.getElementById("player-input")
-          if (input && action) {
-            input.value = action
-            input.focus()
-          }
-        })
-      })
+      const chatForm = document.getElementById("chat-form")
+      if (chatForm) {
+        // Remove old listener if exists
+        const newForm = chatForm.cloneNode(true)
+        chatForm.parentNode.replaceChild(newForm, chatForm)
 
-      // Re-attach form submission listener
-      document.getElementById("chat-form").addEventListener("submit", async (e) => {
-        e.preventDefault()
-        await handlePlayerInput()
-      })
+        // Add new listener
+        newForm.addEventListener("submit", async (e) => {
+          e.preventDefault()
+          await handlePlayerInput()
+        })
+      }
     }
   }
 
@@ -923,7 +959,11 @@ function buildSystemPrompt(character, game) {
     return mod >= 0 ? `+${mod}` : `${mod}`
   }
 
-  return `You are the Dungeon Master for a D&D 5e adventure. The player is:
+  const data = loadData()
+  const world = data.worlds.find((w) => w.id === game.worldId)
+  const worldPrompt = world ? `**World Setting:**\n${world.systemPrompt}\n\n` : ""
+
+  return `${worldPrompt}You are the Dungeon Master for a D&D 5e adventure. The player is:
 
 **${character.name}** - Level ${character.level} ${character.race} ${character.class}
 - HP: ${game.currentHP}/${character.maxHP}, AC: ${character.armorClass}, Speed: ${character.speed}ft

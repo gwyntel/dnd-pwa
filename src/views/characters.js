@@ -18,13 +18,14 @@ export function renderCharacters() {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
     </nav>
     
     <div class="container">
-      <div class="flex justify-between align-center mb-3">
+      <div class="flex justify-between align-center mb-3" style="margin-top: 1rem;">
         <h1>Your Characters</h1>
         <button id="new-character-btn" class="btn">+ New Character</button>
       </div>
@@ -166,6 +167,7 @@ export function renderCharacterCreator(state = {}) {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
@@ -256,7 +258,6 @@ export function renderCharacterCreator(state = {}) {
             </div>
             <div>
               <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Hit Dice</label>
-              <!-- replaced text input with dropdown select for Hit Dice -->
               <select id="char-hitdice">
                 ${["1d4", "1d6", "1d8", "1d10", "1d12", "2d4", "2d6", "2d8", "2d10", "2d12"]
                   .map(

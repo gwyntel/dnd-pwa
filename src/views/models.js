@@ -3,20 +3,20 @@
  * Browse and select OpenRouter models
  */
 
-import { fetchModels } from '../utils/openrouter.js';
-import { loadData, saveData } from '../utils/storage.js';
-import { navigateTo } from '../router.js';
+import { fetchModels } from "../utils/openrouter.js"
+import { loadData, saveData } from "../utils/storage.js"
+import { navigateTo } from "../router.js"
 
-let allModels = [];
-let filteredModels = [];
-let currentFilter = 'all';
-let currentSort = 'name';
-let searchQuery = '';
+let allModels = []
+let filteredModels = []
+let currentFilter = "all"
+let currentSort = "name"
+let searchQuery = ""
 
 export async function renderModels() {
-  const app = document.getElementById('app');
-  const data = loadData();
-  
+  const app = document.getElementById("app")
+  const data = loadData()
+
   // Show loading state
   app.innerHTML = `
     <nav>
@@ -24,6 +24,7 @@ export async function renderModels() {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
@@ -36,23 +37,24 @@ export async function renderModels() {
         <p class="text-secondary mt-3">Loading models...</p>
       </div>
     </div>
-  `;
-  
+  `
+
   try {
     // Fetch models from OpenRouter
-    allModels = await fetchModels();
-    filteredModels = [...allModels];
-    
+    allModels = await fetchModels()
+    filteredModels = [...allModels]
+
     // Render the model selector UI
-    renderModelSelector(data);
+    renderModelSelector(data)
   } catch (error) {
-    console.error('Error loading models:', error);
+    console.error("Error loading models:", error)
     app.innerHTML = `
       <nav>
         <div class="container">
           <ul>
             <li><a href="/">Home</a></li>
             <li><a href="/characters">Characters</a></li>
+            <li><a href="/worlds">Worlds</a></li>
             <li><a href="/settings">Settings</a></li>
           </ul>
         </div>
@@ -66,27 +68,28 @@ export async function renderModels() {
           <a href="/settings" class="btn-secondary mt-2">Back to Settings</a>
         </div>
       </div>
-    `;
-    
-    document.getElementById('retry-btn')?.addEventListener('click', () => {
-      renderModels();
-    });
+    `
+
+    document.getElementById("retry-btn")?.addEventListener("click", () => {
+      renderModels()
+    })
   }
 }
 
 function renderModelSelector(data) {
-  const app = document.getElementById('app');
-  const currentModel = data.settings.defaultNarrativeModel;
-  
+  const app = document.getElementById("app")
+  const currentModel = data.settings.defaultNarrativeModel
+
   // Get unique providers for filter
-  const providers = [...new Set(allModels.map(m => m.provider))].sort();
-  
+  const providers = [...new Set(allModels.map((m) => m.provider))].sort()
+
   app.innerHTML = `
     <nav>
       <div class="container">
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
@@ -112,19 +115,21 @@ function renderModelSelector(data) {
         <div class="flex gap-2 mb-2" style="flex-wrap: wrap;">
           <select id="provider-filter" style="flex: 1; min-width: 150px;">
             <option value="all">All Providers</option>
-            ${providers.map(p => `<option value="${p}" ${currentFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+            ${providers.map((p) => `<option value="${p}" ${currentFilter === p ? "selected" : ""}>${p}</option>`).join("")}
           </select>
           
           <select id="sort-select" style="flex: 1; min-width: 150px;">
-            <option value="name" ${currentSort === 'name' ? 'selected' : ''}>Sort by Name</option>
-            <option value="price-low" ${currentSort === 'price-low' ? 'selected' : ''}>Price: Low to High</option>
-            <option value="price-high" ${currentSort === 'price-high' ? 'selected' : ''}>Price: High to Low</option>
-            <option value="context" ${currentSort === 'context' ? 'selected' : ''}>Context Length</option>
+            <option value="name" ${currentSort === "name" ? "selected" : ""}>Sort by Name</option>
+            <option value="price-low" ${currentSort === "price-low" ? "selected" : ""}>Price: Low to High</option>
+            <option value="price-high" ${currentSort === "price-high" ? "selected" : ""}>Price: High to Low</option>
+            <option value="context" ${currentSort === "context" ? "selected" : ""}>Context Length</option>
           </select>
         </div>
         
         <p class="text-secondary" style="font-size: 0.9rem;">
           Showing ${filteredModels.length} of ${allModels.length} models
+          <br>
+          <span style="font-size: 0.8rem; opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>
         </p>
       </div>
       
@@ -132,34 +137,64 @@ function renderModelSelector(data) {
         ${renderModelsList(currentModel)}
       </div>
     </div>
-  `;
-  
+  `
+
   // Event listeners
-  document.getElementById('search-input').addEventListener('input', (e) => {
-    searchQuery = e.target.value;
-    applyFiltersAndSort();
-    updateModelsList(currentModel);
-  });
-  
-  document.getElementById('provider-filter').addEventListener('change', (e) => {
-    currentFilter = e.target.value;
-    applyFiltersAndSort();
-    updateModelsList(currentModel);
-  });
-  
-  document.getElementById('sort-select').addEventListener('change', (e) => {
-    currentSort = e.target.value;
-    applyFiltersAndSort();
-    updateModelsList(currentModel);
-  });
-  
-  // Model selection handlers
-  document.querySelectorAll('.model-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const modelId = card.dataset.modelId;
-      selectModel(modelId);
-    });
-  });
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    searchQuery = e.target.value
+    applyFiltersAndSort()
+    updateModelsList(currentModel)
+  })
+
+  document.getElementById("provider-filter").addEventListener("change", (e) => {
+    currentFilter = e.target.value
+    applyFiltersAndSort()
+    updateModelsList(currentModel)
+  })
+
+  document.getElementById("sort-select").addEventListener("change", (e) => {
+    currentSort = e.target.value
+    applyFiltersAndSort()
+    updateModelsList(currentModel)
+  })
+
+  document.querySelectorAll(".model-card").forEach((card) => {
+    let pressTimer = null
+
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
+        // Long press detected - open OpenRouter page
+        const modelId = card.dataset.modelId
+        window.open(`https://openrouter.ai/${modelId}`, "_blank")
+        pressTimer = null
+      }, 500) // 500ms for long press
+    }
+
+    const cancelPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer)
+        pressTimer = null
+      }
+    }
+
+    const handleClick = () => {
+      if (!pressTimer) return // Was a long press, not a click
+      cancelPress()
+      const modelId = card.dataset.modelId
+      selectModel(modelId)
+    }
+
+    // Touch events
+    card.addEventListener("touchstart", startPress)
+    card.addEventListener("touchend", handleClick)
+    card.addEventListener("touchcancel", cancelPress)
+    card.addEventListener("touchmove", cancelPress)
+
+    // Mouse events (for desktop)
+    card.addEventListener("mousedown", startPress)
+    card.addEventListener("mouseup", handleClick)
+    card.addEventListener("mouseleave", cancelPress)
+  })
 }
 
 function renderModelsList(currentModel) {
@@ -168,19 +203,20 @@ function renderModelsList(currentModel) {
       <div class="card text-center">
         <p class="text-secondary">No models found matching your criteria.</p>
       </div>
-    `;
+    `
   }
-  
-  return filteredModels.map(model => {
-    const isSelected = model.id === currentModel;
-    const promptPrice = parseFloat(model.pricing.prompt) * 1000000; // Convert to per-million
-    const completionPrice = parseFloat(model.pricing.completion) * 1000000;
-    
-    return `
-      <div class="model-card ${isSelected ? 'selected' : ''}" data-model-id="${model.id}">
+
+  return filteredModels
+    .map((model) => {
+      const isSelected = model.id === currentModel
+      const promptPrice = Number.parseFloat(model.pricing.prompt) * 1000000 // Convert to per-million
+      const completionPrice = Number.parseFloat(model.pricing.completion) * 1000000
+
+      return `
+      <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
         <div class="model-header">
           <h3 class="model-name">${escapeHtml(model.name)}</h3>
-          ${isSelected ? '<span class="badge-selected">✓ Selected</span>' : ''}
+          ${isSelected ? '<span class="badge-selected">✓ Selected</span>' : ""}
         </div>
         <p class="model-id">${escapeHtml(model.id)}</p>
         <div class="model-details">
@@ -200,108 +236,138 @@ function renderModelsList(currentModel) {
           </div>
         </div>
       </div>
-    `;
-  }).join('');
+    `
+    })
+    .join("")
 }
 
 function updateModelsList(currentModel) {
-  const listContainer = document.getElementById('models-list');
-  listContainer.innerHTML = renderModelsList(currentModel);
-  
-  // Re-attach event listeners
-  document.querySelectorAll('.model-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const modelId = card.dataset.modelId;
-      selectModel(modelId);
-    });
-  });
-  
+  const listContainer = document.getElementById("models-list")
+  listContainer.innerHTML = renderModelsList(currentModel)
+
+  document.querySelectorAll(".model-card").forEach((card) => {
+    let pressTimer = null
+
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
+        const modelId = card.dataset.modelId
+        window.open(`https://openrouter.ai/${modelId}`, "_blank")
+        pressTimer = null
+      }, 500)
+    }
+
+    const cancelPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer)
+        pressTimer = null
+      }
+    }
+
+    const handleClick = () => {
+      if (!pressTimer) return
+      cancelPress()
+      const modelId = card.dataset.modelId
+      selectModel(modelId)
+    }
+
+    card.addEventListener("touchstart", startPress)
+    card.addEventListener("touchend", handleClick)
+    card.addEventListener("touchcancel", cancelPress)
+    card.addEventListener("touchmove", cancelPress)
+
+    card.addEventListener("mousedown", startPress)
+    card.addEventListener("mouseup", handleClick)
+    card.addEventListener("mouseleave", cancelPress)
+  })
+
   // Update count
-  const countText = document.querySelector('.text-secondary');
+  const countText = document.querySelector(".text-secondary")
   if (countText) {
-    countText.textContent = `Showing ${filteredModels.length} of ${allModels.length} models`;
+    countText.innerHTML = `Showing ${filteredModels.length} of ${allModels.length} models<br><span style="font-size: 0.8rem; opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>`
   }
 }
 
 function applyFiltersAndSort() {
   // Start with all models
-  filteredModels = [...allModels];
-  
+  filteredModels = [...allModels]
+
   // Apply search filter
   if (searchQuery.trim()) {
-    const query = searchQuery.toLowerCase();
-    filteredModels = filteredModels.filter(model => 
-      model.name.toLowerCase().includes(query) ||
-      model.id.toLowerCase().includes(query) ||
-      model.provider.toLowerCase().includes(query)
-    );
+    const query = searchQuery.toLowerCase()
+    filteredModels = filteredModels.filter(
+      (model) =>
+        model.name.toLowerCase().includes(query) ||
+        model.id.toLowerCase().includes(query) ||
+        model.provider.toLowerCase().includes(query),
+    )
   }
-  
+
   // Apply provider filter
-  if (currentFilter !== 'all') {
-    filteredModels = filteredModels.filter(model => model.provider === currentFilter);
+  if (currentFilter !== "all") {
+    filteredModels = filteredModels.filter((model) => model.provider === currentFilter)
   }
-  
+
   // Apply sorting
   switch (currentSort) {
-    case 'name':
-      filteredModels.sort((a, b) => a.name.localeCompare(b.name));
-      break;
-    case 'price-low':
+    case "name":
+      filteredModels.sort((a, b) => a.name.localeCompare(b.name))
+      break
+    case "price-low":
       filteredModels.sort((a, b) => {
-        const aPrice = parseFloat(a.pricing.prompt) + parseFloat(a.pricing.completion);
-        const bPrice = parseFloat(b.pricing.prompt) + parseFloat(b.pricing.completion);
-        return aPrice - bPrice;
-      });
-      break;
-    case 'price-high':
+        const aPrice = Number.parseFloat(a.pricing.prompt) + Number.parseFloat(a.pricing.completion)
+        const bPrice = Number.parseFloat(b.pricing.prompt) + Number.parseFloat(b.pricing.completion)
+        return aPrice - bPrice
+      })
+      break
+    case "price-high":
       filteredModels.sort((a, b) => {
-        const aPrice = parseFloat(a.pricing.prompt) + parseFloat(a.pricing.completion);
-        const bPrice = parseFloat(b.pricing.prompt) + parseFloat(b.pricing.completion);
-        return bPrice - aPrice;
-      });
-      break;
-    case 'context':
-      filteredModels.sort((a, b) => b.contextLength - a.contextLength);
-      break;
+        const aPrice = Number.parseFloat(a.pricing.prompt) + Number.parseFloat(a.pricing.completion)
+        const bPrice = Number.parseFloat(b.pricing.prompt) + Number.parseFloat(b.pricing.completion)
+        return bPrice - aPrice
+      })
+      break
+    case "context":
+      filteredModels.sort((a, b) => b.contextLength - a.contextLength)
+      break
   }
 }
 
 function selectModel(modelId) {
-  const data = loadData();
-  data.settings.defaultNarrativeModel = modelId;
-  saveData(data);
-  
+  const data = loadData()
+  data.settings.defaultNarrativeModel = modelId
+  saveData(data)
+
   // Show success message and navigate back
-  showMessage('Model selected successfully!', 'success');
-  
+  showMessage("Model selected successfully!", "success")
+
   setTimeout(() => {
-    navigateTo('/settings');
-  }, 1000);
+    navigateTo("/settings")
+  }, 1000)
 }
 
 function showMessage(text, type) {
-  const container = document.querySelector('.container');
-  const existing = container.querySelector('.message');
-  if (existing) existing.remove();
-  
-  const message = document.createElement('div');
-  message.className = `message message-${type}`;
-  message.textContent = text;
-  message.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem; border-radius: 8px; background: var(--primary-color); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
-  document.body.appendChild(message);
-  
+  const container = document.querySelector(".container")
+  const existing = container.querySelector(".message")
+  if (existing) existing.remove()
+
+  const message = document.createElement("div")
+  message.className = `message message-${type}`
+  message.textContent = text
+  message.style.cssText =
+    "position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem; border-radius: 8px; background: var(--primary-color); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
+  document.body.appendChild(message)
+
   setTimeout(() => {
-    message.remove();
-  }, 3000);
+    message.remove()
+  }, 3000)
 }
 
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  const div = document.createElement("div")
+  div.textContent = text
+  return div.innerHTML
 }
 
 function formatNumber(num) {
-  return num.toLocaleString();
+  return num.toLocaleString()
 }

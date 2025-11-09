@@ -17,6 +17,7 @@ export function renderTemplates() {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>

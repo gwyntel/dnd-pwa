@@ -14,13 +14,13 @@ The Models API returns a standardized JSON response format that provides compreh
 
 #### Root Response Object
 
-```json
+\`\`\`json
 {
   "data": [
     /* Array of Model objects */
   ]
 }
-```
+\`\`\`
 
 #### Model Object Schema
 
@@ -42,20 +42,20 @@ Each model in the `data` array contains the following standardized fields:
 
 #### Architecture Object
 
-```typescript
+\`\`\`typescript
 {
   "input_modalities": string[], // Supported input types: ["file", "image", "text"]
   "output_modalities": string[], // Supported output types: ["text"]
   "tokenizer": string,          // Tokenization method used
   "instruct_type": string | null // Instruction format type (null if not applicable)
 }
-```
+\`\`\`
 
 #### Pricing Object
 
 All pricing values are in USD per token/request/unit. A value of `"0"` indicates the feature is free.
 
-```typescript
+\`\`\`typescript
 {
   "prompt": string,           // Cost per input token
   "completion": string,       // Cost per output token
@@ -66,17 +66,17 @@ All pricing values are in USD per token/request/unit. A value of `"0"` indicates
   "input_cache_read": string,   // Cost per cached input token read
   "input_cache_write": string   // Cost per cached input token write
 }
-```
+\`\`\`
 
 #### Top Provider Object
 
-```typescript
+\`\`\`typescript
 {
   "context_length": number,        // Provider-specific context limit
   "max_completion_tokens": number, // Maximum tokens in response
   "is_moderated": boolean         // Whether content moderation is applied
 }
-```
+\`\`\`
 
 #### Supported Parameters
 

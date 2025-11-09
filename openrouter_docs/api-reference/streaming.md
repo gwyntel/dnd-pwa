@@ -15,7 +15,7 @@ Here is an example of how to stream a response, and process it:
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -61,9 +61,9 @@ Here is an example of how to stream a response, and process it:
                 pass
           except Exception:
             break
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     const question = 'How would you build the tallest building ever?';
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -121,7 +121,7 @@ Here is an example of how to stream a response, and process it:
     } finally {
       reader.cancel();
     }
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -129,9 +129,9 @@ Here is an example of how to stream a response, and process it:
 
 For SSE (Server-Sent Events) streams, OpenRouter occasionally sends comments to prevent connection timeouts. These comments look like:
 
-```text
+\`\`\`text
 : OPENROUTER PROCESSING
-```
+\`\`\`
 
 Comment payload can be safely ignored per the [SSE specs](https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation). However, you can leverage it to improve UX as needed, e.g. by showing a dynamic loading indicator.
 
@@ -178,7 +178,7 @@ To implement stream cancellation:
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     from threading import Event, Thread
 
@@ -208,9 +208,9 @@ To implement stream cancellation:
 
     # To cancel the stream:
     cancel_event.set()
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     const controller = new AbortController();
 
     try {
@@ -242,7 +242,7 @@ To implement stream cancellation:
 
     // To cancel the stream:
     controller.abort();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 

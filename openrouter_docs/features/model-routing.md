@@ -8,12 +8,12 @@ OpenRouter provides two options for model routing.
 
 The [Auto Router](https://openrouter.ai/openrouter/auto), a special model ID that you can use to choose between selected high-quality models based on your prompt, powered by [NotDiamond](https://www.notdiamond.ai/).
 
-```json
+\`\`\`json
 {
   "model": "openrouter/auto",
   ... // Other params
 }
-```
+\`\`\`
 
 The resulting generation will have `model` set to the model that was used.
 
@@ -21,12 +21,12 @@ The resulting generation will have `model` set to the model that was used.
 
 The `models` parameter lets you automatically try other models if the primary model's providers are down, rate-limited, or refuse to reply due to content moderation.
 
-```json
+\`\`\`json
 {
   "models": ["anthropic/claude-3.5-sonnet", "gryphe/mythomax-l2-13b"],
   ... // Other params
 }
-```
+\`\`\`
 
 If the model you selected returns an error, OpenRouter will try to use the fallback model instead. If the fallback model is down or returns an error, OpenRouter will return that error.
 
@@ -44,7 +44,7 @@ To use the `models` array with the OpenAI SDK, include it in the `extra_body` pa
 }}
 >
   <CodeGroup>
-    ```typescript
+    \`\`\`typescript
     import OpenAI from 'openai';
 
     const openrouterClient = new OpenAI({
@@ -68,9 +68,9 @@ To use the `models` array with the OpenAI SDK, include it in the `extra_body` pa
     }
 
     main();
-    ```
+    \`\`\`
 
-    ```python
+    \`\`\`python
     from openai import OpenAI
 
     openai_client = OpenAI(
@@ -92,6 +92,6 @@ To use the `models` array with the OpenAI SDK, include it in the `extra_body` pa
     )
 
     print(completion.choices[0].message.content)
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>

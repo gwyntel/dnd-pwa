@@ -15,7 +15,7 @@ User tracking enables you to specify an arbitrary string identifier for your end
 
 Simply include a `user` parameter in your API requests with any string identifier that represents your end-user. This could be a user ID, email hash, session identifier, or any other stable identifier you use in your application.
 
-```json
+\`\`\`json
 {
   "model": "openai/gpt-4o",
   "messages": [
@@ -23,7 +23,7 @@ Simply include a `user` parameter in your API requests with any string identifie
   ],
   "user": "user_12345"
 }
-```
+\`\`\`
 
 ## Benefits
 
@@ -51,7 +51,7 @@ The user parameter is available in the /activity page, in the exports from that 
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -70,9 +70,9 @@ The user parameter is available in the /activity page, in the exports from that 
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     print(response.json()['choices'][0]['message']['content'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -96,7 +96,7 @@ The user parameter is available in the /activity page, in the exports from that 
     }
 
     chatWithUserTracking();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -121,7 +121,7 @@ When using user identifiers, consider privacy implications:
 
 Use the same user identifier format throughout your application:
 
-```python
+\`\`\`python
 # Consistent format
 user_id = f"app_{internal_user_id}"
-```
+\`\`\`

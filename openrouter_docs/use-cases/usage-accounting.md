@@ -19,7 +19,7 @@ This information is included in the last SSE message for streaming responses, or
 
 You can enable usage accounting in your requests by including the `usage` parameter:
 
-```json
+\`\`\`json
 {
   "model": "your-model",
   "messages": [],
@@ -27,13 +27,13 @@ You can enable usage accounting in your requests by including the `usage` parame
     "include": true
   }
 }
-```
+\`\`\`
 
 ## Response Format
 
 When usage accounting is enabled, the response will include a `usage` object with detailed token information:
 
-```json
+\`\`\`json
 {
   "object": "chat.completion.chunk",
   "usage": {
@@ -52,7 +52,7 @@ When usage accounting is enabled, the response will include a `usage` object wit
     "total_tokens": 196
   }
 }
-```
+\`\`\`
 
 `cached_tokens` is the number of tokens that were *read* from the cache. At this point in time, we do not support retrieving the number of tokens that were *written* to the cache.
 
@@ -108,7 +108,7 @@ For more details on this approach, see the [Get a Generation](/docs/api-referenc
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -130,9 +130,9 @@ For more details on this approach, see the [Get a Generation](/docs/api-referenc
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     print("Response:", response.json()['choices'][0]['message']['content'])
     print("Usage Stats:", response.json()['usage'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -161,7 +161,7 @@ For more details on this approach, see the [Get a Generation](/docs/api-referenc
     }
 
     getResponseWithUsage();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -176,7 +176,7 @@ This example shows how to handle usage information in streaming mode:
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     from openai import OpenAI
 
     client = OpenAI(
@@ -207,9 +207,9 @@ This example shows how to handle usage information in streaming mode:
                 print(f"Cost: {chunk.usage.cost} credits")
         elif chunk.choices[0].delta.content:
             print(chunk.choices[0].delta.content, end="")
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -245,6 +245,6 @@ This example shows how to handle usage information in streaming mode:
         }
       }
     })();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>

@@ -17,7 +17,7 @@ Reasoning tokens are included in the response by default if the model decides to
 
 You can control reasoning tokens in your requests using the `reasoning` parameter:
 
-```json
+\`\`\`json
 {
   "model": "your-model",
   "messages": [],
@@ -33,7 +33,7 @@ You can control reasoning tokens in your requests using the `reasoning` paramete
     "enabled": true // Default: inferred from `effort` or `max_tokens`
   }
 }
-```
+\`\`\`
 
 The `reasoning` config object consolidates settings for controlling reasoning strength across different models. See the Note for each option below to see which models are supported and how other models will behave.
 
@@ -106,7 +106,7 @@ However, we recommend using the new unified `reasoning` parameter for better con
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -127,9 +127,9 @@ However, we recommend using the new unified `reasoning` parameter for better con
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     print(response.json()['choices'][0]['message']['reasoning'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -156,7 +156,7 @@ However, we recommend using the new unified `reasoning` parameter for better con
     }
 
     getResponseWithReasoning();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -171,7 +171,7 @@ For models that support direct token allocation (like Anthropic models), you can
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -193,9 +193,9 @@ For models that support direct token allocation (like Anthropic models), you can
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     print(response.json()['choices'][0]['message']['reasoning'])
     print(response.json()['choices'][0]['message']['content'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -222,7 +222,7 @@ For models that support direct token allocation (like Anthropic models), you can
     }
 
     getResponseWithReasoning();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -237,7 +237,7 @@ If you want the model to use reasoning internally but not include it in the resp
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -260,9 +260,9 @@ If you want the model to use reasoning internally but not include it in the resp
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     # No reasoning field in the response
     print(response.json()['choices'][0]['message']['content'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -290,7 +290,7 @@ If you want the model to use reasoning internally but not include it in the resp
     }
 
     getResponseWithReasoning();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -304,7 +304,7 @@ This example shows how to use reasoning tokens in a more complex workflow. It in
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     import requests
     import json
 
@@ -340,9 +340,9 @@ This example shows how to use reasoning tokens in a more complex workflow. It in
     content = f"{question}. Here is some context to help you: {reasoning}"
     smart_response = do_req("openai/gpt-4o-mini", content)
     print(smart_response.json()['choices'][0]['message']['content'])
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -380,7 +380,7 @@ This example shows how to use reasoning tokens in a more complex workflow. It in
     }
 
     getResponseWithReasoning();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -424,7 +424,7 @@ effort\_ratio is 0.8 for high effort, 0.5 for medium effort, and 0.2 for low eff
 }}
 >
   <CodeGroup>
-    ```python Python
+    \`\`\`python Python
     from openai import OpenAI
 
     client = OpenAI(
@@ -451,9 +451,9 @@ effort\_ratio is 0.8 for high effort, 0.5 for medium effort, and 0.2 for low eff
             print(f"REASONING: {chunk.choices[0].delta.reasoning}")
         elif chunk.choices[0].delta.content:
             print(f"CONTENT: {chunk.choices[0].delta.content}")
-    ```
+    \`\`\`
 
-    ```typescript TypeScript
+    \`\`\`typescript TypeScript
     import OpenAI from 'openai';
 
     const openai = new OpenAI({
@@ -486,7 +486,7 @@ effort\_ratio is 0.8 for high effort, 0.5 for medium effort, and 0.2 for low eff
         }
       }
     })();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -520,7 +520,7 @@ Preserving reasoning blocks is useful specifically for tool calling. When models
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     from openai import OpenAI
 
     client = OpenAI(
@@ -576,9 +576,9 @@ Preserving reasoning blocks is useful specifically for tool calling. When models
         messages=messages,  # Includes preserved thinking blocks
         tools=tools
     )
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     import OpenAI from 'openai';
 
     const client = new OpenAI({
@@ -647,7 +647,7 @@ Preserving reasoning blocks is useful specifically for tool calling. When models
       messages, // Includes preserved thinking blocks
       tools,
     });
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 

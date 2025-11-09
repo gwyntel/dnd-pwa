@@ -25,7 +25,7 @@ Here's how to send an image using a URL:
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     import requests
     import json
 
@@ -60,9 +60,9 @@ Here's how to send an image using a URL:
 
     response = requests.post(url, headers=headers, json=payload)
     print(response.json())
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -93,7 +93,7 @@ Here's how to send an image using a URL:
 
     const data = await response.json();
     console.log(data);
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -108,7 +108,7 @@ For locally stored images, you can send them using base64 encoding. Here's how t
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     import requests
     import json
     import base64
@@ -154,9 +154,9 @@ For locally stored images, you can send them using base64 encoding. Here's how t
 
     response = requests.post(url, headers=headers, json=payload)
     print(response.json())
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     async function encodeImageToBase64(imagePath: string): Promise<string> {
       const imageBuffer = await fs.promises.readFile(imagePath);
       const base64Image = imageBuffer.toString('base64');
@@ -197,7 +197,7 @@ For locally stored images, you can send them using base64 encoding. Here's how t
 
     const data = await response.json();
     console.log(data);
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -223,7 +223,7 @@ Note that multiple PDFs can be sent in separate content array entries. The numbe
 
 To configure PDF processing, use the `plugins` parameter in your request. OpenRouter provides several PDF processing engines with different capabilities and pricing:
 
-```typescript
+\`\`\`typescript
 {
   plugins: [
     {
@@ -234,7 +234,7 @@ To configure PDF processing, use the `plugins` parameter in your request. OpenRo
     },
   ],
 }
-```
+\`\`\`
 
 ### Pricing
 
@@ -262,7 +262,7 @@ Here's how to send and process a PDF:
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     import requests
     import json
     import base64
@@ -321,9 +321,9 @@ Here's how to send and process a PDF:
 
     response = requests.post(url, headers=headers, json=payload)
     print(response.json())
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     async function encodePDFToBase64(pdfPath: string): Promise<string> {
       const pdfBuffer = await fs.readFile(pdfPath);
       const base64PDF = pdfBuffer.toString('base64');
@@ -375,7 +375,7 @@ Here's how to send and process a PDF:
 
     const data = await response.json();
     console.log(data);
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -392,7 +392,7 @@ Here's how to reuse file annotations:
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     import requests
     import json
     import base64
@@ -485,9 +485,9 @@ Here's how to reuse file annotations:
 
         follow_up_response = requests.post(url, headers=headers, json=follow_up_payload)
         print(follow_up_response.json())
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     import fs from 'fs/promises';
     import { fetch } from 'node-fetch';
 
@@ -594,7 +594,7 @@ Here's how to reuse file annotations:
     }
 
     processDocument();
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -610,7 +610,7 @@ Here's how to reuse file annotations:
 
 The API will return a response in the following format:
 
-```json
+\`\`\`json
 {
   "id": "gen-1234567890",
   "provider": "DeepInfra",
@@ -631,4 +631,4 @@ The API will return a response in the following format:
     "total_tokens": 1100
   }
 }
-```
+\`\`\`

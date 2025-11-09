@@ -6,14 +6,14 @@
 
 You can use the [Vercel AI SDK](https://www.npmjs.com/package/ai) to integrate OpenRouter with your Next.js app. To get started, install [@openrouter/ai-sdk-provider](https://github.com/OpenRouterTeam/ai-sdk-provider):
 
-```bash
+\`\`\`bash
 npm install @openrouter/ai-sdk-provider
-```
+\`\`\`
 
 And then you can use [streamText()](https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text) API to stream text from OpenRouter.
 
 <CodeGroup>
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
   import { streamText } from 'ai';
   import { z } from 'zod';
@@ -76,5 +76,5 @@ And then you can use [streamText()](https://sdk.vercel.ai/docs/reference/ai-sdk-
     await response.consumeStream();
     return response.text;
   };
-  ```
+  \`\`\`
 </CodeGroup>

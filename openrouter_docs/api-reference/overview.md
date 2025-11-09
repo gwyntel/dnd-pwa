@@ -13,7 +13,7 @@ Here is the request schema as a TypeScript type. This will be the body of your `
 For a complete list of parameters, see the [Parameters](/docs/api-reference/parameters).
 
 <CodeGroup>
-  ```typescript title="Request Schema"
+  \`\`\`typescript title="Request Schema"
   // Definitions of subtypes are below
   type Request = {
     // Either "messages" or "prompt" is required
@@ -122,7 +122,7 @@ For a complete list of parameters, see the [Parameters](/docs/api-reference/para
           name: string;
         };
       };
-  ```
+  \`\`\`
 </CodeGroup>
 
 The `response_format` parameter ensures you receive a structured response from the LLM. The parameter is only supported by OpenAI models, Nitro models, and some others - check the providers on the model page on openrouter.ai/models to see if it's supported, and set `require_parameters` to true in your Provider Preferences. See [Provider Routing](/docs/features/provider-routing)
@@ -135,7 +135,7 @@ OpenRouter allows you to specify some optional headers to identify your app and 
 * `X-Title`: Sets/modifies your app's title
 
 <CodeGroup>
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -154,7 +154,7 @@ OpenRouter allows you to specify some optional headers to identify your app and 
       ],
     }),
   });
-  ```
+  \`\`\`
 </CodeGroup>
 
 <Info title="Model routing">
@@ -187,7 +187,7 @@ OpenRouter supports asking models to complete a partial response. This can be us
 To use this features, simply include a message with `role: "assistant"` at the end of your `messages` array.
 
 <CodeGroup>
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -202,7 +202,7 @@ To use this features, simply include a message with `role: "assistant"` at the e
       ],
     }),
   });
-  ```
+  \`\`\`
 </CodeGroup>
 
 ## Responses
@@ -215,7 +215,7 @@ This means that `choices` is always an array, even if the model only returns one
 
 Here's the response schema as a TypeScript type:
 
-```typescript TypeScript
+\`\`\`typescript TypeScript
 // Definitions of subtypes are below
 type Response = {
   id: string;
@@ -234,9 +234,9 @@ type Response = {
   // the end accompanied by an empty choices array.
   usage?: ResponseUsage;
 };
-```
+\`\`\`
 
-```typescript
+\`\`\`typescript
 // If the provider returns usage, we pass it down
 // as-is. Otherwise, we count using the GPT-4 tokenizer.
 
@@ -248,9 +248,9 @@ type ResponseUsage = {
   /** Sum of the above two fields */
   total_tokens: number;
 };
-```
+\`\`\`
 
-```typescript
+\`\`\`typescript
 // Subtypes:
 type NonChatChoice = {
   finish_reason: string | null;
@@ -291,11 +291,11 @@ type ToolCall = {
   type: 'function';
   function: FunctionCall;
 };
-```
+\`\`\`
 
 Here's an example:
 
-```json
+\`\`\`json
 {
   "id": "gen-xxxxxxxxxxxxxx",
   "choices": [
@@ -316,7 +316,7 @@ Here's an example:
   },
   "model": "openai/gpt-3.5-turbo" // Could also be "anthropic/claude-2.1", etc, depending on the "model" that ends up being used
 }
-```
+\`\`\`
 
 ### Finish Reason
 
@@ -335,14 +335,14 @@ For precise token accounting using the model's native tokenizer, you can retriev
 You can use the returned `id` to query for the generation stats (including token counts and cost) after the request is complete. This is how you can get the cost and tokens for *all models and requests*, streaming and non-streaming.
 
 <CodeGroup>
-  ```typescript title="Query Generation Stats"
+  \`\`\`typescript title="Query Generation Stats"
   const generation = await fetch(
     'https://openrouter.ai/api/v1/generation?id=$GENERATION_ID',
     { headers },
   );
 
   const stats = await generation.json();
-  ```
+  \`\`\`
 </CodeGroup>
 
 Please see the [Generation](/docs/api-reference/get-a-generation) API reference for the full response shape.

@@ -20,7 +20,7 @@ Currently, we only support the following chains (mainnet only):
 * Polygon ({SupportedChainIDs.Polygon})
 * Base ({SupportedChainIDs.Base}) ***recommended***
 
-```typescript
+\`\`\`typescript
 const response = await fetch('https://openrouter.ai/api/v1/credits/coinbase', {
   method: 'POST',
   headers: {
@@ -34,11 +34,11 @@ const response = await fetch('https://openrouter.ai/api/v1/credits/coinbase', {
   }),
 });
 const responseJSON = await response.json();
-```
+\`\`\`
 
 The response includes the charge details and transaction data needed to execute the on-chain payment:
 
-```json
+\`\`\`json
 {
   "data": {
     "id": "...",
@@ -67,7 +67,7 @@ The response includes the charge details and transaction data needed to execute 
     }
   }
 }
-```
+\`\`\`
 
 ## Sending the Transaction
 
@@ -75,7 +75,7 @@ You can use [viem](https://viem.sh) (or another similar evm client) to execute t
 
 In this example, we'll be fulfilling the charge using the [swapAndTransferUniswapV3Native()](https://github.com/coinbase/commerce-onchain-payment-protocol/blob/d891289bd1f41bb95f749af537f2b6a36b17f889/contracts/interfaces/ITransfers.sol#L168-L171) function. Other methods of swapping are also available, and you can learn more by checking out Coinbase's [onchain payment protocol here](https://github.com/coinbase/commerce-onchain-payment-protocol/tree/master). Note, if you are trying to pay in a less common ERC-20, there is added complexity in needing to make sure that there is sufficient liquidity in the pool to swap the tokens.
 
-```typescript
+\`\`\`typescript
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
@@ -918,7 +918,7 @@ const { request } = await publicClient.simulateContract({
 // Send the transaction on chain
 const txHash = await walletClient.writeContract(request);
 console.log('Transaction hash:', txHash);
-```
+\`\`\`
 
 Once the transaction succeeds on chain, we'll add credits to your account. You can track the transaction status using the returned transaction hash.
 
@@ -930,23 +930,23 @@ While it is possible to simply run down the balance until your app starts receiv
 
 To avoid this, you can periodically call the `GET /api/v1/credits` endpoint to check your available credits.
 
-```typescript
+\`\`\`typescript
 const response = await fetch('https://openrouter.ai/api/v1/credits', {
   method: 'GET',
   headers: { Authorization: 'Bearer <OPENROUTER_API_KEY>' },
 });
 const { data } = await response.json();
-```
+\`\`\`
 
 The response includes your total credits purchased and usage, where your current balance is the difference between the two:
 
-```json
+\`\`\`json
 {
   "data": {
     "total_credits": 50.0,
     "total_usage": 42.0
   }
 }
-```
+\`\`\`
 
 Note that these values are cached, and may be up to 60 seconds stale.

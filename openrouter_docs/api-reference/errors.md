@@ -4,7 +4,7 @@
 
 For errors, OpenRouter returns a JSON response with the following shape:
 
-```typescript
+\`\`\`typescript
 type ErrorResponse = {
   error: {
     code: number;
@@ -12,7 +12,7 @@ type ErrorResponse = {
     metadata?: Record<string, unknown>;
   };
 };
-```
+\`\`\`
 
 The HTTP Response will have the same status code as `error.code`, forming a request error if:
 
@@ -23,13 +23,13 @@ Otherwise, the returned HTTP response status will be <code>{HTTPStatus.S200_OK}<
 
 Example code for printing errors in JavaScript:
 
-```typescript
+\`\`\`typescript
 const request = await fetch('https://openrouter.ai/...');
 console.log(request.status); // Will be an error code unless the model started processing your request
 const response = await request.json();
 console.error(response.error?.status); // Will be an error code
 console.error(response.error?.message);
-```
+\`\`\`
 
 ## Error Codes
 
@@ -46,25 +46,25 @@ console.error(response.error?.message);
 
 If your input was flagged, the `error.metadata` will contain information about the issue. The shape of the metadata is as follows:
 
-```typescript
+\`\`\`typescript
 type ModerationErrorMetadata = {
   reasons: string[]; // Why your input was flagged
   flagged_input: string; // The text segment that was flagged, limited to 100 characters. If the flagged input is longer than 100 characters, it will be truncated in the middle and replaced with ...
   provider_name: string; // The name of the provider that requested moderation
   model_slug: string;
 };
-```
+\`\`\`
 
 ## Provider Errors
 
 If the model provider encounters an error, the `error.metadata` will contain information about the issue. The shape of the metadata is as follows:
 
-```typescript
+\`\`\`typescript
 type ProviderErrorMetadata = {
   provider_name: string; // The name of the provider that encountered the error
   raw: unknown; // The raw error from the provider
 };
-```
+\`\`\`
 
 ## When No Content is Generated
 

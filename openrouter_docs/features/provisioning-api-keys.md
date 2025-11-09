@@ -27,7 +27,7 @@ Common scenarios for programmatic key management include:
 All key management endpoints are under `/api/v1/keys` and require a Provisioning API key in the Authorization header.
 
 <CodeGroup>
-  ```python title="Python"
+  \`\`\`python title="Python"
   import requests
 
   PROVISIONING_API_KEY = "your-provisioning-key"
@@ -97,9 +97,9 @@ All key management endpoints are under `/api/v1/keys` and require a Provisioning
           "Content-Type": "application/json"
       }
   )
-  ```
+  \`\`\`
 
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   const PROVISIONING_API_KEY = 'your-provisioning-key';
   const BASE_URL = 'https://openrouter.ai/api/v1/keys';
 
@@ -164,14 +164,14 @@ All key management endpoints are under `/api/v1/keys` and require a Provisioning
       'Content-Type': 'application/json',
     },
   });
-  ```
+  \`\`\`
 </CodeGroup>
 
 ## Response Format
 
 API responses return JSON objects containing key information:
 
-```json
+\`\`\`json
 {
   "data": [
     {
@@ -186,6 +186,6 @@ API responses return JSON objects containing key information:
     }
   ]
 }
-```
+\`\`\`
 
 When creating a new key, the response will include the key string itself.

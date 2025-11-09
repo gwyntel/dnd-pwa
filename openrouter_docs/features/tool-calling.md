@@ -21,7 +21,7 @@ First, let's do some basic setup:
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     import json, requests
     from openai import OpenAI
 
@@ -48,9 +48,9 @@ First, let's do some basic setup:
       }
     ]
 
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -68,7 +68,7 @@ First, let's do some basic setup:
         ],
       }),
     });
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -83,7 +83,7 @@ Next, we define the tool that we want to call. Remember, the tool is going to ge
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     def search_gutenberg_books(search_terms):
         search_query = " ".join(search_terms)
         url = "https://gutendex.com/books"
@@ -126,9 +126,9 @@ Next, we define the tool that we want to call. Remember, the tool is going to ge
         "search_gutenberg_books": search_gutenberg_books
     }
 
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     async function searchGutenbergBooks(searchTerms: string[]): Promise<Book[]> {
       const searchQuery = searchTerms.join(' ');
       const url = 'https://gutendex.com/books';
@@ -170,7 +170,7 @@ Next, we define the tool that we want to call. Remember, the tool is going to ge
     const TOOL_MAPPING = {
       searchGutenbergBooks,
     };
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -187,7 +187,7 @@ Let's make the first OpenRouter API call to the model:
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     request_1 = {
         "model": {{MODEL}},
         "tools": tools,
@@ -195,9 +195,9 @@ Let's make the first OpenRouter API call to the model:
     }
 
     response_1 = openai_client.chat.completions.create(**request_1).message
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     const request_1 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -213,7 +213,7 @@ Let's make the first OpenRouter API call to the model:
 
     const data = await request_1.json();
     const response_1 = data.choices[0].message;
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -226,7 +226,7 @@ The LLM responds with a finish reason of tool\_calls, and a tool\_calls array. I
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     # Append the response to the messages array so the LLM has the full context
     # It's easy to forget this step!
     messages.append(response_1)
@@ -247,9 +247,9 @@ The LLM responds with a finish reason of tool\_calls, and a tool\_calls array. I
           "name": tool_name,
           "content": json.dumps(tool_response),
         })
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     // Append the response to the messages array so the LLM has the full context
     // It's easy to forget this step!
     messages.push(response_1);
@@ -266,7 +266,7 @@ The LLM responds with a finish reason of tool\_calls, and a tool\_calls array. I
         content: JSON.stringify(toolResponse),
       });
     }
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -285,7 +285,7 @@ Now, we can make a second OpenRouter API call, and hopefully get our result!
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
     request_2 = {
       "model": MODEL,
       "messages": messages,
@@ -295,9 +295,9 @@ Now, we can make a second OpenRouter API call, and hopefully get our result!
     response_2 = openai_client.chat.completions.create(**request_2)
 
     print(response_2.choices[0].message.content)
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -313,13 +313,13 @@ Now, we can make a second OpenRouter API call, and hopefully get our result!
 
     const data = await response.json();
     console.log(data.choices[0].message.content);
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
 The output will be something like:
 
-```text
+\`\`\`text
 Here are some books by James Joyce:
 
 *   *Ulysses*
@@ -327,7 +327,7 @@ Here are some books by James Joyce:
 *   *A Portrait of the Artist as a Young Man*
 *   *Chamber Music*
 *   *Exiles: A Play in Three Acts*
-```
+\`\`\`
 
 We did it! We've successfully used a tool in a prompt.
 
@@ -344,7 +344,7 @@ Here's an example of a simple agentic loop (using the same `tools` and initial `
 }}
 >
   <CodeGroup>
-    ```python
+    \`\`\`python
 
     def call_llm(msgs):
         resp = openai_client.chat.completions.create(
@@ -381,9 +381,9 @@ Here's an example of a simple agentic loop (using the same `tools` and initial `
 
     print(messages[-1]['content'])
 
-    ```
+    \`\`\`
 
-    ```typescript
+    \`\`\`typescript
     async function callLLM(messages: Message[]): Promise<Message> {
       const response = await fetch(
         'https://openrouter.ai/api/v1/chat/completions',
@@ -434,6 +434,6 @@ Here's an example of a simple agentic loop (using the same `tools` and initial `
     }
 
     console.log(messages[messages.length - 1].content);
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>

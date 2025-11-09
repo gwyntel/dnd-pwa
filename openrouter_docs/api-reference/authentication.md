@@ -21,7 +21,7 @@ If you're calling the OpenRouter API directly, set the `Authorization` header to
 If you're using the OpenAI Typescript SDK, set the `api_base` to `https://openrouter.ai/api/v1` and the `apiKey` to your API key.
 
 <CodeGroup>
-  ```typescript title="TypeScript (Bearer Token)"
+  \`\`\`typescript title="TypeScript (Bearer Token)"
   fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -40,9 +40,9 @@ If you're using the OpenAI Typescript SDK, set the `api_base` to `https://openro
       ],
     }),
   });
-  ```
+  \`\`\`
 
-  ```typescript title="TypeScript (OpenAI SDK)"
+  \`\`\`typescript title="TypeScript (OpenAI SDK)"
   import OpenAI from 'openai';
 
   const openai = new OpenAI({
@@ -64,9 +64,9 @@ If you're using the OpenAI Typescript SDK, set the `api_base` to `https://openro
   }
 
   main();
-  ```
+  \`\`\`
 
-  ```python title="Python"
+  \`\`\`python title="Python"
   import openai
 
   openai.api_base = "https://openrouter.ai/api/v1"
@@ -82,9 +82,9 @@ If you're using the OpenAI Typescript SDK, set the `api_base` to `https://openro
   )
 
   reply = response.choices[0].message
-  ```
+  \`\`\`
 
-  ```shell title="Shell"
+  \`\`\`shell title="Shell"
   curl https://openrouter.ai/api/v1/chat/completions \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $OPENROUTER_API_KEY" \
@@ -95,7 +95,7 @@ If you're using the OpenAI Typescript SDK, set the `api_base` to `https://openro
       {"role": "user", "content": "Hello!"}
     ]
   }'
-  ```
+  \`\`\`
 </CodeGroup>
 
 To stream with Python, [see this example from OpenAI](https://github.com/openai/openai-cookbook/blob/main/examples/How_to_stream_completions.ipynb).

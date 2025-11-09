@@ -12,7 +12,7 @@ To be eligible to provide inference on OpenRouter you must have the following:
 
 You must implement an endpoint that returns all models that should be served by OpenRouter. At this endpoint, please return a list of all available models on your platform. Below is an example of the response format:
 
-```json
+\`\`\`json
 {
   "data": [
     {
@@ -54,7 +54,7 @@ You must implement an endpoint that returns all models that should be served by 
     }
   ]
 }
-```
+\`\`\`
 
 NOTE: `pricing` fields are in string format to avoid floating point precision issues, and must be in USD.
 

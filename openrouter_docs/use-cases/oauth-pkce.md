@@ -13,17 +13,17 @@ Here's a step-by-step guide:
 To start the PKCE flow, send your user to OpenRouter's `/auth` URL with a `callback_url` parameter pointing back to your site:
 
 <CodeGroup>
-  ```txt title="With S256 Code Challenge (Recommended)" wordWrap
+  \`\`\`txt title="With S256 Code Challenge (Recommended)" wordWrap
   https://openrouter.ai/auth?callback_url=<YOUR_SITE_URL>&code_challenge=<CODE_CHALLENGE>&code_challenge_method=S256
-  ```
+  \`\`\`
 
-  ```txt title="With Plain Code Challenge" wordWrap
+  \`\`\`txt title="With Plain Code Challenge" wordWrap
   https://openrouter.ai/auth?callback_url=<YOUR_SITE_URL>&code_challenge=<CODE_CHALLENGE>&code_challenge_method=plain
-  ```
+  \`\`\`
 
-  ```txt title="Without Code Challenge" wordWrap
+  \`\`\`txt title="Without Code Challenge" wordWrap
   https://openrouter.ai/auth?callback_url=<YOUR_SITE_URL>
-  ```
+  \`\`\`
 </CodeGroup>
 
 The `code_challenge` parameter is optional but recommended.
@@ -43,7 +43,7 @@ Your user will be prompted to log in to OpenRouter and authorize your app. After
 The following example leverages the Web Crypto API and the Buffer API to generate a code challenge for the S256 method. You will need a bundler to use the Buffer API in the web browser:
 
 <CodeGroup>
-  ```typescript title="Generate Code Challenge"
+  \`\`\`typescript title="Generate Code Challenge"
   import { Buffer } from 'buffer';
 
   async function createSHA256CodeChallenge(input: string) {
@@ -55,7 +55,7 @@ The following example leverages the Web Crypto API and the Buffer API to generat
 
   const codeVerifier = 'your-random-string';
   const generatedCodeChallenge = await createSHA256CodeChallenge(codeVerifier);
-  ```
+  \`\`\`
 </CodeGroup>
 
 #### Localhost Apps
@@ -73,16 +73,16 @@ After the user logs in with OpenRouter, they are redirected back to your site wi
 Extract this code using the browser API:
 
 <CodeGroup>
-  ```typescript title="Extract Code"
+  \`\`\`typescript title="Extract Code"
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
-  ```
+  \`\`\`
 </CodeGroup>
 
 Then use it to make an API call to `https://openrouter.ai/api/v1/auth/keys` to exchange the code for a user-controlled API key:
 
 <CodeGroup>
-  ```typescript title="Exchange Code"
+  \`\`\`typescript title="Exchange Code"
   const response = await fetch('https://openrouter.ai/api/v1/auth/keys', {
     method: 'POST',
     headers: {
@@ -96,7 +96,7 @@ Then use it to make an API call to `https://openrouter.ai/api/v1/auth/keys` to e
   });
 
   const { key } = await response.json();
-  ```
+  \`\`\`
 </CodeGroup>
 
 And that's it for the PKCE flow!
@@ -106,7 +106,7 @@ And that's it for the PKCE flow!
 Store the API key securely within the user's browser or in your own database, and use it to [make OpenRouter requests](/api-reference/completion).
 
 <CodeGroup>
-  ```typescript title="Make an OpenRouter request"
+  \`\`\`typescript title="Make an OpenRouter request"
   fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -123,7 +123,7 @@ Store the API key securely within the user's browser or in your own database, an
       ],
     }),
   });
-  ```
+  \`\`\`
 </CodeGroup>
 
 ## Error Codes

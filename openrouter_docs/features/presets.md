@@ -27,7 +27,7 @@ Each preset can manage:
 
 2. Make an API request to the preset:
 
-```json
+\`\`\`json
 {
   "model": "@preset/ravenel-bridge",
   "messages": [
@@ -37,7 +37,7 @@ Each preset can manage:
     }
   ]
 }
-```
+\`\`\`
 
 ## Benefits
 
@@ -62,7 +62,7 @@ There are three ways to use presets in your API requests.
 
 You can reference the preset as if it was a model by sending requests to `@preset/preset-slug`
 
-```json
+\`\`\`json
 {
   "model": "@preset/email-copywriter",
   "messages": [
@@ -72,11 +72,11 @@ You can reference the preset as if it was a model by sending requests to `@prese
     }
   ]
 }
-```
+\`\`\`
 
 2. **Preset Field**
 
-```json
+\`\`\`json
 {
   "model": "openai/gpt-4",
   "preset": "email-copywriter",
@@ -87,11 +87,11 @@ You can reference the preset as if it was a model by sending requests to `@prese
     }
   ]
 }
-```
+\`\`\`
 
 3. **Combined Model and Preset**
 
-```json
+\`\`\`json
 {
   "model": "openai/gpt-4@preset/email-copywriter",
   "messages": [
@@ -101,7 +101,7 @@ You can reference the preset as if it was a model by sending requests to `@prese
     }
   ]
 }
-```
+\`\`\`
 
 ## Other Notes
 

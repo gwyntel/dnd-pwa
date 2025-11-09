@@ -10,10 +10,10 @@ Integrate OpenRouter with Mastra to access a variety of AI models through a unif
 
 The simplest way to start is using the automatic project creation:
 
-```bash
+\`\`\`bash
 # Create a new project using create-mastra
 npx create-mastra@latest
-```
+\`\`\`
 
 You'll be guided through prompts to set up your project. For this example, select:
 
@@ -32,21 +32,21 @@ After creating your project with `create-mastra`, you'll find a `.env.developmen
 2. Remove or comment out the `OPENAI_API_KEY` line
 3. Add your OpenRouter API key:
 
-```
+\`\`\`
 # .env.development
 # OPENAI_API_KEY=your-openai-key  # Comment out or remove this line
 OPENROUTER_API_KEY=sk-or-your-api-key-here
-```
+\`\`\`
 
 You can also remove the `@ai-sdk/openai` package since we'll be using OpenRouter instead:
 
-```bash
+\`\`\`bash
 npm uninstall @ai-sdk/openai
-```
+\`\`\`
 
-```bash
+\`\`\`bash
 npm install @openrouter/ai-sdk-provider
-```
+\`\`\`
 
 ### Step 3: Configure your agent to use OpenRouter
 
@@ -54,7 +54,7 @@ After setting up your Mastra project, you'll need to modify the agent files to u
 
 If you used `create-mastra`, you'll likely have a file at `src/mastra/agents/agent.ts` or similar. Replace its contents with:
 
-```typescript
+\`\`\`typescript
 import { Agent } from '@mastra/core/agent';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
@@ -70,11 +70,11 @@ export const assistant = new Agent({
   instructions:
     'You are a helpful assistant with expertise in technology and science.',
 });
-```
+\`\`\`
 
 Also make sure to update your Mastra entry point at `src/mastra/index.ts` to use your renamed agent:
 
-```typescript
+\`\`\`typescript
 import { Mastra } from '@mastra/core';
 
 import { assistant } from './agents/agent'; // Update the import path if you used a different filename
@@ -82,15 +82,15 @@ import { assistant } from './agents/agent'; // Update the import path if you use
 export const mastra = new Mastra({
   agents: { assistant }, // Use the same name here as you exported from your agent file
 });
-```
+\`\`\`
 
 ### Step 4: Running the Application
 
 Once you've configured your agent to use OpenRouter, you can run the Mastra development server:
 
-```bash
+\`\`\`bash
 npm run dev
-```
+\`\`\`
 
 This will start the Mastra development server and make your agent available at:
 
@@ -101,17 +101,17 @@ The Mastra playground provides a user-friendly interface where you can interact 
 
 You can also test the API endpoint using curl if needed:
 
-```bash
+\`\`\`bash
 curl -X POST http://localhost:4111/api/agents/assistant/generate \
 -H "Content-Type: application/json" \
 -d '{"messages": ["What are the latest advancements in quantum computing?"]}'
-```
+\`\`\`
 
 ### Basic Integration with Mastra
 
 The simplest way to integrate OpenRouter with Mastra is by using the OpenRouter AI provider with Mastra's Agent system:
 
-```typescript
+\`\`\`typescript
 import { Agent } from '@mastra/core/agent';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
@@ -136,13 +136,13 @@ const response = await assistant.generate([
 ]);
 
 console.log(response.text);
-```
+\`\`\`
 
 ### Advanced Configuration
 
 For more control over your OpenRouter requests, you can pass additional configuration options:
 
-```typescript
+\`\`\`typescript
 import { Agent } from '@mastra/core/agent';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
@@ -168,13 +168,13 @@ const chefAgent = new Agent({
   name: 'Chef',
   instructions: 'You are a chef assistant specializing in French cuisine.',
 });
-```
+\`\`\`
 
 ### Provider-Specific Options
 
 You can also pass provider-specific options in your requests:
 
-```typescript
+\`\`\`typescript
 // Get a response with provider-specific options
 const response = await chefAgent.generate([
   {
@@ -193,13 +193,13 @@ const response = await chefAgent.generate([
     content: 'Can you suggest a keto breakfast?',
   },
 ]);
-```
+\`\`\`
 
 ### Using Multiple Models with OpenRouter
 
 OpenRouter gives you access to various models from different providers. Here's how to use multiple models:
 
-```typescript
+\`\`\`typescript
 import { Agent } from '@mastra/core/agent';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
@@ -236,7 +236,7 @@ const gptResponse = await gptAgent.generate([
   },
 ]);
 console.log(gptResponse.text);
-```
+\`\`\`
 
 ### Resources
 

@@ -15,16 +15,16 @@ To check the rate limit or credits left on an API key, make a GET request to `ht
 
 <Template data={{ API_KEY_REF }}>
   <CodeGroup>
-    ```typescript title="TypeScript"
+    \`\`\`typescript title="TypeScript"
     const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
       method: 'GET',
       headers: {
         Authorization: 'Bearer {{API_KEY_REF}}',
       },
     });
-    ```
+    \`\`\`
 
-    ```python title="Python"
+    \`\`\`python title="Python"
     import requests
     import json
 
@@ -36,13 +36,13 @@ To check the rate limit or credits left on an API key, make a GET request to `ht
     )
 
     print(json.dumps(response.json(), indent=2))
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
 If you submit a valid API key, you should get a response of the form:
 
-```typescript title="TypeScript"
+\`\`\`typescript title="TypeScript"
 type Key = {
   data: {
     label: string;
@@ -51,7 +51,7 @@ type Key = {
     is_free_tier: boolean; // Whether the user has paid for credits before
   };
 };
-```
+\`\`\`
 
 There are a few rate limits that apply to certain types of requests, regardless of account status:
 

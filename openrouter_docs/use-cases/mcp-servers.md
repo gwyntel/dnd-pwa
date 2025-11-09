@@ -16,7 +16,7 @@ In this example, we'll use [Anthropic's MCP client SDK](https://github.com/model
 
 First, some setup. In order to run this you will need to pip install the packages, and create a `.env` file with OPENAI_API_KEY set. This example also assumes the directory `/Applications` exists.
 
-```python
+\`\`\`python
 import asyncio
 from typing import Optional
 from contextlib import AsyncExitStack
@@ -40,11 +40,11 @@ SERVER_CONFIG = {
               f"/Applications/"],
     "env": None
 }
-```
+\`\`\`
 
 Next, our helper function to convert MCP tool definitions to OpenAI tool definitions:
 
-```python
+\`\`\`python
 
 def convert_tool_format(tool):
     converted_tool = {
@@ -61,11 +61,11 @@ def convert_tool_format(tool):
     }
     return converted_tool
 
-```
+\`\`\`
 
 And, the MCP client itself; a regrettable ~100 lines of code. Note that the SERVER_CONFIG is hard-coded into the client, but of course could be parameterized for other MCP servers.
 
-```python
+\`\`\`python
 class MCPClient:
     def __init__(self):
         self.session: Optional[ClientSession] = None
@@ -168,11 +168,11 @@ async def main():
 if __name__ == "__main__":
     import sys
     asyncio.run(main())
-```
+\`\`\`
 
 Assembling all of the above code into mcp-client.py, you get a client that behaves as follows (some outputs truncated for brevity):
 
-```bash
+\`\`\`bash
 % python mcp-client.py
 
 Secure MCP Filesystem Server running on stdio
@@ -205,4 +205,4 @@ The search found the following main Microsoft Office applications:
 2. Microsoft PowerPoint - /Applications/Microsoft PowerPoint.app
 3. Microsoft Word - /Applications/Microsoft Word.app
 4. OneDrive - /Applications/OneDrive.app (which includes Microsoft SharePoint integration)
-```
+\`\`\`

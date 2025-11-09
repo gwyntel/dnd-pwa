@@ -9,7 +9,7 @@
 * Using [Streamlit](https://streamlit.io/): [github](https://github.com/alexanderatallah/openrouter-streamlit)
 
 <CodeGroup>
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   const chat = new ChatOpenAI(
     {
       modelName: '<model_name>',
@@ -27,9 +27,9 @@
       },
     },
   );
-  ```
+  \`\`\`
 
-  ```python title="Python"
+  \`\`\`python title="Python"
   from langchain.chat_models import ChatOpenAI
   from langchain.prompts import PromptTemplate
   from langchain.chains import LLMChain
@@ -60,5 +60,5 @@
   question = "What NFL team won the Super Bowl in the year Justin Beiber was born?"
 
   print(llm_chain.run(question))
-  ```
+  \`\`\`
 </CodeGroup>

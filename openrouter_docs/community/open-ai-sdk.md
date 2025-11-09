@@ -14,7 +14,7 @@
   </Tip>
 
 <CodeGroup>
-  ```typescript title="TypeScript"
+  \`\`\`typescript title="TypeScript"
   import OpenAI from "openai"
 
   const openai = new OpenAI({
@@ -36,9 +36,9 @@
     console.log(completion.choices[0].message)
   }
   main();
-  ```
+  \`\`\`
 
-  ```python title="Python"
+  \`\`\`python title="Python"
   from openai import OpenAI
   from os import getenv
 
@@ -69,7 +69,7 @@
     ],
   )
   print(completion.choices[0].message.content)
-  ```
+  \`\`\`
 </CodeGroup>
 
-```
+\`\`\`

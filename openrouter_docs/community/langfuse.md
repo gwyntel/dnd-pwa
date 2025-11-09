@@ -8,16 +8,16 @@
 
 ### Installation
 
-```bash
+\`\`\`bash
 pip install langfuse openai
-```
+\`\`\`
 
 ### Configuration
 
 Set up your environment variables:
 
 <CodeGroup>
-  ```python title="Environment Setup"
+  \`\`\`python title="Environment Setup"
   import os
 
   # Set your Langfuse API keys
@@ -30,7 +30,7 @@ Set up your environment variables:
 
   # Set your OpenRouter API key
   os.environ["OPENAI_API_KEY"] = "${API_KEY_REF}"
-  ```
+  \`\`\`
 </CodeGroup>
 
 ### Simple LLM Call
@@ -38,7 +38,7 @@ Set up your environment variables:
 Since OpenRouter provides an OpenAI-compatible API, you can use the Langfuse OpenAI SDK wrapper to automatically log OpenRouter calls as generations in Langfuse:
 
 <CodeGroup>
-  ```python title="Basic Integration"
+  \`\`\`python title="Basic Integration"
   # Import the Langfuse OpenAI SDK wrapper
   from langfuse.openai import openai
 
@@ -63,7 +63,7 @@ Since OpenRouter provides an OpenAI-compatible API, you can use the Langfuse Ope
 
   # Print the assistant's reply
   print(response.choices[0].message.content)
-  ```
+  \`\`\`
 </CodeGroup>
 
 ### Advanced Tracing with Nested Calls
@@ -71,7 +71,7 @@ Since OpenRouter provides an OpenAI-compatible API, you can use the Langfuse Ope
 Use the `@observe()` decorator to capture execution details of functions with nested LLM calls:
 
 <CodeGroup>
-  ```python title="Nested Function Tracing"
+  \`\`\`python title="Nested Function Tracing"
   from langfuse import observe
   from langfuse.openai import openai
 
@@ -121,7 +121,7 @@ Use the `@observe()` decorator to capture execution details of functions with ne
   text_to_analyze = "OpenRouter's unified API has significantly advanced the field of AI development, setting new standards for model accessibility."
   result = analyze_text(text_to_analyze)
   print(result)
-  ```
+  \`\`\`
 </CodeGroup>
 
 ### Learn More

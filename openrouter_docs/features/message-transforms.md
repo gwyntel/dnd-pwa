@@ -4,13 +4,13 @@
 
 To help with prompts that exceed the maximum context size of a model, OpenRouter supports a custom parameter called `transforms`:
 
-```typescript
+\`\`\`typescript
 {
   transforms: ["middle-out"], // Compress prompts that are > context size.
   messages: [...],
   model // Works with any model
 }
-```
+\`\`\`
 
 This can be useful for situations where perfect recall is not required. The transform works by removing or truncating messages from the middle of the prompt, until the prompt fits within the model's context window.
 

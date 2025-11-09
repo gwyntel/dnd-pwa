@@ -28,14 +28,14 @@ Conversely, if "Use this key as a fallback" is disabled for a key, OpenRouter wi
 
 To use Azure AI Services with OpenRouter, you'll need to provide your Azure API key configuration in JSON format. Each key configuration requires the following fields:
 
-```json
+\`\`\`json
 {
   "model_slug": "the-openrouter-model-slug",
   "endpoint_url": "https://<resource>.services.ai.azure.com/deployments/<model-id>/chat/completions?api-version=<api-version>",
   "api_key": "your-azure-api-key",
   "model_id": "the-azure-model-id"
 }
-```
+\`\`\`
 
 You can find these values in your Azure AI Services resource:
 
@@ -49,7 +49,7 @@ You can find these values in your Azure AI Services resource:
 
 Since Azure supports multiple model deployments, you can provide an array of configurations for different models:
 
-```json
+\`\`\`json
 [
   {
     "model_slug": "mistralai/mistral-large",
@@ -64,7 +64,7 @@ Since Azure supports multiple model deployments, you can provide an array of con
     "model_id": "gpt-4o"
   }
 ]
-```
+\`\`\`
 
 Make sure to replace the url with your own project url. Also the url should end with /chat/completions with the api version that you would like to use.
 
@@ -72,13 +72,13 @@ Make sure to replace the url with your own project url. Also the url should end 
 
 To use Amazon Bedrock with OpenRouter, you'll need to provide your AWS credentials in JSON format. The configuration requires the following fields:
 
-```json
+\`\`\`json
 {
   "accessKeyId": "your-aws-access-key-id",
   "secretAccessKey": "your-aws-secret-access-key",
   "region": "your-aws-region"
 }
-```
+\`\`\`
 
 You can find these values in your AWS account:
 
@@ -95,7 +95,7 @@ Make sure your AWS IAM user or role has the necessary permissions to access Amaz
 
 Example IAM policy:
 
-```json
+\`\`\`json
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -109,7 +109,7 @@ Example IAM policy:
     }
   ]
 }
-```
+\`\`\`
 
 For enhanced security, we recommend creating dedicated IAM users with limited permissions specifically for use with OpenRouter.
 

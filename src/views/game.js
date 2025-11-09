@@ -485,6 +485,8 @@ async function sendMessage(game, userText) {
     let assistantMessage = ""
     const assistantMsgId = `msg_${Date.now()}`
 
+    game.suggestedActions = []
+
     // Create placeholder message
     game.messages.push({
       id: assistantMsgId,
@@ -703,7 +705,6 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Process suggested actions
   const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g)
   const newActions = []
   for (const match of actionMatches) {
@@ -714,9 +715,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // If we found new actions, replace the current suggested actions and update UI
   if (newActions.length > 0) {
-    game.suggestedActions = newActions
+    game.suggestedActions.push(...newActions)
     needsUIUpdate = true
   }
 

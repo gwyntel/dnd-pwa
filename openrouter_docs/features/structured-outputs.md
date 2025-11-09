@@ -17,7 +17,7 @@ Structured outputs allow you to:
 
 To use structured outputs, include a `response_format` parameter in your request, with `type` set to `json_schema` and the `json_schema` object containing your schema:
 
-```typescript
+\`\`\`typescript
 {
   "messages": [
     { "role": "user", "content": "What's the weather like in London?" }
@@ -49,17 +49,17 @@ To use structured outputs, include a `response_format` parameter in your request
     }
   }
 }
-```
+\`\`\`
 
 The model will respond with a JSON object that strictly follows your schema:
 
-```json
+\`\`\`json
 {
   "location": "London",
   "temperature": 18,
   "conditions": "Partly cloudy with light drizzle"
 }
-```
+\`\`\`
 
 ## Model Support
 
@@ -93,7 +93,7 @@ Here's a complete example using the Fetch API:
 }}
 >
   <CodeGroup>
-    ```typescript title="With TypeScript"
+    \`\`\`typescript title="With TypeScript"
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -136,9 +136,9 @@ Here's a complete example using the Fetch API:
 
     const data = await response.json();
     const weatherInfo = data.choices[0].message.content;
-    ```
+    \`\`\`
 
-    ```python title="With Python"
+    \`\`\`python title="With Python"
     import requests
     import json
 
@@ -185,7 +185,7 @@ Here's a complete example using the Fetch API:
 
     data = response.json()
     weather_info = data["choices"][0]["message"]["content"]
-    ```
+    \`\`\`
   </CodeGroup>
 </Template>
 
@@ -195,7 +195,7 @@ Structured outputs are also supported with streaming responses. The model will s
 
 To enable streaming with structured outputs, simply add `stream: true` to your request:
 
-```typescript
+\`\`\`typescript
 {
   "stream": true,
   "response_format": {
@@ -203,7 +203,7 @@ To enable streaming with structured outputs, simply add `stream: true` to your r
     // ... rest of your schema
   }
 }
-```
+\`\`\`
 
 ## Error Handling
 

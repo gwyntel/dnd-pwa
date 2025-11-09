@@ -57,7 +57,7 @@ The `cache_control` breakpoint can only be inserted into the text part of a mult
 
 System message caching example:
 
-```json
+\`\`\`json
 {
   "messages": [
     {
@@ -87,11 +87,11 @@ System message caching example:
     }
   ]
 }
-```
+\`\`\`
 
 User message caching example:
 
-```json
+\`\`\`json
 {
   "messages": [
     {
@@ -116,7 +116,7 @@ User message caching example:
     }
   ]
 }
-```
+\`\`\`
 
 ## DeepSeek
 
@@ -152,9 +152,9 @@ Note that the TTL is on average 3-5 minutes, but will vary. There is a minimum o
 
 * **Cache Writes:** Charged at the input token cost plus 5 minutes of cache storage, calculated as follows:
 
-```
+\`\`\`
 Cache write cost = Input token price + (Cache storage price Ã— (5 minutes / 60 minutes))
-```
+\`\`\`
 
 * **Cache Reads:** Charged at {GOOGLE_CACHE_READ_MULTIPLIER}Ã— the original input token cost.
 
@@ -188,7 +188,7 @@ Gemini caching in OpenRouter requires you to insert `cache_control` breakpoints 
 
 #### System Message Caching Example
 
-```json
+\`\`\`json
 {
   "messages": [
     {
@@ -218,11 +218,11 @@ Gemini caching in OpenRouter requires you to insert `cache_control` breakpoints 
     }
   ]
 }
-```
+\`\`\`
 
 #### User Message Caching Example
 
-```json
+\`\`\`json
 {
   "messages": [
     {
@@ -247,4 +247,4 @@ Gemini caching in OpenRouter requires you to insert `cache_control` breakpoints 
     }
   ]
 }
-```
+\`\`\`

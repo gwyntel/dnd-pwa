@@ -307,13 +307,41 @@ function renderMessages(messages) {
       }
     }
     
+    // Strip tags from content before displaying
+    const cleanContent = stripTags(msg.content);
+    
     return `
-      <div class="${className}">
-        <div class="message-content">${parseMarkdown(msg.content)}</div>
+      <div class="${className}" data-msg-id="${msg.id}">
+        <div class="message-content">${parseMarkdown(cleanContent)}</div>
         ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ''}
       </div>
     `;
   }).join('');
+}
+
+function stripTags(text) {
+  // Remove all game tags but keep the content inside
+  let cleaned = text;
+  
+  // Remove LOCATION tags
+  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, '$1');
+  
+  // Remove ROLL tags
+  cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, '');
+  
+  // Remove COMBAT_START tags
+  cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, '');
+  
+  // Remove COMBAT_END tags
+  cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, '');
+  
+  // Remove DAMAGE tags
+  cleaned = cleaned.replace(/DAMAGE\[([^\]]+)\]/g, '');
+  
+  // Remove HEAL tags
+  cleaned = cleaned.replace(/HEAL\[([^\]]+)\]/g, '');
+  
+  return cleaned;
 }
 
 function parseMarkdown(text) {
@@ -435,10 +463,23 @@ async function sendMessage(game, userText) {
         // Process tags as they appear in the stream
         await processGameCommandsRealtime(game, character, assistantMessage, processedTags);
         
-        // Update UI
+        // Update UI - only update the streaming message to prevent flashing
+        const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"] .message-content`);
+        if (streamingMsgElement) {
+          const cleanContent = stripTags(assistantMessage);
+          streamingMsgElement.innerHTML = parseMarkdown(cleanContent);
+        } else {
+          // Fallback: full re-render if element not found
+          const messagesContainer = document.getElementById('messages-container');
+          if (messagesContainer) {
+            messagesContainer.innerHTML = renderMessages(game.messages);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        }
+        
+        // Auto-scroll
         const messagesContainer = document.getElementById('messages-container');
         if (messagesContainer) {
-          messagesContainer.innerHTML = renderMessages(game.messages);
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
         

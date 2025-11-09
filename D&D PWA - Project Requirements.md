@@ -193,7 +193,7 @@ A progressive web app for single-player D&D-style text adventures powered by LLM
 
 ## Data Schema v1.0
 
-```json
+\`\`\`json
 {
   "version": "1.0.0",
   "lastModified": "ISO-8601 timestamp",
@@ -312,7 +312,7 @@ A progressive web app for single-player D&D-style text adventures powered by LLM
     }
   ]
 }
-```
+\`\`\`
 
 ## Technical Stack
 

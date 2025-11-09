@@ -7,6 +7,7 @@ import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/
 import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
+import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -646,6 +647,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   const newMessages = [];
   let needsUIUpdate = false;
 
+  // Precompute dice profile if we have a character
+  const diceProfile = character ? buildDiceProfile(character) : null;
+
   // Helpers for inventory / currency / conditions
 
   const ensureInventory = () => {
@@ -846,43 +850,164 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // ROLL
+  // ROLL (numeric + semantic)
   const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
   for (const match of rollMatches) {
     const tagKey = `roll_${match[0]}`;
-    if (!processedTags.has(tagKey)) {
-      const parts = match[1].split("|");
-      const request = {
-        notation: parts[0],
-        type: parts[1] || "normal",
-        dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
+    if (processedTags.has(tagKey)) continue;
+
+    const parts = match[1].split("|").map((p) => p.trim());
+    const mode = (parts[0] || "").toLowerCase();
+
+    // Semantic: ROLL[skill|perception|15]
+    if ((mode === "skill" || mode === "save" || mode === "attack") && diceProfile) {
+      const kind = mode;
+      const key = parts[1] || "";
+      const third = parts[2] || "";
+      const advFlag = (parts[3] || "").toLowerCase();
+
+      // Shared helpers
+      const parseDC = (raw) => {
+        if (!raw) return null;
+        const m = raw.toString().toLowerCase().match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
       };
-
-      let result;
-      if (request.type === "advantage") {
-        result = rollAdvantage(request.notation);
-      } else if (request.type === "disadvantage") {
-        result = rollDisadvantage(request.notation);
-      } else {
-        result = rollDice(request.notation);
-      }
-
-      newMessages.push({
-        id: `msg_${Date.now()}_roll_${Math.random()}`,
-        role: "system",
-        content:
-          formatRoll(result) +
-          (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
-        timestamp: new Date().toISOString(),
-        hidden: false,
-        metadata: {
-          diceRoll: result,
-          dc: request.dc,
-          success: request.dc ? result.total >= request.dc : null,
-        },
+      const parseAdv = () => ({
+        advantage: advFlag === "advantage" || advFlag === "adv",
+        disadvantage: advFlag === "disadvantage" || advFlag === "dis",
       });
-      processedTags.add(tagKey);
+
+      try {
+        if (kind === "skill") {
+          const dc = parseDC(third);
+          const { advantage, disadvantage } = parseAdv();
+          const result = rollSkillCheck(character, key, { dc, advantage, disadvantage });
+
+          newMessages.push({
+            id: `msg_${Date.now()}_roll_skill_${Math.random()}`,
+            role: "system",
+            content:
+              `🎲 ${key || "Skill check"}: ` +
+              `${formatRoll(result)}` +
+              (dc != null
+                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
+                : ""),
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: {
+              diceRoll: result,
+              type: "skill",
+              key,
+              dc,
+              success: result.success,
+            },
+          });
+        } else if (kind === "save") {
+          const dc = parseDC(third);
+          const { advantage, disadvantage } = parseAdv();
+          const result = rollSavingThrow(character, key, { dc, advantage, disadvantage });
+
+          newMessages.push({
+            id: `msg_${Date.now()}_roll_save_${Math.random()}`,
+            role: "system",
+            content:
+              `🎲 ${key || "Save"}: ` +
+              `${formatRoll(result)}` +
+              (dc != null
+                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
+                : ""),
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: {
+              diceRoll: result,
+              type: "save",
+              key,
+              dc,
+              success: result.success,
+            },
+          });
+        } else if (kind === "attack") {
+          const targetAC = parseDC(third);
+          const { advantage, disadvantage } = parseAdv();
+          const attackResult = rollAttack(character, key, { targetAC, advantage, disadvantage });
+
+          const toHit = attackResult.toHit;
+          const dmg = attackResult.damage;
+          const partsOut = [];
+
+          partsOut.push(
+            `🎲 Attack (${attackResult.attack.name || key || "Attack"}): ${formatRoll(toHit)}` +
+              (targetAC != null
+                ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}`
+                : ""),
+          );
+
+          if (dmg) {
+            partsOut.push(`💥 Damage: ${formatRoll(dmg)}`);
+          }
+
+          newMessages.push({
+            id: `msg_${Date.now()}_roll_attack_${Math.random()}`,
+            role: "system",
+            content: partsOut.join(" "),
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: {
+              diceRoll: {
+                attack: attackResult.attack,
+                toHit,
+                damage: dmg,
+              },
+              type: "attack",
+              key,
+              targetAC,
+              success: toHit.success,
+            },
+          });
+        }
+        processedTags.add(tagKey);
+        continue; // semantic handled, skip numeric fallback
+      } catch (e) {
+        console.warn("Semantic ROLL tag failed, falling back to numeric:", e);
+        // fall through to numeric parsing
+      }
     }
+
+    // Legacy numeric: ROLL[1d20+5|normal|15]
+    const request = {
+      notation: parts[0],
+      type: parts[1] || "normal",
+      dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
+    };
+
+    let result;
+    if (request.type === "advantage") {
+      result = rollAdvantage(request.notation);
+    } else if (request.type === "disadvantage") {
+      result = rollDisadvantage(request.notation);
+    } else {
+      result = rollDice(request.notation);
+    }
+
+    newMessages.push({
+      id: `msg_${Date.now()}_roll_${Math.random()}`,
+      role: "system",
+      content:
+        formatRoll(result) +
+        (request.dc
+          ? ` vs DC ${request.dc} - ${
+              result.total >= request.dc ? "✓ Success!" : "✗ Failure"
+            }`
+          : ""),
+      timestamp: new Date().toISOString(),
+      hidden: false,
+      metadata: {
+        diceRoll: result,
+        dc: request.dc,
+        success: request.dc ? result.total >= request.dc : null,
+      },
+    });
+    processedTags.add(tagKey);
   }
 
   // INVENTORY_ADD[item|qty]
@@ -1138,13 +1263,13 @@ async function processGameCommands(game, character, text) {
     }
   }
 
-  // Process roll requests - AI requests rolls, we perform them locally
+  // Process roll requests - legacy numeric ROLL[...] only.
+  // Semantic ROLL tags are handled in processGameCommandsRealtime during streaming.
   const rollRequests = parseRollRequests(text)
   if (rollRequests.length > 0) {
     for (const request of rollRequests) {
       let result
 
-      // Handle advantage/disadvantage
       if (request.type === "advantage") {
         result = rollAdvantage(request.notation)
       } else if (request.type === "disadvantage") {
@@ -1153,13 +1278,14 @@ async function processGameCommands(game, character, text) {
         result = rollDice(request.notation)
       }
 
-      // Add roll result as system message
       const rollMessage = {
         id: `msg_${Date.now()}_roll_${Math.random()}`,
         role: "system",
         content:
           formatRoll(result) +
-          (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
+          (request.dc
+            ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}`
+            : ""),
         timestamp: new Date().toISOString(),
         hidden: false,
         metadata: {
@@ -1170,8 +1296,6 @@ async function processGameCommands(game, character, text) {
       }
 
       game.messages.push(rollMessage)
-
-      // Send roll result back to AI for narrative continuation
       await sendRollResultToAI(game, result, request)
     }
   }
@@ -1188,6 +1312,7 @@ async function sendRollResultToAI(game, rollResult, request) {
 }
 
 function buildSystemPrompt(character, game) {
+  const diceProfile = buildDiceProfile(character);
   const modStr = (stat) => {
     const mod = Math.floor((stat - 10) / 2)
     return mod >= 0 ? `+${mod}` : `${mod}`
@@ -1251,13 +1376,31 @@ You MUST use these tags in your narrative. The app parses them in real-time to u
    - Use when player moves to a new area
    - Example: "You enter the LOCATION[Rusty Dragon Inn]"
 
-2. **ROLL[dice|type|DC]** - Request a dice roll from the app
+2. **ROLL[dice|type|DC]** - Request a dice roll from the app (legacy numeric)
    - Format: ROLL[1d20+3|normal|15]
    - dice: Standard notation (1d20+3, 2d6, etc.)
    - type: normal, advantage, or disadvantage
    - DC: Difficulty Class number (optional)
    - Example: "Make a Stealth check: ROLL[1d20+2|normal|12]"
    - The app will roll and show you the result
+
+3. **Semantic ROLL tags (preferred when possible)** - Let the app derive bonuses from the active character:
+   - Skill checks:
+     - Format: ROLL[skill|skill_name|DC]
+     - Example: "ROLL[skill|perception|15]" → uses the character's Perception bonus vs DC 15.
+   - Saving throws:
+     - Format: ROLL[save|ability|DC]
+     - ability: str, dex, con, int, wis, cha (or full names)
+     - Example: "ROLL[save|dex|14]" → Dex save vs DC 14.
+   - Attacks:
+     - Format: ROLL[attack|weapon_or_attack_name|targetAC]
+     - Example: "ROLL[attack|longsword|13]" → uses the character's longsword attack vs AC 13.
+   - Advantage/Disadvantage (optional 4th part):
+     - You MAY append "|advantage" or "|disadvantage" for skill/save/attack:
+       - ROLL[skill|stealth|15|advantage]
+       - ROLL[save|wisdom|14|disadvantage]
+       - ROLL[attack|longbow|15|advantage]
+   - If semantic info cannot be resolved, the app falls back safely and still rolls.
 
 3. **COMBAT_START[description]** - Begin combat encounter
    - Format: COMBAT_START[Two goblins leap from the shadows!]

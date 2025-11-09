@@ -330,7 +330,7 @@ export async function renderGame(state = {}) {
 
   // If no messages, start the game
   if (game.messages.length === 0) {
-    await startGame(game, character)
+    await startGame(game, character, data)
   }
 
   // Update last played timestamp
@@ -338,55 +338,59 @@ export async function renderGame(state = {}) {
   saveData(data)
 }
 
+function renderSingleMessage(msg) {
+  if (msg.hidden) return ""
+
+  let className = "message"
+  if (msg.role === "user") {
+    className += " message-user"
+  } else if (msg.role === "assistant") {
+    className += " message-assistant"
+  } else if (msg.role === "system") {
+    className += " message-system"
+    if (msg.metadata?.diceRoll) className += " message-dice"
+    else if (msg.metadata?.damage) className += " message-damage"
+    else if (msg.metadata?.healing) className += " message-healing"
+    else if (msg.metadata?.combatEvent) className += " message-combat"
+  }
+
+  const cleanContent = stripTags(msg.content || '')
+
+  // Do not render empty assistant messages unless they have dice roll metadata
+  if (msg.role === 'assistant' && !cleanContent.trim() && !msg.metadata?.diceRoll) {
+    return ''
+  }
+
+  const messageHTML = `
+    <div class="${className}" data-msg-id="${msg.id}">
+      <div class="message-content">${parseMarkdown(cleanContent)}</div>
+      ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
+    </div>
+  `
+  return messageHTML
+}
+
+function appendMessage(msg) {
+  const messagesContainer = document.getElementById("messages-container")
+  if (!messagesContainer) return
+
+  const messageHTML = renderSingleMessage(msg)
+  if (!messageHTML) return // Don't append if the message is empty
+
+  const div = document.createElement('div')
+  div.innerHTML = messageHTML
+
+  // Append the new message element(s) from the rendered HTML
+  while (div.firstChild) {
+    messagesContainer.appendChild(div.firstChild)
+  }
+}
+
 function renderMessages(messages) {
   if (messages.length === 0) {
     return '<div class="text-center text-secondary" style="padding: 2rem;">Starting your adventure...</div>'
   }
-
-  return messages
-    .map((msg) => {
-      if (msg.hidden) return ""
-
-      let className = "message"
-      let messageType = ""
-
-      if (msg.role === "user") {
-        className += " message-user"
-        messageType = "player"
-      } else if (msg.role === "assistant") {
-        className += " message-assistant"
-        messageType = "dm"
-      } else if (msg.role === "system") {
-        className += " message-system"
-        // Determine system message type
-        if (msg.metadata?.diceRoll) {
-          className += " message-dice"
-          messageType = "dice"
-        } else if (msg.metadata?.damage) {
-          className += " message-damage"
-          messageType = "damage"
-        } else if (msg.metadata?.healing) {
-          className += " message-healing"
-          messageType = "healing"
-        } else if (msg.metadata?.combatEvent) {
-          className += " message-combat"
-          messageType = "combat"
-        } else {
-          messageType = "system"
-        }
-      }
-
-      // Strip tags from content before displaying
-      const cleanContent = stripTags(msg.content)
-
-      return `
-      <div class="${className}" data-msg-id="${msg.id}">
-        <div class="message-content">${parseMarkdown(cleanContent)}</div>
-        ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
-      </div>
-    `
-    })
-    .join("")
+  return messages.map(renderSingleMessage).join("")
 }
 
 function stripTags(text) {
@@ -441,8 +445,7 @@ function parseMarkdown(text) {
   return html
 }
 
-async function startGame(game, character) {
-  const data = loadData()
+async function startGame(game, character, data) {
   const systemPrompt = buildSystemPrompt(character, game)
 
   const initialMessage = {
@@ -466,9 +469,10 @@ async function startGame(game, character) {
     hidden: true,
   })
 
-  saveData(data)
+  // No need to save here, as the calling function will handle it.
+  // We are passing the modified game object back up the call stack.
 
-  await sendMessage(game, initialMessage.content)
+  await sendMessage(game, initialMessage.content, data)
 }
 
 async function handlePlayerInput() {
@@ -499,6 +503,7 @@ async function handlePlayerInput() {
   }
 
   game.messages.push(userMessage)
+  appendMessage(userMessage) // Append the user's message to the DOM
 
   game.suggestedActions = []
 
@@ -506,45 +511,30 @@ async function handlePlayerInput() {
 
   const messagesContainer = document.getElementById("messages-container")
   if (messagesContainer) {
-    messagesContainer.innerHTML = renderMessages(game.messages)
     messagesContainer.scrollTop = messagesContainer.scrollHeight
   }
 
   updateInputContainer(game)
 
-  // Send to LLM - now game has the user message and will persist through the streaming
-  await sendMessage(game, text)
+  // Send to LLM
+  await sendMessage(game, text, data)
 }
 
-async function sendMessage(game, userText) {
-  const data = loadData()
-  const gameRef = data.games.find((g) => g.id === game.id)
+async function sendMessage(game, userText, data) {
+  const gameRef = game // Use the passed-in game object
   if (!gameRef) {
-    console.error("[v0] Game not found in storage!")
+    console.error("[v0] Game not found!")
     return
   }
 
   const character = data.characters.find((c) => c.id === gameRef.characterId)
 
   try {
-    console.log("[v0] Before API call, message count:", gameRef.messages.length)
-
-    // Filter messages: include all non-hidden messages and all system messages
     const apiMessages = gameRef.messages
-      .filter((m) => !m.hidden || m.role === "system")
-      .map((m) => ({
-        role: m.role,
-        content: typeof m.content === "string" ? m.content : "", // Ensure content is a string
-      }))
-      .filter((m) => m.content.trim().length > 0) // Remove empty messages
 
-    // OpenRouter requires at least one non-system message
-    // If we only have system messages, we need to ensure there's at least a user message
     const hasNonSystemMessage = apiMessages.some((m) => m.role === "user" || m.role === "assistant")
 
     if (!hasNonSystemMessage && apiMessages.length > 0) {
-      // We have system messages but no user/assistant messages
-      // This shouldn't happen in normal flow, but handle it gracefully
       console.error("[v0] Only system messages found, no user/assistant messages")
       throw new Error("Cannot send API request with only system messages")
     }
@@ -554,17 +544,11 @@ async function sendMessage(game, userText) {
       throw new Error("Messages array cannot be empty - check the openrouter docs for chat completions please")
     }
 
-    console.log(
-      "[v0] Sending to API:",
-      apiMessages.length,
-      "messages",
-      apiMessages.map((m) => `${m.role}: ${m.content.substring(0, 50)}...`),
-    )
-
     const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel)
 
     let assistantMessage = ""
     const assistantMsgId = `msg_${Date.now()}`
+    const processedTags = new Set()
 
     gameRef.suggestedActions = []
 
@@ -577,55 +561,37 @@ async function sendMessage(game, userText) {
       hidden: false,
     })
 
-    console.log("[v0] After adding assistant placeholder, message count:", gameRef.messages.length)
-
-    saveData(data)
-
-    // Stream response and process tags in real-time
-    const processedTags = new Set()
-    let chunkCount = 0
-
     for await (const chunk of parseStreamingResponse(response)) {
       const delta = chunk.choices?.[0]?.delta?.content
       if (delta) {
-        chunkCount++
         assistantMessage += delta
-
         gameRef.messages[assistantMsgIndex].content = assistantMessage
 
-        if (chunkCount === 1) {
-          console.log("[v0] First chunk received, re-rendering messages")
-          const messagesContainer = document.getElementById("messages-container")
-          if (messagesContainer) {
-            messagesContainer.innerHTML = renderMessages(gameRef.messages)
-            messagesContainer.scrollTop = messagesContainer.scrollHeight
-          }
-        }
+        const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
 
-        // Process tags as they appear in the stream
-        await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
-
-        // Update UI - only update the streaming message to prevent flashing
-        const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"] .message-content`)
-        if (streamingMsgElement) {
-          const cleanContent = stripTags(assistantMessage)
-          streamingMsgElement.innerHTML = parseMarkdown(cleanContent)
+        if (!streamingMsgElement) {
+          appendMessage(gameRef.messages[assistantMsgIndex])
         } else {
-          // Fallback: full re-render if element not found
-          const messagesContainer = document.getElementById("messages-container")
-          if (messagesContainer) {
-            messagesContainer.innerHTML = renderMessages(gameRef.messages)
-            messagesContainer.scrollTop = messagesContainer.scrollHeight
+          const contentElement = streamingMsgElement.querySelector('.message-content')
+          if (contentElement) {
+            const cleanContent = stripTags(assistantMessage)
+            contentElement.innerHTML = parseMarkdown(cleanContent)
           }
         }
 
-        // Auto-scroll
+        const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
+        if (newMessages.length > 0) {
+          newMessages.forEach(msg => {
+            gameRef.messages.push(msg)
+            appendMessage(msg)
+          })
+        }
+
         const messagesContainer = document.getElementById("messages-container")
         if (messagesContainer) {
           messagesContainer.scrollTop = messagesContainer.scrollHeight
         }
 
-        // Update sidebar if HP or combat state changed
         const gameHeader = document.querySelector(".game-header p")
         if (gameHeader) {
           gameHeader.textContent = gameRef.currentLocation
@@ -636,37 +602,23 @@ async function sendMessage(game, userText) {
     }
 
     await processGameCommands(gameRef, character, assistantMessage)
-
     gameRef.messages[assistantMsgIndex].content = assistantMessage
-
-    console.log("[v0] Streaming complete, final message count:", gameRef.messages.length)
-
     saveData(data)
-
     updateInputContainer(gameRef)
   } catch (error) {
     console.error("[v0] Error sending message:", error)
-
     const errorMessage = error.message || "An unknown error occurred"
-
-    // Add error message to chat so user can see what went wrong
-    gameRef.messages.push({
+    const errorMsg = {
       id: `msg_${Date.now()}_error`,
       role: "system",
       content: `❌ Error: ${errorMessage}`,
       timestamp: new Date().toISOString(),
       hidden: false,
       metadata: { isError: true },
-    })
-
-    saveData(data)
-
-    // Re-render to show error message
-    const messagesContainer = document.getElementById("messages-container")
-    if (messagesContainer) {
-      messagesContainer.innerHTML = renderMessages(gameRef.messages)
-      messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
+    gameRef.messages.push(errorMsg)
+    appendMessage(errorMsg)
+    saveData(data)
   } finally {
     isStreaming = false
     const input = document.getElementById("player-input")
@@ -684,134 +636,134 @@ async function sendMessage(game, userText) {
 
 async function processGameCommandsRealtime(game, character, text, processedTags) {
   // Process tags as they stream in, but only once per tag
-  const data = loadData()
-  let needsUIUpdate = false
+  const newMessages = [];
+  let needsUIUpdate = false;
 
   // Parse location updates
-  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g)
+  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g);
   for (const match of locationMatches) {
-    const tagKey = `location_${match[0]}`
+    const tagKey = `location_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      game.currentLocation = match[1]
-      processedTags.add(tagKey)
+      game.currentLocation = match[1];
+      processedTags.add(tagKey);
     }
   }
 
   // Check for combat start
-  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]+)\]/g)
+  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]+)\]/g);
   for (const match of combatStartMatches) {
-    const tagKey = `combat_start_${match[0]}`
+    const tagKey = `combat_start_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      game.combat.active = true
-      game.combat.round = 1
+      game.combat.active = true;
+      game.combat.round = 1;
 
-      game.messages.push({
+      newMessages.push({
         id: `msg_${Date.now()}_combat`,
         role: "system",
         content: `⚔️ Combat has begun! ${match[1]}`,
         timestamp: new Date().toISOString(),
         hidden: false,
         metadata: { combatEvent: "start" },
-      })
-      processedTags.add(tagKey)
+      });
+      processedTags.add(tagKey);
     }
   }
 
   // Check for combat end
-  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g)
+  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g);
   for (const match of combatEndMatches) {
-    const tagKey = `combat_end_${match[0]}`
+    const tagKey = `combat_end_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      game.combat.active = false
-      game.combat.round = 0
-      game.combat.initiative = []
+      game.combat.active = false;
+      game.combat.round = 0;
+      game.combat.initiative = [];
 
-      game.messages.push({
+      newMessages.push({
         id: `msg_${Date.now()}_combat`,
         role: "system",
         content: `✓ Combat ended: ${match[1]}`,
         timestamp: new Date().toISOString(),
         hidden: false,
         metadata: { combatEvent: "end" },
-      })
-      processedTags.add(tagKey)
+      });
+      processedTags.add(tagKey);
     }
   }
 
   // Check for damage
-  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g)
+  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g);
   for (const match of damageMatches) {
-    const tagKey = `damage_${match[0]}`
+    const tagKey = `damage_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      const target = match[1]
-      const amount = Number.parseInt(match[2])
+      const target = match[1];
+      const amount = Number.parseInt(match[2]);
 
       if (target.toLowerCase() === "player") {
-        const oldHP = game.currentHP
-        game.currentHP = Math.max(0, game.currentHP - amount)
+        const oldHP = game.currentHP;
+        game.currentHP = Math.max(0, game.currentHP - amount);
 
-        game.messages.push({
+        newMessages.push({
           id: `msg_${Date.now()}_damage`,
           role: "system",
           content: `💔 You take ${amount} damage! (${oldHP} → ${game.currentHP} HP)`,
           timestamp: new Date().toISOString(),
           hidden: false,
           metadata: { damage: amount },
-        })
-        processedTags.add(tagKey)
+        });
+        processedTags.add(tagKey);
       }
     }
   }
 
   // Check for healing
-  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g)
+  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g);
   for (const match of healMatches) {
-    const tagKey = `heal_${match[0]}`
+    const tagKey = `heal_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      const target = match[1]
-      const amount = Number.parseInt(match[2])
+      const target = match[1];
+      const amount = Number.parseInt(match[2]);
 
       if (target.toLowerCase() === "player") {
-        const oldHP = game.currentHP
-        game.currentHP = Math.min(character.maxHP, game.currentHP + amount)
-        const actualHealing = game.currentHP - oldHP
+        const oldHP = game.currentHP;
+        game.currentHP = Math.min(character.maxHP, game.currentHP + amount);
+        const actualHealing = game.currentHP - oldHP;
 
-        game.messages.push({
+        newMessages.push({
           id: `msg_${Date.now()}_heal`,
           role: "system",
           content: `💚 You heal ${actualHealing} HP! (${oldHP} → ${game.currentHP} HP)`,
           timestamp: new Date().toISOString(),
           hidden: false,
           metadata: { healing: actualHealing },
-        })
-        processedTags.add(tagKey)
+        });
+        processedTags.add(tagKey);
       }
     }
   }
 
   // Process roll requests
-  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g)
+  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
   for (const match of rollMatches) {
-    const tagKey = `roll_${match[0]}`
+    const tagKey = `roll_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      const parts = match[1].split("|")
+      const parts = match[1].split("|");
       const request = {
         notation: parts[0],
         type: parts[1] || "normal",
         dc: parts[2] ? Number.parseInt(parts[2]) : null,
         fullMatch: match[0],
-      }
+      };
 
-      let result
+      let result;
       if (request.type === "advantage") {
-        result = rollAdvantage(request.notation)
+        result = rollAdvantage(request.notation);
       } else if (request.type === "disadvantage") {
-        result = rollDisadvantage(request.notation)
+        result = rollDisadvantage(request.notation);
       } else {
-        result = rollDice(request.notation)
+        result = rollDice(request.notation);
       }
 
-      game.messages.push({
+      newMessages.push({
         id: `msg_${Date.now()}_roll_${Math.random()}`,
         role: "system",
         content:
@@ -824,31 +776,31 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           dc: request.dc,
           success: request.dc ? result.total >= request.dc : null,
         },
-      })
-      processedTags.add(tagKey)
+      });
+      processedTags.add(tagKey);
     }
   }
 
-  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g)
-  const newActions = []
+  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g);
+  const newActions = [];
   for (const match of actionMatches) {
-    const tagKey = `action_${match[0]}`
+    const tagKey = `action_${match[0]}`;
     if (!processedTags.has(tagKey)) {
-      newActions.push(match[1])
-      processedTags.add(tagKey)
+      newActions.push(match[1]);
+      processedTags.add(tagKey);
     }
   }
 
   if (newActions.length > 0) {
-    game.suggestedActions.push(...newActions)
-    needsUIUpdate = true
+    game.suggestedActions.push(...newActions);
+    needsUIUpdate = true;
   }
 
   if (needsUIUpdate) {
-    updateInputContainer(game)
+    updateInputContainer(game);
   }
 
-  saveData(data)
+  return newMessages;
 }
 
 async function processGameCommands(game, character, text) {

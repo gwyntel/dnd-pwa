@@ -138,21 +138,45 @@ export async function sendChatCompletion(messages, model, options = {}) {
       throw new Error("Messages array cannot be empty")
     }
 
-    // Ensure all messages have required fields
-    const validMessages = messages.map((msg) => {
-      if (!msg.role || !["user", "assistant", "system", "tool"].includes(msg.role)) {
-        console.error("[v0] Invalid message role:", msg)
-        throw new Error("Invalid message role")
-      }
-      if (msg.content === undefined || msg.content === null) {
-        console.error("[v0] Invalid message content:", msg)
-        throw new Error("Invalid message content")
-      }
-      return {
-        role: msg.role,
-        content: String(msg.content), // Ensure content is a string
-      }
-    })
+    // Ensure all messages conform to the OpenRouter/OpenAI schema
+    const validMessages = messages
+      .map((msg) => {
+        const { role, content, name, tool_call_id } = msg
+
+        if (!role || !["user", "assistant", "system", "tool"].includes(role)) {
+          console.error("[v0] Invalid message role:", msg)
+          // Skip invalid message
+          return null
+        }
+
+        if (content === undefined || content === null) {
+          console.error("[v0] Invalid message content:", msg)
+          // Skip invalid message
+          return null
+        }
+
+        const apiMsg = { role }
+
+        if (role === "tool") {
+          if (!tool_call_id) {
+            console.error("[v0] Message with role 'tool' must have a 'tool_call_id'", msg)
+            return null
+          }
+          apiMsg.tool_call_id = tool_call_id
+          apiMsg.content = String(content)
+        } else {
+          // For user, assistant, system
+          // The API supports multi-part content for user roles, but we are only sending strings for now.
+          apiMsg.content = String(content)
+        }
+
+        if (name) {
+          apiMsg.name = name
+        }
+
+        return apiMsg
+      })
+      .filter(Boolean) // Remove any null messages that failed validation
 
     console.log("[v0] Sending payload with", validMessages.length, "messages")
 

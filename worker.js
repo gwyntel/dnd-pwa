@@ -1,46 +1,67 @@
 // Cloudflare Worker for SPA fallback with static assets from ./dist
-// - Serves built assets normally
-// - Falls back to /index.html for any non-asset route (e.g. /auth/callback)
-// Fix: do NOT rewrite /auth/* asset URLs like /auth/assets/*.js|css to index.html;
-// only treat real app routes (no extension and not under /assets) as SPA paths.
+// - Serves built assets normally from ASSETS binding
+// - Falls back to /index.html for client routes (no extension)
+// - Critical: correctly strip `/auth` prefix so asset URLs resolve to built paths.
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Let the Pages/assets handler try first with the original path.
-    const assetResponse = await env.ASSETS.fetch(request);
+    // If we're under /auth, normalize paths so assets and manifest load correctly.
+    // Example:
+    //   /auth/assets/index.js       -> /assets/index.js
+    //   /auth/manifest.json         -> /manifest.json
+    //   /auth/callback?code=...     -> SPA route -> index.html
+    if (url.pathname.startsWith("/auth/")) {
+      const subPath = url.pathname.slice("/auth".length); // keep leading '/' on remainder
 
-    // If it's not a 404, return as-is (correct MIME types for JS/CSS/etc).
+      // Asset or manifest under /auth -> strip /auth and fetch real asset.
+      if (subPath.startsWith("/assets/") || subPath === "/manifest.json" || subPath === "/favicon.ico") {
+        const rewritten = new URL(subPath, request.url);
+        const assetReq = new Request(rewritten.toString(), request);
+        const assetRes = await env.ASSETS.fetch(assetReq);
+        if (assetRes.status !== 404) {
+          return assetRes;
+        }
+        // If not found as asset, fall through to SPA handling below.
+      }
+
+      // For /auth/callback and any other /auth/* path without an extension:
+      // treat as SPA route -> serve index.html so client-side code can run handleAuthCallback().
+      const lastSegment = subPath.split("/").pop() || "";
+      const hasExt = lastSegment.includes(".");
+      if (!hasExt) {
+        const indexUrl = new URL("/", request.url);
+        const indexReq = new Request(indexUrl.toString(), request);
+        return env.ASSETS.fetch(indexReq);
+      }
+      // If it has an extension and wasn't returned above, let it 404 below.
+    }
+
+    // Default behavior for non-/auth paths:
+    // Try to serve the requested path from ASSETS.
+    const assetResponse = await env.ASSETS.fetch(request);
     if (assetResponse.status !== 404) {
       return assetResponse;
     }
 
-    // If 404 from ASSETS, decide whether this should be a SPA route.
+    // If ASSETS returns 404 and this looks like a SPA route (no extension),
+    // fall back to index.html.
     if (isSpaRoute(url.pathname)) {
-      // Serve index.html for SPA routes (e.g. /auth/callback, /characters, etc.)
       const indexUrl = new URL("/", request.url);
       const indexRequest = new Request(indexUrl.toString(), request);
       return env.ASSETS.fetch(indexRequest);
     }
 
-    // Otherwise, return original 404.
+    // Otherwise, return the original 404.
     return assetResponse;
   },
 };
 
 // Treat as SPA route if:
-// - It has no file extension, and
-// - It's not obviously a static asset directory.
+// - It has no file extension (no '.' in last path segment)
 function isSpaRoute(pathname) {
-  // Root is SPA
   if (pathname === "/" || pathname === "") return true;
-
-  // If path looks like it has a file extension, it's not a SPA route
   const lastSegment = pathname.split("/").pop() || "";
-  if (lastSegment.includes(".")) return false;
-
-  // Anything else (no extension) we treat as SPA route
-  // e.g. /auth/callback, /characters, /worlds/123
-  return true;
+  return !lastSegment.includes(".");
 }

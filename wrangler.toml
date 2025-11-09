@@ -3,3 +3,7 @@ compatibility_date = "2025-11-09"
 
 [assets]
 directory = "./dist"
+
+[[routes]]
+pattern = "dnd.gwyn.tel"
+custom_domain = true

@@ -31,7 +31,7 @@ SCHEMA (ALL KEYS REQUIRED):
   "hitDice": string,                 // e.g. "1d10", "5d8"
   "skills": string,                  // SINGLE comma-separated line, e.g. "Athletics, Perception, Stealth"
   "features": string,                // SINGLE comma-separated line, e.g. "Darkvision, Second Wind, Sneak Attack"
-  "backstory": string                // 2-6 sentences plain text
+  "backstory": string                // REQUIRED. 2-6 sentences plain text, not empty
 }
 
 RULES:

@@ -266,35 +266,6 @@ export async function renderGame(state = {}) {
             <p class="text-secondary">${game.currentLocation}</p>
           </div>
 
-          <div class="dice-tray" id="dice-tray">
-            <div class="dice-tray-row">
-              <button class="btn-small dice-btn" data-dice="d20">d20</button>
-              <button class="btn-small dice-btn" data-dice="d12">d12</button>
-              <button class="btn-small dice-btn" data-dice="d10">d10</button>
-              <button class="btn-small dice-btn" data-dice="d8">d8</button>
-              <button class="btn-small dice-btn" data-dice="d6">d6</button>
-              <button class="btn-small dice-btn" data-dice="d4">d4</button>
-            </div>
-            <div class="dice-tray-row">
-              <button class="btn-small adv-toggle" data-mode="normal">Normal</button>
-              <button class="btn-small adv-toggle" data-mode="advantage">Adv</button>
-              <button class="btn-small adv-toggle" data-mode="disadvantage">Dis</button>
-            </div>
-            <div class="dice-tray-row" id="dice-tray-character-actions">
-              <!-- Character-aware quick actions populated at runtime -->
-            </div>
-            <div class="dice-tray-row">
-              <button class="btn-small roll-history-toggle" id="roll-history-toggle" data-visible="1">
-                Hide Roll History
-              </button>
-              <span class="roll-history-label">Recent Rolls</span>
-            </div>
-          </div>
-
-          <div id="roll-history-container" class="roll-history-container">
-            ${renderRollHistory(game.messages)}
-          </div>
-
           <div id="messages-container" class="messages-container">
             ${renderMessages(game.messages)}
           </div>
@@ -332,7 +303,17 @@ export async function renderGame(state = {}) {
           </div>
         </div>
       </div>
+
+      <div class="game-rolls">
+        <div class="card">
+          <h3>Recent Rolls</h3>
+          <div id="roll-history-container" class="roll-history-container">
+            ${renderRollHistory(game.messages)}
+          </div>
+        </div>
+      </div>
     </div>
+
   `
 
   // Auto-scroll to bottom
@@ -358,9 +339,6 @@ export async function renderGame(state = {}) {
       }
     })
   })
-
-  // Dice Tray: wire up buttons after DOM is ready
-  setupDiceTray(game, character, data)
 
   // If no messages, start the game
   if (game.messages.length === 0) {
@@ -411,216 +389,6 @@ function createRollMetadata(extra = {}) {
   return { rollId: id, timestamp, ...extra }
 }
 
-function getActiveAdvMode() {
-  const active = document.querySelector(".adv-toggle.active")
-  return active ? active.getAttribute("data-mode") || "normal" : "normal"
-}
-
-function setupDiceTray(game, character, data) {
-  const diceProfile = character ? buildDiceProfile(character) : null
-
-  // Advantage/Disadvantage toggle buttons
-  document.querySelectorAll(".adv-toggle").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault()
-      document.querySelectorAll(".adv-toggle").forEach((b) => b.classList.remove("active"))
-      btn.classList.add("active")
-    })
-  })
-  // Default to normal
-  const normalBtn = document.querySelector('.adv-toggle[data-mode="normal"]')
-  if (normalBtn) normalBtn.classList.add("active")
-
-  // Generic dice buttons
-  document.querySelectorAll(".dice-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault()
-      if (isStreaming) return
-
-      const die = btn.getAttribute("data-dice")
-      if (!die) return
-
-      const mode = getActiveAdvMode()
-      const notation = `1${die}`
-      let result
-
-      if (mode === "advantage") {
-        result = rollAdvantage(notation)
-      } else if (mode === "disadvantage") {
-        result = rollDisadvantage(notation)
-      } else {
-        result = rollDice(notation)
-      }
-
-      const rollMsg = {
-        id: `msg_${Date.now()}_tray_${die}_${mode}`,
-        role: "system",
-        content: `🎲 ${die.toUpperCase()} (${mode}) → ${formatRoll(result)}`,
-        timestamp: new Date().toISOString(),
-        hidden: false,
-        metadata: {
-          diceRoll: result,
-          source: "dice-tray",
-          die,
-          mode,
-          ...createRollMetadata({ sourceType: "generic" }),
-        },
-      }
-
-      const dataRef = loadData()
-      const gameRef = dataRef.games.find((g) => g.id === currentGameId)
-      if (!gameRef) return
-
-      gameRef.messages.push(rollMsg)
-      saveData(dataRef)
-      appendMessage(rollMsg)
-
-      const messagesContainer = document.getElementById("messages-container")
-      if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight
-      }
-    })
-  })
-
-  // Character-aware quick actions
-  const actionsContainer = document.getElementById("dice-tray-character-actions")
-  if (!actionsContainer || !diceProfile) return
-
-  const skills = Object.keys(diceProfile.skills || {}).slice(0, 4)
-  const saves = Object.keys(diceProfile.saves || {}).slice(0, 2)
-  const attacks = (diceProfile.attacks || []).slice(0, 2)
-
-  const makeBtn = (label, onClick) => {
-    const btn = document.createElement("button")
-    btn.className = "btn-small dice-quick-btn"
-    btn.textContent = label
-    btn.addEventListener("click", (e) => {
-      e.preventDefault()
-      if (isStreaming) return
-      onClick()
-    })
-    return btn
-  }
-
-  skills.forEach((key) => {
-    actionsContainer.appendChild(
-      makeBtn(key, () => {
-        const mode = getActiveAdvMode()
-        const opts =
-          mode === "advantage"
-            ? { advantage: true }
-            : mode === "disadvantage"
-            ? { disadvantage: true }
-            : {}
-        const result = rollSkillCheck(character, key, opts)
-        const msg = {
-          id: `msg_${Date.now()}_tray_skill_${key}`,
-          role: "system",
-          content: `🎲 Skill (${key}): ${formatRoll(result)}`,
-          timestamp: new Date().toISOString(),
-          hidden: false,
-          metadata: {
-            diceRoll: result,
-            type: "skill",
-            key,
-            source: "dice-tray",
-            ...createRollMetadata({ sourceType: "skill" }),
-          },
-        }
-        const dataRef = loadData()
-        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
-        if (!gameRef) return
-        gameRef.messages.push(msg)
-        saveData(dataRef)
-        appendMessage(msg)
-      }),
-    )
-  })
-
-  saves.forEach((key) => {
-    actionsContainer.appendChild(
-      makeBtn(`${key.toUpperCase()} Save`, () => {
-        const mode = getActiveAdvMode()
-        const opts =
-          mode === "advantage"
-            ? { advantage: true }
-            : mode === "disadvantage"
-            ? { disadvantage: true }
-            : {}
-        const result = rollSavingThrow(character, key, opts)
-        const msg = {
-          id: `msg_${Date.now()}_tray_save_${key}`,
-          role: "system",
-          content: `🎲 Save (${key.toUpperCase()}): ${formatRoll(result)}`,
-          timestamp: new Date().toISOString(),
-          hidden: false,
-          metadata: {
-            diceRoll: result,
-            type: "save",
-            key,
-            source: "dice-tray",
-            ...createRollMetadata({ sourceType: "save" }),
-          },
-        }
-        const dataRef = loadData()
-        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
-        if (!gameRef) return
-        gameRef.messages.push(msg)
-        saveData(dataRef)
-        appendMessage(msg)
-      }),
-    )
-  })
-
-  attacks.forEach((attack) => {
-    const label = attack.name || attack.key || "Attack"
-    actionsContainer.appendChild(
-      makeBtn(label, () => {
-        const mode = getActiveAdvMode()
-        const opts =
-          mode === "advantage"
-            ? { advantage: true }
-            : mode === "disadvantage"
-            ? { disadvantage: true }
-            : {}
-        const attackResult = rollAttack(character, label, opts)
-        const toHit = attackResult.toHit
-        const dmg = attackResult.damage
-
-        const parts = [`🎲 Attack (${label}): ${formatRoll(toHit)}`]
-        if (dmg) {
-          parts.push(`💥 Damage: ${formatRoll(dmg)}`)
-        }
-
-        const msg = {
-          id: `msg_${Date.now()}_tray_attack_${label}`,
-          role: "system",
-          content: parts.join(" "),
-          timestamp: new Date().toISOString(),
-          hidden: false,
-          metadata: {
-            diceRoll: {
-              attack: attackResult.attack,
-              toHit,
-              damage: dmg,
-            },
-            type: "attack",
-            key: label,
-            source: "dice-tray",
-            ...createRollMetadata({ sourceType: "attack" }),
-          },
-        }
-
-        const dataRef = loadData()
-        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
-        if (!gameRef) return
-        gameRef.messages.push(msg)
-        saveData(dataRef)
-        appendMessage(msg)
-      }),
-    )
-  })
-}
 
 function appendMessage(msg) {
   const messagesContainer = document.getElementById("messages-container")
@@ -1272,6 +1040,14 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     const parts = match[1].split("|").map((p) => p.trim())
     const kind = (parts[0] || "").toLowerCase()
 
+    console.debug("[dice][ROLL] Parsed tag", {
+      raw: match[0],
+      parts,
+      kind,
+      hasDiceProfile: !!diceProfile,
+      hasCharacter: !!character,
+    })
+
     // Shared helpers
     const parseDC = (raw) => {
       if (!raw) return null
@@ -1288,12 +1064,15 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
     // Semantic: ROLL[skill|...], ROLL[save|...], ROLL[attack|...]
     if ((kind === "skill" || kind === "save" || kind === "attack") && diceProfile && character) {
+      // Semantic handling for skill/save/attack rolls
+      // If this fails, we will log and fall back to legacy numeric handling.
       const key = parts[1] || ""
       const third = parts[2] || ""
       const adv = parseAdv(parts[3])
 
       try {
         if (kind === "skill") {
+          console.debug("[dice][ROLL] Handling semantic skill roll", { key, dc, adv, raw: match[0] })
           const dc = parseDC(third)
           const result = rollSkillCheck(character, key, { dc, ...adv })
           const meta = createRollMetadata({ sourceType: "skill" })
@@ -1319,6 +1098,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           })
         } else if (kind === "save") {
           const dc = parseDC(third)
+          console.debug("[dice][ROLL] Handling semantic save roll", { key, dc, adv, raw: match[0] })
           const result = rollSavingThrow(character, key, { dc, ...adv })
           const meta = createRollMetadata({ sourceType: "save" })
           newMessages.push({
@@ -1343,6 +1123,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           })
         } else if (kind === "attack") {
           const targetAC = parseDC(third)
+          console.debug("[dice][ROLL] Handling semantic attack roll", { key, targetAC, adv, raw: match[0] })
           const attackResult = rollAttack(character, key, { targetAC, ...adv })
           const toHit = attackResult.toHit
           const dmg = attackResult.damage
@@ -1384,8 +1165,15 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         processedTags.add(tagKey)
         continue // semantic handled, skip numeric fallback
       } catch (e) {
-        console.warn("Semantic ROLL tag failed, falling back to numeric:", e)
-        // fall through to legacy numeric handling
+        console.warn("[dice][ROLL] Semantic ROLL tag failed, skipping legacy fallback for semantic tag", {
+          raw: match[0],
+          parts,
+          kind,
+          error: e?.message || String(e),
+        })
+        // Prevent invalid legacy calls like rollDice("skill")
+        processedTags.add(tagKey)
+        continue
       }
     }
 
@@ -1395,6 +1183,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       type: parts[1] || "normal",
       dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
     }
+
+    console.debug("[dice][ROLL] Using legacy numeric ROLL handling", {
+      raw: match[0],
+      parts,
+      request,
+    })
 
     let result
     if (request.type === "advantage") {
@@ -1723,7 +1517,13 @@ async function processGameCommands(game, character, text) {
 
   // Process roll requests - legacy numeric ROLL[...] only.
   // Semantic ROLL tags are handled in processGameCommandsRealtime during streaming.
-  const rollRequests = parseRollRequests(text)
+  // Legacy numeric-only fallback:
+  // Ignore semantic-style tags (skill/save/attack) here; they are handled in processGameCommandsRealtime.
+  const rollRequests = parseRollRequests(text).filter((request) => {
+    const head = (request.notation || "").toLowerCase().trim()
+    return head !== "skill" && head !== "save" && head !== "attack"
+  })
+
   if (rollRequests.length > 0) {
     for (const request of rollRequests) {
       let result
@@ -1835,6 +1635,31 @@ ${character.spells && character.spells.length > 0 ? `- Spells: ${character.spell
 **CRITICAL - Structured Output Tags (MUST USE EXACT FORMAT):**
 
 You MUST use these tags in your narrative. The app parses them in real-time to update game state and to perform all dice rolls LOCALLY.
+
+**IMPORTANT TURN STRUCTURE FOR DICE ROLLS (TWO-STEP FLOW):**
+
+When you need a dice roll (attack, check, save, etc.):
+
+1. In your current reply:
+   - Describe the setup for the roll.
+   - Emit the appropriate ROLL[...] tag(s) and then END YOUR MESSAGE.
+   - Do NOT describe the outcome of that roll yet.
+   - Do NOT assume success or failure.
+   - Example:
+     - "The goblin looses an arrow at you. ROLL[save|dex|14]"
+     - "You creep forward, trying not to be seen. ROLL[skill|stealth|15]"
+
+2. The app will:
+   - Perform the roll locally.
+   - Show the result as a system message to both you and the player.
+
+3. On your NEXT reply (after seeing the system roll result):
+   - Continue the narrative based on the actual roll outcome.
+   - You may then include new tags (e.g. DAMAGE, HEAL, COMBAT_START/END, ACTION suggestions, or another ROLL[...]).
+
+Never combine:
+- A ROLL[...] tag and its resolved consequences in the same message.
+- Always wait for the app’s roll result before narrating the outcome.
 
 1. **LOCATION[location_name]** - Update current location
    - Format: LOCATION[Tavern] or LOCATION[Dark Forest Path]

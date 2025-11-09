@@ -26,13 +26,22 @@
  */
 export function parseNotation(notation) {
   if (typeof notation !== "string") {
+    console.error("[dice] parseNotation called with non-string notation", { notation });
     throw new Error(`Invalid dice notation: ${notation}`);
   }
 
   const trimmed = notation.trim();
+
+  // Guard against semantic keywords accidentally reaching numeric parser
+  if (/^(skill|save|attack)$/i.test(trimmed)) {
+    console.error("[dice] parseNotation received semantic keyword instead of numeric notation", { notation });
+    throw new Error(`Invalid dice notation: ${notation}`);
+  }
+
   const match = trimmed.match(/^(\d+)d(\d+)([+-]\d+)?$/i);
 
   if (!match) {
+    console.error("[dice] parseNotation failed to match notation", { notation });
     throw new Error(`Invalid dice notation: ${notation}`);
   }
 
@@ -138,6 +147,8 @@ function detectCrit(result) {
  * }
  */
 export function roll(input) {
+  // Centralized logging for invalid inputs happens either here or in parseNotation.
+  // Valid numeric inputs should not log in normal operation.
   let count;
   let sides;
   let modifier;

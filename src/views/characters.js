@@ -7,6 +7,8 @@ import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { isAuthenticated } from "../utils/auth.js"
+import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
+import { CHARACTER_LLM_SYSTEM_PROMPT } from "./characterPrompts.js"
 
 export function renderCharacters() {
   const app = document.getElementById("app")
@@ -67,6 +69,7 @@ function renderEmptyState() {
       <p class="text-secondary mb-3">Create your first character to begin your adventure!</p>
       <div class="flex gap-2 justify-center" style="flex-wrap: wrap;">
         <a href="/characters/new" id="from-scratch-link" class="btn">Create with AI or From Scratch</a>
+        <a href="/characters/templates" id="template-link" class="btn-secondary">Browse Templates</a>
       </div>
     </div>
   `
@@ -126,8 +129,42 @@ export function renderCharacterCreator(state = {}) {
   const isEdit = state.params?.id
   const character = isEdit ? data.characters.find((c) => c.id === state.params.id) : null
 
+  // Support starting from a template via /characters/new?template=template_id
+  let initialTemplate = null
+  if (!isEdit && !character) {
+    const url = new URL(window.location.href)
+    const templateId = url.searchParams.get("template")
+    if (templateId) {
+      const fromShared = BEGINNER_TEMPLATES.find((t) => t.id === templateId)
+      const fromData = (data.characterTemplates || []).find((t) => t.id === templateId)
+      const t = fromShared || fromData
+      if (t) {
+        initialTemplate = {
+          name: t.name,
+          race: t.race,
+          class: t.class,
+          level: t.level,
+          stats: t.stats,
+          maxHP: t.maxHP,
+          armorClass: t.armorClass,
+          proficiencyBonus: 2,
+          speed: t.speed || 30,
+          hitDice: t.hitDice || "1d10",
+          savingThrows: [],
+          skills: t.skills || [],
+          proficiencies: { armor: [], weapons: [], tools: [] },
+          features: t.keyAbilities || t.features || [],
+          spells: [],
+          inventory: t.inventory || [],
+          backstory: t.backstory || "",
+          fromTemplate: t.name,
+        }
+      }
+    }
+  }
+
   // Initialize form data
-  const formData = character || {
+  const formData = character || initialTemplate || {
     name: "",
     race: "Human",
     class: "Fighter",
@@ -182,9 +219,9 @@ export function renderCharacterCreator(state = {}) {
         !isEdit
           ? `
         <div class="card" style="margin-bottom: 1.5rem;">
-          <h2 style="margin-top: 0;">Quick Start or AI-Assisted Character</h2>
+          <h2 style="margin-top: 0;">Create with AI or From Scratch</h2>
           <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 0.75rem;">
-            Start with an AI-generated hero, pick a beginner-friendly template, or build completely from scratch.
+            Describe your character or leave blank for a random hero. Edit everything before saving.
           </p>
           <label for="ai-random-prompt" style="display:block; margin-bottom:0.35rem; font-weight:500;">
             Describe your character idea (optional)
@@ -206,7 +243,7 @@ export function renderCharacterCreator(state = {}) {
           : ""
       }
       
-      ${!isEdit && !creationMode ? renderCreationOptions(data.characterTemplates) : ""}
+      ${""}
       
       <div class="card">
         <form id="character-form">
@@ -486,64 +523,7 @@ export function renderCharacterCreator(state = {}) {
 }
 
 async function generateCharacterWithLLM(userPrompt = "") {
-  const systemPrompt = `You are a D&D 5e character generator.
-
-Your job:
-- Take the user's idea (if provided) and generate a complete, valid D&D 5e character.
-- Always return a single JSON object that matches the schema below.
-- Do NOT include markdown, comments, code fences, or any extra text. Return ONLY raw JSON.
-- If you invent a custom race or class name, you MUST still fill all fields; it will be treated as a custom option in the UI.
-
-JSON SCHEMA (MUST follow exactly):
-
-{
-  "name": string,                         // Character name
-  "race": string,                         // Prefer one of:
-                                          // "Human","Elf","Dwarf","Halfling","Dragonborn",
-                                          // "Gnome","Half-Elf","Half-Orc","Tiefling"
-                                          // BUT you MAY output a custom race name if strongly implied.
-  "class": string,                        // Prefer one of:
-                                          // "Fighter","Wizard","Rogue","Cleric","Barbarian",
-                                          // "Bard","Druid","Monk","Paladin","Ranger",
-                                          // "Sorcerer","Warlock"
-                                          // BUT you MAY output a custom class name if strongly implied.
-  "level": number,                        // 1-20. Prefer 1-10 unless the user specifies otherwise.
-  "stats": {
-    "strength": number,                   // 3-20
-    "dexterity": number,                  // 3-20
-    "constitution": number,               // 3-20
-    "intelligence": number,               // 3-20
-    "wisdom": number,                     // 3-20
-    "charisma": number                    // 3-20
-  },
-  "maxHP": number,                        // Consistent with class + level + CON
-  "armorClass": number,                   // Typically 10-20
-  "speed": number,                        // Typically 25-35
-  "hitDice": string,                      // ONE of:
-                                          // "1d4","1d6","1d8","1d10","1d12",
-                                          // "2d4","2d6","2d8","2d10","2d12"
-  "skills": string[],                     // MUST be an array with at least 3 entries.
-                                          // Use 5e skills or close variants, e.g.:
-                                          // "Athletics","Acrobatics","Sleight of Hand","Stealth",
-                                          // "Arcana","History","Investigation","Nature","Religion",
-                                          // "Animal Handling","Insight","Medicine","Perception",
-                                          // "Survival","Deception","Intimidation","Performance","Persuasion"
-  "features": string[],                   // MUST be an array with at least 2 entries.
-                                          // Use concrete feature-like entries, e.g.:
-                                          // "Darkvision","Second Wind","Sneak Attack","Rage",
-                                          // "Lay on Hands","Divine Sense","Spellcasting","Cunning Action"
-  "backstory": string                     // 2-5 sentences of flavorful background
-}
-
-Rules:
-- Always include ALL top-level fields shown above.
-- Always include the full "stats" object with all six abilities.
-- "skills" MUST be a non-empty array (ideally 3-8 items) describing proficiencies or specialties.
-- "features" MUST be a non-empty array (ideally 2-8 items) describing class/race/unique traits.
-- "hitDice" MUST be one of the listed dice strings.
-- Chosen values MUST be internally consistent (race/class/level/stats/HP/AC/speed/hitDice/story).
-- If the user prompt includes specifics (race, class, level, abilities, theme, tone, or constraints), you MUST respect them.
-- Output MUST be valid JSON: double quotes for keys/strings, no trailing commas, no comments, no extra text.`
+  const systemPrompt = CHARACTER_LLM_SYSTEM_PROMPT
 
   try {
     const messages = [
@@ -628,183 +608,11 @@ Rules:
 }
 
 function applyTemplate(templateId) {
-  // First try: built-in suggested templates defined in renderCreationOptions
-  const builtInTemplates = {
-    template_knight: {
-      id: "template_knight",
-      name: "Brave Knight",
-      race: "Human",
-      class: "Fighter",
-      level: 1,
-      stats: {
-        strength: 16,
-        dexterity: 12,
-        constitution: 14,
-        intelligence: 8,
-        wisdom: 10,
-        charisma: 10,
-      },
-      maxHP: 12,
-      armorClass: 16,
-      speed: 30,
-      hitDice: "1d10",
-      skills: ["Athletics", "Intimidation"],
-      features: ["Second Wind", "Fighting Style"],
-      backstory:
-        "You trained in the city guard and now seek adventure to prove your worth as a true warrior.",
-      fromTemplate: "Brave Knight",
-    },
-    template_rogue: {
-      id: "template_rogue",
-      name: "Cunning Rogue",
-      race: "Halfling",
-      class: "Rogue",
-      level: 1,
-      stats: {
-        strength: 8,
-        dexterity: 16,
-        constitution: 12,
-        intelligence: 12,
-        wisdom: 10,
-        charisma: 14,
-      },
-      maxHP: 9,
-      armorClass: 14,
-      speed: 30,
-      hitDice: "1d8",
-      skills: ["Stealth", "Sleight of Hand", "Perception", "Deception"],
-      features: ["Sneak Attack", "Thieves' Cant"],
-      backstory:
-        "You grew up on the streets, using quick wits and quicker hands to survive. Now you sell your talents to the highest bidder.",
-      fromTemplate: "Cunning Rogue",
-    },
-    template_cleric: {
-      id: "template_cleric",
-      name: "Wise Cleric",
-      race: "Dwarf",
-      class: "Cleric",
-      level: 1,
-      stats: {
-        strength: 12,
-        dexterity: 10,
-        constitution: 14,
-        intelligence: 8,
-        wisdom: 16,
-        charisma: 10,
-      },
-      maxHP: 10,
-      armorClass: 18,
-      speed: 25,
-      hitDice: "1d8",
-      skills: ["Medicine", "Insight", "Religion"],
-      features: ["Spellcasting", "Channel Divinity"],
-      backstory:
-        "You served faithfully at your temple, called now to bring your deity's light to dark places.",
-      fromTemplate: "Wise Cleric",
-    },
-    template_wizard: {
-      id: "template_wizard",
-      name: "Mysterious Wizard",
-      race: "High Elf",
-      class: "Wizard",
-      level: 1,
-      stats: {
-        strength: 8,
-        dexterity: 14,
-        constitution: 12,
-        intelligence: 16,
-        wisdom: 12,
-        charisma: 8,
-      },
-      maxHP: 7,
-      armorClass: 12,
-      speed: 30,
-      hitDice: "1d6",
-      skills: ["Arcana", "Investigation", "History"],
-      features: ["Spellcasting", "Arcane Recovery"],
-      backstory:
-        "You delved too deep into forbidden tomes, now driven to test your theories on the open road.",
-      fromTemplate: "Mysterious Wizard",
-    },
-    template_ranger: {
-      id: "template_ranger",
-      name: "Wild Ranger",
-      race: "Wood Elf",
-      class: "Ranger",
-      level: 1,
-      stats: {
-        strength: 12,
-        dexterity: 16,
-        constitution: 13,
-        intelligence: 10,
-        wisdom: 14,
-        charisma: 8,
-      },
-      maxHP: 11,
-      armorClass: 15,
-      speed: 35,
-      hitDice: "1d10",
-      skills: ["Survival", "Nature", "Stealth", "Animal Handling"],
-      features: ["Favored Enemy", "Natural Explorer"],
-      backstory:
-        "You have walked the deep forests since childhood, guiding travelers and hunting those who would harm the wild.",
-      fromTemplate: "Wild Ranger",
-    },
-    template_bard: {
-      id: "template_bard",
-      name: "Charming Bard",
-      race: "Half-Elf",
-      class: "Bard",
-      level: 1,
-      stats: {
-        strength: 8,
-        dexterity: 14,
-        constitution: 12,
-        intelligence: 10,
-        wisdom: 10,
-        charisma: 16,
-      },
-      maxHP: 9,
-      armorClass: 14,
-      speed: 30,
-      hitDice: "1d8",
-      skills: ["Persuasion", "Performance", "Deception", "Insight"],
-      features: ["Bardic Inspiration", "Jack of All Trades"],
-      backstory:
-        "You left home to chase stories, fame, and forbidden verses—your songs hide half-truths and rumors.",
-      fromTemplate: "Charming Bard",
-    },
-    template_barbarian: {
-      id: "template_barbarian",
-      name: "Tough Barbarian",
-      race: "Half-Orc",
-      class: "Barbarian",
-      level: 1,
-      stats: {
-        strength: 16,
-        dexterity: 12,
-        constitution: 16,
-        intelligence: 8,
-        wisdom: 10,
-        charisma: 8,
-      },
-      maxHP: 15,
-      armorClass: 14,
-      speed: 30,
-      hitDice: "1d12",
-      skills: ["Athletics", "Intimidation", "Survival"],
-      features: ["Rage", "Unarmored Defense"],
-      backstory:
-        "You proved your might in brutal tribal trials, now seeking greater foes to test your rage.",
-      fromTemplate: "Tough Barbarian",
-    },
-  }
-
+  // Look up from shared templates module (BEGINNER_TEMPLATES) or any stored templates in data
   const data = loadData()
-  const templateFromBuiltIns = builtInTemplates[templateId]
-  const template =
-    templateFromBuiltIns ||
-    (data.characterTemplates || []).find((t) => t.id === templateId)
+  const templateFromShared = BEGINNER_TEMPLATES.find((t) => t.id === templateId)
+  const templateFromData = (data.characterTemplates || []).find((t) => t.id === templateId)
+  const template = templateFromShared || templateFromData
 
   if (!template) return
 
@@ -935,199 +743,9 @@ function escapeHtml(text) {
   return div.innerHTML
 }
 
-function renderCreationOptions(existingTemplates = []) {
-  const templates = [
-    {
-      id: "template_knight",
-      name: "Brave Knight",
-      tagline: "Master of sword and shield, protector of the innocent",
-      class: "Fighter",
-      race: "Human",
-      level: 1,
-      difficulty: "beginner",
-      role: "Tank / Damage",
-      bestFor: ["Combat", "Beginners", "Protecting Others"],
-      icon: "⚔️",
-      stats: { strength: 16, dexterity: 12, constitution: 14, intelligence: 8, wisdom: 10, charisma: 10 },
-      maxHP: 12,
-      armorClass: 16,
-      skills: ["Athletics", "Intimidation"],
-      inventory: [
-        { item: "Longsword", equipped: true },
-        { item: "Shield", equipped: true },
-        { item: "Chain Mail", equipped: true },
-        { item: "Adventurer's Pack", equipped: false },
-      ],
-      backstory:
-        "You trained in the city guard and now seek adventure to prove your worth as a true warrior.",
-      playstyleDesc:
-        "Get close, draw aggro, and protect allies. Straightforward melee tank and damage dealer.",
-      keyAbilities: ["Second Wind - Heal yourself once per rest", "Fighting Style - Defense or Dueling"],
-    },
-    {
-      id: "template_rogue",
-      name: "Cunning Rogue",
-      tagline: "Sneaky, clever, and deadly when unseen",
-      class: "Rogue",
-      race: "Halfling",
-      level: 1,
-      difficulty: "beginner",
-      role: "Skirmisher / Skill Monkey",
-      bestFor: ["Stealth", "Traps", "Clever Play"],
-      icon: "🗡️",
-      stats: { strength: 8, dexterity: 16, constitution: 12, intelligence: 12, wisdom: 10, charisma: 14 },
-      maxHP: 9,
-      armorClass: 14,
-      skills: ["Stealth", "Sleight of Hand", "Perception", "Deception"],
-      inventory: [
-        { item: "Shortsword", equipped: true },
-        { item: "Dagger", equipped: true },
-        { item: "Leather Armor", equipped: true },
-        { item: "Thieves' Tools", equipped: false },
-      ],
-      backstory:
-        "You grew up on the streets, using quick wits and quicker hands to survive. Now you sell your talents to the highest bidder.",
-      playstyleDesc:
-        "Flank enemies, use Sneak Attack, and handle traps and locks. Great for players who enjoy outsmarting opponents.",
-      keyAbilities: ["Sneak Attack", "Thieves' Cant"],
-    },
-    {
-      id: "template_cleric",
-      name: "Wise Cleric",
-      tagline: "Shield of faith and steel, guardian of allies",
-      class: "Cleric",
-      race: "Dwarf",
-      level: 1,
-      difficulty: "beginner",
-      role: "Support / Off-Tank",
-      bestFor: ["Healing", "Team Support", "New Players"],
-      icon: "⛨",
-      stats: { strength: 12, dexterity: 10, constitution: 14, intelligence: 8, wisdom: 16, charisma: 10 },
-      maxHP: 10,
-      armorClass: 18,
-      skills: ["Medicine", "Insight", "Religion"],
-      inventory: [
-        { item: "Mace", equipped: true },
-        { item: "Shield", equipped: true },
-        { item: "Chain Mail", equipped: true },
-        { item: "Holy Symbol", equipped: false },
-        { item: "Healer's Kit", equipped: false },
-      ],
-      backstory:
-        "You served faithfully at your temple, called now to bring your deity's light to dark places.",
-      playstyleDesc:
-        "Heal allies, bless the party, and hold the line in armor. Very forgiving and impactful.",
-      keyAbilities: ["Spellcasting", "Channel Divinity / Turn Undead"],
-    },
-    {
-      id: "template_wizard",
-      name: "Mysterious Wizard",
-      tagline: "Scholar of the arcane, master of reality's threads",
-      class: "Wizard",
-      race: "High Elf",
-      level: 1,
-      difficulty: "intermediate",
-      role: "Controller / Blaster",
-      bestFor: ["Tactical Play", "Creative Problem Solving"],
-      icon: "📖",
-      stats: { strength: 8, dexterity: 14, constitution: 12, intelligence: 16, wisdom: 12, charisma: 8 },
-      maxHP: 7,
-      armorClass: 12,
-      skills: ["Arcana", "Investigation", "History"],
-      inventory: [
-        { item: "Quarterstaff", equipped: true },
-        { item: "Spellbook", equipped: false },
-        { item: "Component Pouch", equipped: false },
-        { item: "Scholar's Pack", equipped: false },
-      ],
-      backstory:
-        "You delved too deep into forbidden tomes, now driven to test your theories on the open road.",
-      playstyleDesc:
-        "Fragile but powerful caster. Control the battlefield and solve problems with spells.",
-      keyAbilities: ["Spellcasting", "Arcane Recovery"],
-    },
-    {
-      id: "template_ranger",
-      name: "Wild Ranger",
-      tagline: "Tracker, hunter, and master of the wilds",
-      class: "Ranger",
-      race: "Wood Elf",
-      level: 1,
-      difficulty: "intermediate",
-      role: "Ranged / Scout",
-      bestFor: ["Exploration", "Archery", "Nature Lovers"],
-      icon: "🏹",
-      stats: { strength: 12, dexterity: 16, constitution: 13, intelligence: 10, wisdom: 14, charisma: 8 },
-      maxHP: 11,
-      armorClass: 15,
-      skills: ["Survival", "Nature", "Stealth", "Animal Handling"],
-      inventory: [
-        { item: "Longbow", equipped: true },
-        { item: "Shortsword", equipped: true },
-        { item: "Leather Armor", equipped: true },
-        { item: "Explorer's Pack", equipped: false },
-      ],
-      backstory:
-        "You have walked the deep forests since childhood, guiding travelers and hunting those who would harm the wild.",
-      playstyleDesc:
-        "Stay at range, support the party with scouting and tracking, and pick off enemies with precision.",
-      keyAbilities: ["Favored Enemy (or equivalent)", "Natural Explorer"],
-    },
-    {
-      id: "template_bard",
-      name: "Charming Bard",
-      tagline: "Silver tongue, sharp wit, and inspiring song",
-      class: "Bard",
-      race: "Half-Elf",
-      level: 1,
-      difficulty: "intermediate",
-      role: "Support / Face",
-      bestFor: ["Roleplay", "Buffing Allies", "Social Encounters"],
-      icon: "🎵",
-      stats: { strength: 8, dexterity: 14, constitution: 12, intelligence: 10, wisdom: 10, charisma: 16 },
-      maxHP: 9,
-      armorClass: 14,
-      skills: ["Persuasion", "Performance", "Deception", "Insight"],
-      inventory: [
-        { item: "Rapier", equipped: true },
-        { item: "Lute", equipped: false },
-        { item: "Leather Armor", equipped: true },
-        { item: "Diplomat's Pack", equipped: false },
-      ],
-      backstory:
-        "You left home to chase stories, fame, and forbidden verses—your songs hide half-truths and rumors.",
-      playstyleDesc:
-        "Control conversations, inspire allies, and provide utility. Great for players who love talking and scheming.",
-      keyAbilities: ["Bardic Inspiration", "Jack of All Trades"],
-    },
-    {
-      id: "template_barbarian",
-      name: "Tough Barbarian",
-      tagline: "Raging warrior who refuses to fall",
-      class: "Barbarian",
-      race: "Half-Orc",
-      level: 1,
-      difficulty: "beginner",
-      role: "Frontline / Damage",
-      bestFor: ["Maximum Simplicity", "Hit Things Hard"],
-      icon: "🪓",
-      stats: { strength: 16, dexterity: 12, constitution: 16, intelligence: 8, wisdom: 10, charisma: 8 },
-      maxHP: 15,
-      armorClass: 14,
-      skills: ["Athletics", "Intimidation", "Survival"],
-      inventory: [
-        { item: "Greataxe", equipped: true },
-        { item: "Javelins", equipped: false },
-        { item: "Hide Armor", equipped: true },
-        { item: "Explorer's Pack", equipped: false },
-      ],
-      backstory:
-        "You proved your might in brutal tribal trials, now seeking greater foes to test your rage.",
-      playstyleDesc:
-        "Point at enemy. Rage. Run forward. Hit. Very hard to kill; ideal for new players.",
-      keyAbilities: ["Rage", "Unarmored Defense"],
-    },
-  ]
+function renderCreationOptions() {
+  // Deprecated in this view: templates are now displayed on a dedicated Templates page.
+  return ""
 
   return `
     <div class="mb-3">

@@ -9,7 +9,7 @@ import { renderHome } from "./views/home.js"
 import { renderSettings } from "./views/settings.js"
 import { renderModels } from "./views/models.js"
 import { renderCharacters, renderCharacterCreator } from "./views/characters.js"
-import { renderTemplates } from "./views/templates.js"
+import { renderCharacterTemplatesView } from "./views/characterTemplatesView.js"
 import { renderGameList, renderGame } from "./views/game.js"
 import { renderWorlds } from "./views/worlds.js"
 import {
@@ -50,10 +50,8 @@ function init() {
   registerRoute("/models", renderModels)
   registerRoute("/worlds", renderWorlds)
   registerRoute("/characters", renderCharacters)
-  registerRoute("/characters/templates", renderTemplates)
+  registerRoute("/characters/templates", renderCharacterTemplatesView)
   registerRoute("/characters/new", handleNewCharacter)
-  registerRoute("/characters/new/from-scratch", handleNewCharacterScratch)
-  registerRoute("/characters/new/random", handleNewCharacterRandom)
   registerRoute("/characters/edit/:id", renderCharacterCreator)
   registerRoute("/game/new", renderGameList)
   registerRoute("/game/:id", renderGame)
@@ -174,22 +172,9 @@ function handleNewCharacter(state) {
 }
 
 /**
- * Handle new character from scratch route
+ * Legacy routes for from-scratch / random are now folded into unified creator.
+ * They can be reintroduced here if old links must be supported.
  */
-function handleNewCharacterScratch(state) {
-  state.creationMode = "scratch"
-  renderCharacterCreator(state)
-}
-
-/**
- * Handle new character random generation route
- */
-async function handleNewCharacterRandom(state) {
-  // Only set up the page in "random" mode.
-  // Actual generation is triggered explicitly by the user via the UI button.
-  state.creationMode = "random"
-  renderCharacterCreator(state)
-}
 
 // Start the app when DOM is ready
 if (document.readyState === "loading") {

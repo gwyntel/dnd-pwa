@@ -480,3 +480,204 @@ nav a:hover {
   transition-duration: 0.2s;
   transition-timing-function: ease;
 }
+
+/* Game Layout */
+.game-container {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  height: calc(100vh - 60px);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.game-sidebar {
+  overflow-y: auto;
+}
+
+.game-main {
+  overflow: hidden;
+}
+
+.game-header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+.game-header h2 {
+  margin-bottom: 0.25rem;
+}
+
+/* Messages Container */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  min-height: 400px;
+}
+
+.message {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-user {
+  background-color: var(--accent-color);
+  color: white;
+  margin-left: 2rem;
+}
+
+.message-assistant {
+  background-color: var(--bg-tertiary);
+  margin-right: 2rem;
+}
+
+.message-system {
+  background-color: var(--bg-secondary);
+  border-left: 3px solid var(--accent-color);
+  font-style: italic;
+  text-align: center;
+}
+
+.message-content {
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.dice-result {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* Input Container */
+.input-container {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Character Stats */
+.stat-bar {
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success-color), var(--accent-color));
+  transition: width 0.3s ease;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 0.5rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.combat-indicator {
+  padding: 1rem;
+  background-color: var(--error-color);
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Template Cards */
+.template-card {
+  transition: all 0.2s ease;
+}
+
+.template-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-strong);
+  border: 2px solid var(--accent-color);
+}
+
+/* Responsive Game Layout */
+@media (max-width: 968px) {
+  .game-container {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  
+  .game-sidebar {
+    order: 2;
+  }
+  
+  .game-main {
+    order: 1;
+    min-height: 500px;
+  }
+  
+  .messages-container {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .message-user {
+    margin-left: 0.5rem;
+  }
+  
+  .message-assistant {
+    margin-right: 0.5rem;
+  }
+}

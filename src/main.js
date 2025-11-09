@@ -8,6 +8,8 @@ import { initRouter, registerRoute } from './router.js';
 import { renderHome } from './views/home.js';
 import { renderSettings } from './views/settings.js';
 import { renderModels } from './views/models.js';
+import { renderCharacters, renderCharacterCreator } from './views/characters.js';
+import { renderGameList, renderGame } from './views/game.js';
 import { startAuth, handleAuthCallback, setApiKey, isAuthenticated } from './utils/auth.js';
 import { loadData } from './utils/storage.js';
 
@@ -25,6 +27,11 @@ function init() {
   registerRoute('/', handleHome);
   registerRoute('/settings', renderSettings);
   registerRoute('/models', renderModels);
+  registerRoute('/characters', renderCharacters);
+  registerRoute('/characters/new', renderCharacterCreator);
+  registerRoute('/characters/edit/:id', renderCharacterCreator);
+  registerRoute('/game/new', renderGameList);
+  registerRoute('/game/:id', renderGame);
   registerRoute('/auth/callback', handleAuthCallbackRoute);
   
   // Initialize router

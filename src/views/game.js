@@ -420,7 +420,9 @@ async function sendMessage(game, userText) {
       hidden: false
     });
     
-    // Stream response
+    // Stream response and process tags in real-time
+    let processedTags = new Set(); // Track which tags we've already processed
+    
     for await (const chunk of parseStreamingResponse(response)) {
       const delta = chunk.choices?.[0]?.delta?.content;
       if (delta) {
@@ -430,6 +432,9 @@ async function sendMessage(game, userText) {
         const msgIndex = game.messages.findIndex(m => m.id === assistantMsgId);
         game.messages[msgIndex].content = assistantMessage;
         
+        // Process tags as they appear in the stream
+        await processGameCommandsRealtime(game, character, assistantMessage, processedTags);
+        
         // Update UI
         const messagesContainer = document.getElementById('messages-container');
         if (messagesContainer) {
@@ -437,11 +442,17 @@ async function sendMessage(game, userText) {
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
         
+        // Update sidebar if HP or combat state changed
+        const gameHeader = document.querySelector('.game-header p');
+        if (gameHeader) {
+          gameHeader.textContent = game.currentLocation;
+        }
+        
         debouncedSave(data, 100);
       }
     }
     
-    // Process special commands in response
+    // Final processing to catch any remaining tags
     await processGameCommands(game, character, assistantMessage);
     
     saveData(data);
@@ -459,9 +470,157 @@ async function sendMessage(game, userText) {
   }
 }
 
+async function processGameCommandsRealtime(game, character, text, processedTags) {
+  // Process tags as they stream in, but only once per tag
+  const data = loadData();
+  
+  // Parse location updates
+  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g);
+  for (const match of locationMatches) {
+    const tagKey = `location_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      game.currentLocation = match[1];
+      processedTags.add(tagKey);
+    }
+  }
+  
+  // Check for combat start
+  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]+)\]/g);
+  for (const match of combatStartMatches) {
+    const tagKey = `combat_start_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      game.combat.active = true;
+      game.combat.round = 1;
+      
+      game.messages.push({
+        id: `msg_${Date.now()}_combat`,
+        role: 'system',
+        content: `⚔️ Combat has begun! ${match[1]}`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { combatEvent: 'start' }
+      });
+      processedTags.add(tagKey);
+    }
+  }
+  
+  // Check for combat end
+  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g);
+  for (const match of combatEndMatches) {
+    const tagKey = `combat_end_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      game.combat.active = false;
+      game.combat.round = 0;
+      game.combat.initiative = [];
+      
+      game.messages.push({
+        id: `msg_${Date.now()}_combat`,
+        role: 'system',
+        content: `✓ Combat ended: ${match[1]}`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { combatEvent: 'end' }
+      });
+      processedTags.add(tagKey);
+    }
+  }
+  
+  // Check for damage
+  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g);
+  for (const match of damageMatches) {
+    const tagKey = `damage_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const target = match[1];
+      const amount = parseInt(match[2]);
+      
+      if (target.toLowerCase() === 'player') {
+        const oldHP = game.currentHP;
+        game.currentHP = Math.max(0, game.currentHP - amount);
+        
+        game.messages.push({
+          id: `msg_${Date.now()}_damage`,
+          role: 'system',
+          content: `💔 You take ${amount} damage! (${oldHP} → ${game.currentHP} HP)`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { damage: amount }
+        });
+        processedTags.add(tagKey);
+      }
+    }
+  }
+  
+  // Check for healing
+  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g);
+  for (const match of healMatches) {
+    const tagKey = `heal_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const target = match[1];
+      const amount = parseInt(match[2]);
+      
+      if (target.toLowerCase() === 'player') {
+        const oldHP = game.currentHP;
+        game.currentHP = Math.min(character.maxHP, game.currentHP + amount);
+        const actualHealing = game.currentHP - oldHP;
+        
+        game.messages.push({
+          id: `msg_${Date.now()}_heal`,
+          role: 'system',
+          content: `💚 You heal ${actualHealing} HP! (${oldHP} → ${game.currentHP} HP)`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { healing: actualHealing }
+        });
+        processedTags.add(tagKey);
+      }
+    }
+  }
+  
+  // Process roll requests
+  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
+  for (const match of rollMatches) {
+    const tagKey = `roll_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const parts = match[1].split('|');
+      const request = {
+        notation: parts[0],
+        type: parts[1] || 'normal',
+        dc: parts[2] ? parseInt(parts[2]) : null,
+        fullMatch: match[0]
+      };
+      
+      let result;
+      if (request.type === 'advantage') {
+        result = rollAdvantage(request.notation);
+      } else if (request.type === 'disadvantage') {
+        result = rollDisadvantage(request.notation);
+      } else {
+        result = rollDice(request.notation);
+      }
+      
+      game.messages.push({
+        id: `msg_${Date.now()}_roll_${Math.random()}`,
+        role: 'system',
+        content: formatRoll(result) + (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? '✓ Success!' : '✗ Failure'}` : ''),
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { 
+          diceRoll: result,
+          dc: request.dc,
+          success: request.dc ? result.total >= request.dc : null
+        }
+      });
+      processedTags.add(tagKey);
+    }
+  }
+  
+  saveData(data);
+}
+
 async function processGameCommands(game, character, text) {
   const data = loadData();
   
+  // This is a fallback - most processing should happen in real-time
   // Parse location updates
   const locationMatch = text.match(/LOCATION\[([^\]]+)\]/);
   if (locationMatch) {
@@ -612,25 +771,58 @@ function buildSystemPrompt(character, game) {
 - Features: ${character.features ? character.features.join(', ') : 'None'}
 ${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map(s => s.name).join(', ')}` : ''}
 
-**IMPORTANT - Structured Output Tags:**
-- LOCATION[name] - Update current location (e.g., LOCATION[Dark Forest])
-- ROLL[notation|type|DC] - Request a dice roll (e.g., ROLL[1d20+3|normal|15] or ROLL[1d20+2|advantage|12])
-  - Types: normal, advantage, disadvantage
-  - The app will perform the roll and show you the result
-- COMBAT_START[description] - Start combat (e.g., COMBAT_START[Two goblins attack!])
-- COMBAT_END[outcome] - End combat (e.g., COMBAT_END[Victory!])
-- DAMAGE[target|amount] - Apply damage (e.g., DAMAGE[player|5])
-- HEAL[target|amount] - Apply healing (e.g., HEAL[player|8])
+**CRITICAL - Structured Output Tags (MUST USE EXACT FORMAT):**
 
-**Guidelines:**
-1. Create engaging, atmospheric narratives (2-4 paragraphs max)
-2. When player actions require checks, use ROLL tags - the app handles the dice
-3. Always tag location changes with LOCATION
-4. Tag combat start/end, damage, and healing
-5. After requesting a roll, wait for the result before continuing
-6. Explain mechanics naturally for beginners
-7. Present meaningful choices
-8. Maintain story consistency
+You MUST use these tags in your narrative. The app parses them in real-time to update game state.
+
+1. **LOCATION[location_name]** - Update current location
+   - Format: LOCATION[Tavern] or LOCATION[Dark Forest Path]
+   - Use when player moves to a new area
+   - Example: "You enter the LOCATION[Rusty Dragon Inn]"
+
+2. **ROLL[dice|type|DC]** - Request a dice roll from the app
+   - Format: ROLL[1d20+3|normal|15]
+   - dice: Standard notation (1d20+3, 2d6, etc.)
+   - type: normal, advantage, or disadvantage
+   - DC: Difficulty Class number (optional)
+   - Example: "Make a Stealth check: ROLL[1d20+2|normal|12]"
+   - The app will roll and show you the result
+
+3. **COMBAT_START[description]** - Begin combat encounter
+   - Format: COMBAT_START[Two goblins leap from the shadows!]
+   - Use when enemies attack or player initiates combat
+   - Example: "COMBAT_START[A dire wolf growls and attacks!]"
+
+4. **COMBAT_END[outcome]** - End combat
+   - Format: COMBAT_END[Victory! The goblins flee.]
+   - Use when combat concludes
+   - Example: "COMBAT_END[Defeated! The wolf collapses.]"
+
+5. **DAMAGE[target|amount]** - Apply damage
+   - Format: DAMAGE[player|5]
+   - target: "player" (lowercase)
+   - amount: number only
+   - Example: "The goblin's arrow hits! DAMAGE[player|4]"
+
+6. **HEAL[target|amount]** - Apply healing
+   - Format: HEAL[player|8]
+   - target: "player" (lowercase)
+   - amount: number only
+   - Example: "You drink the potion. HEAL[player|10]"
+
+**Formatting Rules:**
+- Use **bold** for emphasis: **important text**
+- Use *italic* for thoughts: *I wonder what's inside*
+- Use \`code\` for game terms: \`Sneak Attack\`
+- Keep narratives 2-4 paragraphs
+- Always include tags in your narrative text, not on separate lines
+
+**Example Response:**
+"You push open the creaking door and step into the LOCATION[Abandoned Chapel]. Dust motes dance in shafts of moonlight streaming through broken windows. In the center of the room, you spot a **glowing artifact** resting on an altar.
+
+As you approach, you hear a low growl. A **skeletal guardian** rises from the shadows! COMBAT_START[Skeletal guardian attacks!]
+
+Roll for initiative: ROLL[1d20+2|normal|0]"
 
 Current location: ${game.currentLocation}
 ${game.combat.active ? `Currently in combat (Round ${game.combat.round})` : ''}

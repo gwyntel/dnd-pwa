@@ -158,6 +158,8 @@ export function renderCharacterCreator(state = {}) {
     backstory: "",
   }
 
+  const creationMode = state.creationMode || null
+
   app.innerHTML = `
     <nav>
       <div class="container">
@@ -175,7 +177,7 @@ export function renderCharacterCreator(state = {}) {
         <a href="/characters" class="btn-secondary">Cancel</a>
       </div>
       
-      ${!isEdit ? renderCreationOptions(data.characterTemplates) : ""}
+      ${!isEdit && !creationMode ? renderCreationOptions(data.characterTemplates) : ""}
       
       <div class="card">
         <form id="character-form">
@@ -309,65 +311,18 @@ export function renderCharacterCreator(state = {}) {
     })
   })
 
+  // Event listeners for creation option buttons
   document.getElementById("from-scratch-btn")?.addEventListener("click", () => {
-    // Just scroll to form, no action needed
-    document.getElementById("character-form").scrollIntoView({ behavior: "smooth" })
+    navigateTo("/characters/new/from-scratch")
   })
 
-  document.getElementById("random-btn")?.addEventListener("click", async () => {
-    await generateRandomCharacter()
+  document.getElementById("template-btn")?.addEventListener("click", () => {
+    navigateTo("/characters/templates")
   })
-}
 
-async function generateRandomCharacter() {
-  if (!isAuthenticated()) {
-    alert("Please authenticate to use random character generation")
-    return
-  }
-
-  // Show loading state
-  const randomBtn = document.getElementById("random-selector") || document.getElementById("random-btn")
-  const originalText = randomBtn?.textContent
-  if (randomBtn) randomBtn.disabled = true
-  if (randomBtn) randomBtn.innerHTML = "🎲 Generating..."
-
-  try {
-    const character = await generateCharacterWithLLM()
-
-    // Fill form with generated character data
-    document.getElementById("char-name").value = character.name
-    document.getElementById("char-race").value = character.race
-    document.getElementById("char-class").value = character.class
-    document.getElementById("char-level").value = character.level
-    document.getElementById("char-hp").value = character.maxHP
-    document.getElementById("char-ac").value = character.armorClass
-    document.getElementById("char-speed").value = character.speed
-    document.getElementById("char-hitdice").value = character.hitDice
-    document.getElementById("char-skills").value = character.skills.join(", ")
-    document.getElementById("char-features").value = character.features.join(", ")
-    document.getElementById("char-backstory").value = character.backstory
-
-    // Update stats
-    Object.entries(character.stats).forEach(([stat, value]) => {
-      const slider = document.getElementById(`stat-${stat}`)
-      if (slider) {
-        slider.value = value
-        slider.previousElementSibling.textContent = `${stat.substring(0, 3).toUpperCase()}: ${value}`
-      }
-    })
-
-    // Scroll to form
-    document.getElementById("character-form").scrollIntoView({ behavior: "smooth" })
-    showMessage("Character generated! Review and customize as needed.", "success")
-  } catch (error) {
-    console.error("Error generating character:", error)
-    showMessage("Failed to generate character: " + error.message, "error")
-  } finally {
-    if (randomBtn) {
-      randomBtn.disabled = false
-      randomBtn.innerHTML = originalText
-    }
-  }
+  document.getElementById("random-btn")?.addEventListener("click", () => {
+    navigateTo("/characters/new/random")
+  })
 }
 
 async function generateCharacterWithLLM() {
@@ -595,4 +550,55 @@ function renderCreationOptions(templates) {
       </div>
     </div>
   `
+}
+
+export async function generateRandomCharacter() {
+  if (!isAuthenticated()) {
+    alert("Please authenticate to use random character generation")
+    return
+  }
+
+  // Show loading state
+  const randomBtn = document.getElementById("random-btn")
+  const originalText = randomBtn?.textContent
+  if (randomBtn) randomBtn.disabled = true
+  if (randomBtn) randomBtn.innerHTML = "🎲 Generating..."
+
+  try {
+    const character = await generateCharacterWithLLM()
+
+    // Fill form with generated character data
+    document.getElementById("char-name").value = character.name
+    document.getElementById("char-race").value = character.race
+    document.getElementById("char-class").value = character.class
+    document.getElementById("char-level").value = character.level
+    document.getElementById("char-hp").value = character.maxHP
+    document.getElementById("char-ac").value = character.armorClass
+    document.getElementById("char-speed").value = character.speed
+    document.getElementById("char-hitdice").value = character.hitDice
+    document.getElementById("char-skills").value = character.skills.join(", ")
+    document.getElementById("char-features").value = character.features.join(", ")
+    document.getElementById("char-backstory").value = character.backstory
+
+    // Update stats
+    Object.entries(character.stats).forEach(([stat, value]) => {
+      const slider = document.getElementById(`stat-${stat}`)
+      if (slider) {
+        slider.value = value
+        slider.previousElementSibling.textContent = `${stat.substring(0, 3).toUpperCase()}: ${value}`
+      }
+    })
+
+    // Scroll to form
+    document.getElementById("character-form").scrollIntoView({ behavior: "smooth" })
+    showMessage("Character generated! Review and customize as needed.", "success")
+  } catch (error) {
+    console.error("Error generating character:", error)
+    showMessage("Failed to generate character: " + error.message, "error")
+  } finally {
+    if (randomBtn) {
+      randomBtn.disabled = false
+      randomBtn.innerHTML = originalText
+    }
+  }
 }

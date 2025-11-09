@@ -111,22 +111,31 @@ export async function* parseStreamingResponse(response) {
       
       if (done) break;
       
+      // Append new chunk to buffer
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
       
-      // Keep the last incomplete line in buffer
-      buffer = lines.pop() || '';
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
+      // Process complete lines from buffer
+      while (true) {
+        const lineEnd = buffer.indexOf('\n');
+        if (lineEnd === -1) break;
         
-        if (trimmed.startsWith('data: ')) {
+        const line = buffer.slice(0, lineEnd).trim();
+        buffer = buffer.slice(lineEnd + 1);
+        
+        // Skip empty lines and comments (SSE spec)
+        if (!line || line.startsWith(':')) continue;
+        
+        // Check for [DONE] marker
+        if (line === 'data: [DONE]') break;
+        
+        // Parse data lines
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
           try {
-            const json = JSON.parse(trimmed.slice(6));
-            yield json;
+            const parsed = JSON.parse(data);
+            yield parsed;
           } catch (e) {
-            console.warn('Failed to parse SSE data:', trimmed);
+            console.warn('Failed to parse SSE data:', line);
           }
         }
       }

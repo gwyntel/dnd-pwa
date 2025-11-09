@@ -10,7 +10,7 @@ Do NOT wrap in markdown, code fences, backticks, or explanations.
 Do NOT include any keys that are not listed.
 Do NOT nest markdown or HTML inside values.
 
-SCHEMA (ALL KEYS REQUIRED):
+SCHEMA (ALL KEYS REQUIRED, ONLY THESE KEYS WILL BE USED BY THE APP):
 
 {
   "name": string,                    // character name
@@ -36,15 +36,34 @@ SCHEMA (ALL KEYS REQUIRED):
 
 RULES:
 
-- "race" and "class" are NOT restricted to PHB lists. You may output homebrew/custom values.
+- STRICT SCHEMA:
+  - ONLY the keys in the schema above will be used by the app.
+  - DO NOT add nested objects like "abilities", "combat", "spells", "equipment", "personality", etc.
+  - DO NOT add extra top-level keys beyond:
+    - name, race, class, level, stats, maxHP, armorClass, speed, hitDice, skills, features, backstory.
+  - If you want to express:
+    - Personality, ideals, bonds, flaws, quirks, insanity, appearance, etc:
+      - Fold them into the "backstory" field as plain text.
+    - Specific class/racial features, feats, traits, combat style notes, proficiencies:
+      - Represent them as short labels inside the "features" comma-separated string.
+    - Notable skills or emphasis:
+      - Use the "skills" comma-separated string.
+  - Any information not placed into these allowed fields WILL BE IGNORED by the app.
+
+- "race" and "class" are NOT restricted to PHB lists. You may output homebrew/custom values. If including subclass/variant, put it directly in the "class" string (e.g. "Fighter (Battle Master)", "Variant Human Artificer (Armorer)").
+
 - "skills":
   - Use recognizable 5e skills or thematic equivalents.
   - Must be a single comma-separated string, no bullets, no newlines.
+
 - "features":
   - List only concise feature/trait names as a single comma-separated string.
   - No long descriptions, no nested JSON.
+  - No extra keys.
+
 - "backstory":
   - Plain text, no lists/markup, no more than ~6 sentences.
+  - Include any personality/ideals/bonds/flaws/insanity/appearance flavor here if desired.
 
 OUTPUT EXAMPLE (STRICTLY FOLLOW FORMAT, BUT CHANGE CONTENT):
 

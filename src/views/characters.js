@@ -527,89 +527,132 @@ async function generateCharacterWithLLM(userPrompt = "") {
   const data = loadData()
   const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
 
-  // Allow up to 3 attempts; provide structured JSON-specific feedback on failure.
-  let messages = [
+  // Inspect cached model metadata (populated by Models view) to see if this model supports structured outputs.
+  const models = data.models || []
+  const selectedModelMeta = models.find((m) => m.id === model)
+  const supportsStructuredOutputs = !!selectedModelMeta?.supportedParameters?.includes("structured_outputs")
+
+  const messages = [
     {
       role: "user",
       content:
         (userPrompt && userPrompt.trim().length
           ? `Generate a D&D 5e character based on this idea:\n"${userPrompt.trim()}".`
           : "Generate a random, creative D&D 5e character.") +
-        "\n\nRespond ONLY with the JSON object in the exact format described in the system prompt.",
+        "\n\nRespond ONLY with a single JSON object in the format described in the system prompt.",
     },
   ]
 
-  let lastErrorSummary = null
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const response = await sendChatCompletion(messages, model, {
-        system: systemPrompt,
-        temperature: 0.8,
-      })
-
-      let fullResponse = ""
-      for await (const chunk of parseStreamingResponse(response)) {
-        if (chunk.choices && chunk.choices[0]?.delta?.content) {
-          fullResponse += chunk.choices[0].delta.content
-        }
-      }
-
-      console.log(`[AI Character] Raw JSON response (attempt ${attempt}):`, fullResponse)
-
-      // Try to parse JSON strictly
-      let raw
-      try {
-        raw = JSON.parse(fullResponse)
-      } catch (e) {
-        const summary =
-          "Response was not valid JSON. Output must be EXACTLY one JSON object matching the specified schema, with no extra text."
-        console.warn("[AI Character] " + summary, { fullResponse })
-        lastErrorSummary = summary
-
-        messages.push({ role: "assistant", content: fullResponse })
-        messages.push({
-          role: "user",
-          content:
-            summary +
-            "\nNow respond again with ONLY a valid JSON object matching the schema. No code fences, no explanation.",
-        })
-        continue
-      }
-
-      const parsed = normalizeJsonCharacter(raw)
-      console.log(`[AI Character] Parsed result (attempt ${attempt}):`, parsed)
-
-      if (!parsed || !parsed.name || !parsed.race || !parsed.class) {
-        const summary =
-          'Missing or invalid core fields. Ensure JSON includes "name", "race", "class", "level", "stats", "maxHP", "armorClass", "speed", "hitDice", "skills", "features", "backstory" as specified.'
-        console.warn("[AI Character] " + summary, raw)
-        lastErrorSummary = summary
-
-        messages.push({ role: "assistant", content: JSON.stringify(raw) })
-        messages.push({
-          role: "user",
-          content:
-            summary +
-            "\nNow respond again with ONLY a corrected JSON object that exactly matches the schema. No extra keys, no markdown.",
-        })
-        continue
-      }
-
-      return parsed
-    } catch (error) {
-      console.error(`[AI Character] Error during attempt ${attempt}:`, error)
-      lastErrorSummary =
-        lastErrorSummary ||
-        "Unexpected error while generating or parsing the character sheet. Ensure output is a single valid JSON object."
-      break
-    }
+  // JSON Schema for structured outputs (aligned with CHARACTER_LLM_SYSTEM_PROMPT shape)
+  const characterSchema = {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "name",
+      "race",
+      "class",
+      "level",
+      "stats",
+      "maxHP",
+      "armorClass",
+      "speed",
+      "hitDice",
+      "skills",
+      "features",
+      "backstory",
+    ],
+    properties: {
+      name: { type: "string" },
+      race: { type: "string" },
+      class: { type: "string" },
+      level: { type: "integer", minimum: 1, maximum: 20 },
+      stats: {
+        type: "object",
+        additionalProperties: false,
+        required: ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"],
+        properties: {
+          strength: { type: "integer", minimum: 1, maximum: 30 },
+          dexterity: { type: "integer", minimum: 1, maximum: 30 },
+          constitution: { type: "integer", minimum: 1, maximum: 30 },
+          intelligence: { type: "integer", minimum: 1, maximum: 30 },
+          wisdom: { type: "integer", minimum: 1, maximum: 30 },
+          charisma: { type: "integer", minimum: 1, maximum: 30 },
+        },
+      },
+      maxHP: { type: "integer", minimum: 1 },
+      armorClass: { type: "integer", minimum: 1 },
+      speed: { type: "integer", minimum: 0 },
+      hitDice: { type: "string" },
+      skills: {
+        type: "array",
+        items: { type: "string" },
+      },
+      features: {
+        type: "array",
+        items: { type: "string" },
+      },
+      backstory: { type: "string" },
+    },
   }
 
-  throw new Error(
-    lastErrorSummary ||
-      "The AI response was not in the expected JSON format after multiple attempts. Please try again.",
-  )
+  try {
+    // Prefer structured outputs when supported; otherwise fall back to plain JSON-mode prompt instructions.
+    const response = await sendChatCompletion(messages, model, {
+      system: systemPrompt,
+      temperature: 0.8,
+      ...(supportsStructuredOutputs
+        ? {
+            jsonSchema: {
+              name: "character",
+              strict: true,
+              schema: characterSchema,
+            },
+          }
+        : {}),
+    })
+
+    let fullResponse = ""
+    for await (const chunk of parseStreamingResponse(response)) {
+      // For structured outputs, OpenRouter returns JSON chunks; fall back to .choices streaming if present.
+      if (chunk.choices && chunk.choices[0]?.delta?.content) {
+        fullResponse += chunk.choices[0].delta.content
+      } else if (chunk.choices && chunk.choices[0]?.message?.content) {
+        // Non-streamed-style final message in some implementations
+        fullResponse += chunk.choices[0].message.content
+      } else if (chunk.output_json) {
+        // If the provider sends a fully parsed JSON object per chunk
+        fullResponse = JSON.stringify(chunk.output_json)
+      }
+    }
+
+    console.log("[AI Character] Raw JSON response:", fullResponse)
+
+    let raw
+    try {
+      raw = JSON.parse(fullResponse)
+    } catch (e) {
+      console.warn("[AI Character] Response was not valid JSON, using fallback normalization if possible.", {
+        fullResponse,
+      })
+      throw new Error(
+        "AI response was not valid JSON. Try again or choose a model that supports structured outputs.",
+      )
+    }
+
+    const parsed = normalizeJsonCharacter(raw)
+    console.log("[AI Character] Parsed result:", parsed)
+
+    if (!parsed || !parsed.name || !parsed.race || !parsed.class) {
+      throw new Error(
+        'AI response was missing required fields. Expected "name", "race", and "class" plus stats, HP, AC, etc.',
+      )
+    }
+
+    return parsed
+  } catch (error) {
+    console.error("[AI Character] Error generating character:", error)
+    throw error
+  }
 }
 
 function applyTemplate(templateId) {
@@ -876,7 +919,30 @@ function normalizeJsonCharacter(raw) {
     level: Number.isFinite(raw.level) ? raw.level : parseInt(raw.level, 10),
   }
 
-  const statsIn = raw.stats || {}
+  // Normalize different incoming field names and shapes into our expected schema.
+  const statsIn =
+    // Preferred strict schema: object with named fields
+    (raw.stats && !Array.isArray(raw.stats) && raw.stats) ||
+    raw.abilityScores ||
+    raw.abilities ||
+    // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
+    (Array.isArray(raw.stats) && {
+      strength: raw.stats[0],
+      dexterity: raw.stats[1],
+      constitution: raw.stats[2],
+      intelligence: raw.stats[3],
+      wisdom: raw.stats[4],
+      charisma: raw.stats[5],
+    }) ||
+    {
+      strength: raw.strength,
+      dexterity: raw.dexterity,
+      constitution: raw.constitution,
+      intelligence: raw.intelligence,
+      wisdom: raw.wisdom,
+      charisma: raw.charisma,
+    }
+
   const num = (v, fallback) => {
     const n = typeof v === "number" ? v : parseInt(v, 10)
     return Number.isFinite(n) ? n : fallback
@@ -891,10 +957,14 @@ function normalizeJsonCharacter(raw) {
     charisma: num(statsIn.charisma, 10),
   }
 
-  const maxHP = num(raw.maxHP, 10)
-  const armorClass = num(raw.armorClass, 10)
-  const speed = num(raw.speed, 30)
-  const hitDice = typeof raw.hitDice === "string" ? raw.hitDice.trim() : "1d10"
+  const combat = raw.combat || {}
+  const maxHP = num(raw.maxHP ?? raw.hp ?? combat.hit_points, 10)
+  const armorClass = num(raw.armorClass ?? raw.ac ?? combat.armor_class, 10)
+  const speed = num(raw.speed ?? combat.speed, 30)
+  const hitDice =
+    typeof (raw.hitDice || combat.hit_dice) === "string"
+      ? (raw.hitDice || combat.hit_dice).trim()
+      : "1d10"
 
   const csvToArray = (val) =>
     String(val || "")
@@ -902,8 +972,18 @@ function normalizeJsonCharacter(raw) {
       .map((s) => s.trim())
       .filter(Boolean)
 
-  const skills = csvToArray(raw.skills)
-  const features = csvToArray(raw.features)
+  const normalizeSkills = (val) => {
+    if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean)
+    return csvToArray(val)
+  }
+
+  const normalizeFeatures = (val) => {
+    if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean)
+    return csvToArray(val)
+  }
+
+  const skills = normalizeSkills(raw.skills)
+  const features = normalizeFeatures(raw.features)
   const backstory = String(raw.backstory || "").trim()
 
   if (!core.name || !core.race || !core.class) {

@@ -456,48 +456,113 @@ async function generateWorldWithAI() {
     const model = data.settings.defaultNarrativeModel
 
     if (!model) {
-      alert("Please set a default narrative model in settings first.")
-      return
+      throw new Error("Please set a default narrative model in settings first.")
     }
 
-    const prompt = `You are a creative world builder for D&D campaigns. Based on the following description, create a detailed world setting.
+    // Inspect cached model metadata to see if this model supports structured outputs.
+    const models = data.models || []
+    const selectedModelMeta = models.find((m) => m.id === model)
+    const supportsStructuredOutputs = !!selectedModelMeta?.supportedParameters?.includes("structured_outputs")
+
+    // JSON Schema for world generation (aligned with existing expectations)
+    const worldSchema = {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "name",
+        "briefDescription",
+        "fullDescription",
+        "tone",
+        "magicLevel",
+        "techLevel",
+        "systemPrompt",
+        "startingLocation",
+      ],
+      properties: {
+        name: { type: "string" },
+        briefDescription: { type: "string" },
+        fullDescription: { type: "string" },
+        tone: { type: "string" },
+        magicLevel: {
+          type: "string",
+          enum: ["none", "low", "medium", "high"],
+        },
+        techLevel: {
+          type: "string",
+          enum: ["primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", "mixed"],
+        },
+        systemPrompt: { type: "string" },
+        startingLocation: { type: "string" },
+      },
+    }
+
+    const baseInstructions = `You are a creative world builder for D&D campaigns. Based on the following description, create a detailed world setting.
 
 User's world idea: "${idea}"
 
-Generate a JSON response with this EXACT structure:
-{
-  "name": "World Name",
-  "briefDescription": "One sentence description",
-  "fullDescription": "2-3 paragraph full description",
-  "tone": "Description of tone and theme",
-  "magicLevel": "none|low|medium|high",
-  "techLevel": "medieval|renaissance|industrial|modern|sci-fi",
-  "systemPrompt": "Comprehensive 3-4 paragraph system prompt that describes the world's lore, rules, tone, magic system, technology level, major factions, geography, and any unique features. This will be used to give context to the AI DM during gameplay.",
-  "startingLocation": "Description of a good starting location for adventures"
-}
+Respond ONLY with a single JSON object representing the world, following the specified schema. Do not include markdown, code fences, or commentary.`
 
-Make the systemPrompt detailed and specific - it's what the AI DM will use to understand this world. Include world-building details that will make adventures feel unique and consistent.`
+    const messages = [
+      {
+        role: "user",
+        content: baseInstructions,
+      },
+    ]
 
-    const messages = [{ role: "user", content: prompt }]
-    const response = await sendChatCompletion(messages, model)
+    const requestOptions = supportsStructuredOutputs
+      ? {
+          jsonSchema: {
+            name: "world",
+            strict: true,
+            schema: worldSchema,
+          },
+        }
+      : {}
+
+    const response = await sendChatCompletion(messages, model, requestOptions)
 
     let fullResponse = ""
+
     for await (const chunk of parseStreamingResponse(response)) {
-      const delta = chunk.choices?.[0]?.delta?.content
-      if (delta) {
-        fullResponse += delta
+      if (chunk.output_json) {
+        // Some providers may return fully parsed JSON objects
+        fullResponse = JSON.stringify(chunk.output_json)
+      } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
+        fullResponse += chunk.choices[0].delta.content
+      } else if (chunk.choices && chunk.choices[0]?.message?.content) {
+        fullResponse += chunk.choices[0].message.content
       }
     }
 
-    // Parse JSON from response
-    const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error("Could not parse AI response")
+    if (!fullResponse.trim()) {
+      throw new Error("Empty response from model")
     }
 
-    const generatedWorld = JSON.parse(jsonMatch[0])
+    let generatedWorld
+    try {
+      generatedWorld = JSON.parse(fullResponse)
+    } catch (err) {
+      // Fallback for non-structured models that may wrap JSON in text
+      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error(
+          "Model response was not valid JSON. Try again or select a model with ✅ Structured Outputs support.",
+        )
+      }
+      generatedWorld = JSON.parse(jsonMatch[0])
+    }
 
-    // Create world object with generated data
+    if (
+      !generatedWorld ||
+      typeof generatedWorld.name !== "string" ||
+      typeof generatedWorld.briefDescription !== "string" ||
+      typeof generatedWorld.systemPrompt !== "string"
+    ) {
+      throw new Error(
+        "Generated world JSON is missing required fields. Ensure the model follows the expected schema.",
+      )
+    }
+
     const worldTemplate = {
       id: `world_ai_${Date.now()}`,
       name: generatedWorld.name,
@@ -505,19 +570,19 @@ Make the systemPrompt detailed and specific - it's what the AI DM will use to un
       sourceType: "ai-generated",
       generationPrompt: idea,
       briefDescription: generatedWorld.briefDescription,
-      fullDescription: generatedWorld.fullDescription,
-      tone: generatedWorld.tone,
-      magicLevel: generatedWorld.magicLevel,
-      techLevel: generatedWorld.techLevel,
+      fullDescription: generatedWorld.fullDescription || "",
+      tone: generatedWorld.tone || "",
+      magicLevel: generatedWorld.magicLevel || "medium",
+      techLevel: generatedWorld.techLevel || "medieval",
       systemPrompt: generatedWorld.systemPrompt,
-      startingLocation: generatedWorld.startingLocation,
+      startingLocation: generatedWorld.startingLocation || "",
     }
 
-    // Show the generated world in edit form
     renderWorldForm(worldTemplate, false, true)
   } catch (error) {
     console.error("Error generating world:", error)
-    alert("Failed to generate world: " + error.message)
+    alert("Failed to generate world: " + (error.message || "Unknown error"))
+  } finally {
     submitBtn.disabled = false
     submitBtn.textContent = "Generate World"
     statusDiv.style.display = "none"

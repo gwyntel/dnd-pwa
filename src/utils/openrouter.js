@@ -118,6 +118,8 @@ export async function fetchModels() {
         completion: model.pricing?.completion || 0,
       },
       supportsReasoning: model.supports_reasoning || false,
+      // OpenRouter models advertise supported parameters; use this to gate structured outputs
+      supportedParameters: model.supported_parameters || [],
       provider: model.id.split("/")[0] || "unknown",
     }))
   } catch (error) {
@@ -185,6 +187,34 @@ export async function sendChatCompletion(messages, model, options = {}) {
       messages: validMessages,
       stream: true,
       temperature,
+    }
+
+    // Optional system message support (kept for backwards compatibility)
+    if (options.system) {
+      payload.messages.unshift({
+        role: "system",
+        content: String(options.system),
+      })
+    }
+
+    // Optional JSON schema structured outputs support.
+    // Callers may pass:
+    //  - options.responseFormat: already a full OpenRouter/OpenAI-style response_format object
+    //  - or options.jsonSchema: { name, strict, schema } to auto-wrap as response_format.
+    if (options.responseFormat) {
+      payload.response_format = options.responseFormat
+    } else if (options.jsonSchema) {
+      const { name, strict = true, schema } = options.jsonSchema
+      if (name && schema) {
+        payload.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name,
+            strict,
+            schema,
+          },
+        }
+      }
     }
 
     // Only add specific supported options if provided

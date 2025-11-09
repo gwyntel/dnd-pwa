@@ -78,6 +78,11 @@ export async function renderModels() {
 
 function renderModelSelector(data) {
   const app = document.getElementById("app")
+
+  // Persist fetched models so other views (characters/worlds) can inspect supportedParameters.
+  data.models = allModels
+  saveData(data)
+
   const currentModel = data.settings.defaultNarrativeModel
 
   // Get unique providers for filter
@@ -211,6 +216,9 @@ function renderModelsList(currentModel) {
       const isSelected = model.id === currentModel
       const promptPrice = Number.parseFloat(model.pricing.prompt) * 1000000 // Convert to per-million
       const completionPrice = Number.parseFloat(model.pricing.completion) * 1000000
+      const supportsStructured =
+        Array.isArray(model.supportedParameters) &&
+        model.supportedParameters.includes("structured_outputs")
 
       return `
       <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
@@ -220,6 +228,12 @@ function renderModelsList(currentModel) {
         </div>
         <p class="model-id">${escapeHtml(model.id)}</p>
         <div class="model-details">
+          <div class="model-detail">
+            <span class="detail-label">Features:</span>
+            <span class="detail-value">
+              ${supportsStructured ? "✅ Structured Outputs" : "—"}
+            </span>
+          </div>
           <div class="model-detail">
             <span class="detail-label">Provider:</span>
             <span class="detail-value">${escapeHtml(model.provider)}</span>

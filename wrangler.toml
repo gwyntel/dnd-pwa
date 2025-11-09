@@ -1,6 +1,5 @@
 name = "dnd-pwa"
 compatibility_date = "2025-11-09"
 
-[pages]
-# Configuration for Cloudflare Pages
-build_command = "npm run build"
+[assets]
+directory = "./dist"

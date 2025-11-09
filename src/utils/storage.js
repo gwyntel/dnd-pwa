@@ -209,6 +209,29 @@ const DEFAULT_DATA = {
 }
 
 /**
+ * Ensure a character object has all required default fields
+ * without mutating unexpected shapes from older saves.
+ */
+export function normalizeCharacter(character) {
+  return {
+    ...character,
+    // Currency: simple gp field for now (MUST)
+    currency: {
+      gp: character.currency && typeof character.currency.gp === "number" ? character.currency.gp : 0,
+    },
+    // Future-friendly resources array (SHOULD - optional usage)
+    resources: Array.isArray(character.resources) ? character.resources : [],
+    // Future-friendly spellcasting object (SHOULD - optional usage)
+    spellcasting:
+      character.spellcasting && typeof character.spellcasting === "object"
+        ? character.spellcasting
+        : {
+            // kept intentionally minimal; real structure can evolve in v1.5+
+          },
+  }
+}
+
+/**
  * Load data from localStorage
  * @returns {Object} The stored data or default data if none exists
  */

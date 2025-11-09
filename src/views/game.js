@@ -3,7 +3,7 @@
  * Main gameplay interface with chat and game state
  */
 
-import { loadData, saveData, debouncedSave } from "../utils/storage.js"
+import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
@@ -182,7 +182,8 @@ export async function renderGame(state = {}) {
     return
   }
 
-  const character = data.characters.find((c) => c.id === game.characterId)
+  const rawCharacter = data.characters.find((c) => c.id === game.characterId)
+  const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
 
   const app = document.getElementById("app")
   app.innerHTML = `
@@ -394,34 +395,39 @@ function renderMessages(messages) {
 }
 
 function stripTags(text) {
-  // Remove all game tags but keep the content inside
+  // Remove all game tags but keep the content inside when appropriate
   let cleaned = text
 
-  // Remove LOCATION tags
+  // LOCATION tags - keep the label text
   cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, "$1")
 
-  // Remove ROLL tags
+  // ROLL tags - not shown in narrative
   cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, "")
 
-  // Remove COMBAT_START tags
+  // COMBAT tags - not shown directly
   cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, "")
-
-  // Remove COMBAT_END tags
   cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, "")
 
-  // Remove DAMAGE tags
+  // HP change tags
   cleaned = cleaned.replace(/DAMAGE\[([^\]]+)\]/g, "")
-
-  // Remove HEAL tags
   cleaned = cleaned.replace(/HEAL\[([^\]]+)\]/g, "")
 
+  // Inventory / currency / status tags
+  cleaned = cleaned.replace(/INVENTORY_ADD\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/INVENTORY_REMOVE\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/INVENTORY_EQUIP\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/INVENTORY_UNEQUIP\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/GOLD_CHANGE\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, "")
+
+  // Suggested actions
   cleaned = cleaned.replace(/\n*ACTION\[([^\]]+)\]\n*/g, "")
 
+  // Collapse excessive newlines
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
 
-  cleaned = cleaned.trim()
-
-  return cleaned
+  return cleaned.trim()
 }
 
 function parseMarkdown(text) {
@@ -527,7 +533,8 @@ async function sendMessage(game, userText, data) {
     return
   }
 
-  const character = data.characters.find((c) => c.id === gameRef.characterId)
+  const rawCharacter = data.characters.find((c) => c.id === gameRef.characterId)
+  const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
 
   try {
     const apiMessages = gameRef.messages
@@ -639,7 +646,105 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   const newMessages = [];
   let needsUIUpdate = false;
 
-  // Parse location updates
+  // Helpers for inventory / currency / conditions
+
+  const ensureInventory = () => {
+    if (!Array.isArray(game.inventory)) {
+      game.inventory = [];
+    }
+  };
+
+  const ensureCurrency = () => {
+    if (!game.currency || typeof game.currency.gp !== "number") {
+      game.currency = { gp: 0 };
+    }
+  };
+
+  const ensureConditions = () => {
+    if (!Array.isArray(game.conditions)) {
+      game.conditions = [];
+    }
+  };
+
+  const upsertItem = (rawName, deltaQty, { equip, unequip } = {}) => {
+    ensureInventory();
+    const name = (rawName || "").trim();
+    if (!name) return null;
+
+    const findIndex = () =>
+      game.inventory.findIndex(
+        (it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase(),
+      );
+
+    let idx = findIndex();
+    if (idx === -1 && deltaQty > 0) {
+      game.inventory.push({ item: name, quantity: deltaQty, equipped: false });
+      idx = findIndex();
+    }
+
+    if (idx === -1) {
+      return null;
+    }
+
+    const item = game.inventory[idx];
+    const oldQty = typeof item.quantity === "number" ? item.quantity : 0;
+    const newQty = Math.max(0, oldQty + deltaQty);
+
+    item.quantity = newQty;
+
+    if (equip === true) {
+      item.equipped = true;
+    } else if (unequip === true) {
+      item.equipped = false;
+    }
+
+    if (item.quantity === 0) {
+      game.inventory.splice(idx, 1);
+    }
+
+    return { name: item.item, oldQty, newQty, equipped: !!item.equipped };
+  };
+
+  const changeGold = (deltaRaw) => {
+    const delta = Number.parseInt(deltaRaw, 10);
+    if (Number.isNaN(delta) || delta === 0) return null;
+    ensureCurrency();
+    const before = game.currency.gp;
+    let after = before + delta;
+    if (after < 0) after = 0;
+    game.currency.gp = after;
+    return { before, after, applied: after - before };
+  };
+
+  const addStatus = (raw) => {
+    ensureConditions();
+    const name = (raw || "").trim();
+    if (!name) return false;
+
+    const exists = game.conditions.some((c) => {
+      if (typeof c === "string") return c.toLowerCase() === name.toLowerCase();
+      return c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase();
+    });
+    if (exists) return false;
+
+    game.conditions.push({ name });
+    return true;
+  };
+
+  const removeStatus = (raw) => {
+    ensureConditions();
+    const name = (raw || "").trim();
+    if (!name) return false;
+
+    const before = game.conditions.length;
+    game.conditions = game.conditions.filter((c) => {
+      if (typeof c === "string") return c.toLowerCase() !== name.toLowerCase();
+      return !(c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase());
+    });
+    return game.conditions.length !== before;
+  };
+
+  // LOCATION updates
   const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g);
   for (const match of locationMatches) {
     const tagKey = `location_${match[0]}`;
@@ -649,7 +754,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Check for combat start
+  // COMBAT_START
   const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]+)\]/g);
   for (const match of combatStartMatches) {
     const tagKey = `combat_start_${match[0]}`;
@@ -669,7 +774,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Check for combat end
+  // COMBAT_END
   const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g);
   for (const match of combatEndMatches) {
     const tagKey = `combat_end_${match[0]}`;
@@ -690,13 +795,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Check for damage
+  // DAMAGE
   const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g);
   for (const match of damageMatches) {
     const tagKey = `damage_${match[0]}`;
     if (!processedTags.has(tagKey)) {
       const target = match[1];
-      const amount = Number.parseInt(match[2]);
+      const amount = Number.parseInt(match[2], 10);
 
       if (target.toLowerCase() === "player") {
         const oldHP = game.currentHP;
@@ -715,13 +820,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Check for healing
+  // HEAL
   const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g);
   for (const match of healMatches) {
     const tagKey = `heal_${match[0]}`;
     if (!processedTags.has(tagKey)) {
       const target = match[1];
-      const amount = Number.parseInt(match[2]);
+      const amount = Number.parseInt(match[2], 10);
 
       if (target.toLowerCase() === "player") {
         const oldHP = game.currentHP;
@@ -741,7 +846,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // Process roll requests
+  // ROLL
   const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
   for (const match of rollMatches) {
     const tagKey = `roll_${match[0]}`;
@@ -750,8 +855,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       const request = {
         notation: parts[0],
         type: parts[1] || "normal",
-        dc: parts[2] ? Number.parseInt(parts[2]) : null,
-        fullMatch: match[0],
+        dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
       };
 
       let result;
@@ -781,6 +885,147 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
+  // INVENTORY_ADD[item|qty]
+  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]|\|]+)\|?(\d+)?\]/g);
+  for (const match of invAddMatches) {
+    const tagKey = `inv_add_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const name = match[1];
+      const qty = match[2] ? Number.parseInt(match[2], 10) : 1;
+      const res = upsertItem(name, qty);
+      if (res) {
+        newMessages.push({
+          id: `msg_${Date.now()}_inv_add`,
+          role: "system",
+          content: `📦 Gained ${qty} x ${res.name}.`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+      needsUIUpdate = true;
+    }
+  }
+
+  // INVENTORY_REMOVE[item|qty]
+  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]|\|]+)\|?(\d+)?\]/g);
+  for (const match of invRemoveMatches) {
+    const tagKey = `inv_remove_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const name = match[1];
+      const qty = match[2] ? Number.parseInt(match[2], 10) : 1;
+      const res = upsertItem(name, -qty);
+      if (res) {
+        newMessages.push({
+          id: `msg_${Date.now()}_inv_remove`,
+          role: "system",
+          content: `📦 Used/removed ${qty} x ${res.name}.`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+      needsUIUpdate = true;
+    }
+  }
+
+  // INVENTORY_EQUIP[item]
+  const invEquipMatches = text.matchAll(/INVENTORY_EQUIP\[([^\]]+)\]/g);
+  for (const match of invEquipMatches) {
+    const tagKey = `inv_equip_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const res = upsertItem(match[1], 0, { equip: true });
+      if (res) {
+        newMessages.push({
+          id: `msg_${Date.now()}_inv_equip`,
+          role: "system",
+          content: `🛡️ Equipped ${res.name}.`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+      needsUIUpdate = true;
+    }
+  }
+
+  // INVENTORY_UNEQUIP[item]
+  const invUnequipMatches = text.matchAll(/INVENTORY_UNEQUIP\[([^\]]+)\]/g);
+  for (const match of invUnequipMatches) {
+    const tagKey = `inv_unequip_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const res = upsertItem(match[1], 0, { unequip: true });
+      if (res) {
+        newMessages.push({
+          id: `msg_${Date.now()}_inv_unequip`,
+          role: "system",
+          content: `🛡️ Unequipped ${res.name}.`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+      needsUIUpdate = true;
+    }
+  }
+
+  // GOLD_CHANGE[delta]
+  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+)\]/g);
+  for (const match of goldMatches) {
+    const tagKey = `gold_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      const res = changeGold(match[1]);
+      if (res && res.applied !== 0) {
+        const symbol = res.applied > 0 ? "+" : "";
+        newMessages.push({
+          id: `msg_${Date.now()}_gold`,
+          role: "system",
+          content: `💰 Gold: ${res.before} → ${res.after} (${symbol}${res.applied} gp)`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+    }
+  }
+
+  // STATUS_ADD[name]
+  const statusAddMatches = text.matchAll(/STATUS_ADD\[([^\]]+)\]/g);
+  for (const match of statusAddMatches) {
+    const tagKey = `status_add_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      if (addStatus(match[1])) {
+        newMessages.push({
+          id: `msg_${Date.now()}_status_add`,
+          role: "system",
+          content: `⚠️ Status applied: ${match[1]}`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+    }
+  }
+
+  // STATUS_REMOVE[name]
+  const statusRemoveMatches = text.matchAll(/STATUS_REMOVE\[([^\]]+)\]/g);
+  for (const match of statusRemoveMatches) {
+    const tagKey = `status_remove_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      if (removeStatus(match[1])) {
+        newMessages.push({
+          id: `msg_${Date.now()}_status_remove`,
+          role: "system",
+          content: `✅ Status removed: ${match[1]}`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        });
+      }
+      processedTags.add(tagKey);
+    }
+  }
+
+  // ACTION suggestions
   const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g);
   const newActions = [];
   for (const match of actionMatches) {
@@ -952,6 +1197,40 @@ function buildSystemPrompt(character, game) {
   const world = data.worlds.find((w) => w.id === game.worldId)
   const worldPrompt = world ? `**World Setting:**\n${world.systemPrompt}\n\n` : ""
 
+  // Normalize currency
+  const gold = game.currency && typeof game.currency.gp === "number" ? game.currency.gp : 0
+
+  // Summarize key inventory (top 6 items by quantity / importance)
+  const inventory = Array.isArray(game.inventory) ? game.inventory : []
+  const inventorySummary = inventory
+    .filter((it) => it && typeof it.item === "string")
+    .slice(0, 6)
+    .map((it) => {
+      const qty = typeof it.quantity === "number" ? it.quantity : 1
+      const equipped = it.equipped ? " (eq.)" : ""
+      return `${qty}x ${it.item}${equipped}`
+    })
+    .join(", ")
+
+  // Normalize conditions into names
+  const conditions = Array.isArray(game.conditions) ? game.conditions : []
+  const conditionNames = conditions
+    .map((c) => {
+      if (!c) return null
+      if (typeof c === "string") return c
+      if (typeof c.name === "string") return c.name
+      return null
+    })
+    .filter(Boolean)
+
+  const statusLineParts = []
+  statusLineParts.push(`Gold: ${gold} gp`)
+  if (inventorySummary) statusLineParts.push(`Key items: ${inventorySummary}`)
+  if (conditionNames.length > 0) statusLineParts.push(`Active conditions: ${conditionNames.join(", ")}`)
+
+  const statusLine =
+    statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""
+
   return `${worldPrompt}You are the Dungeon Master for a D&D 5e adventure. The player is:
 
 **${character.name}** - Level ${character.level} ${character.race} ${character.class}
@@ -961,7 +1240,7 @@ function buildSystemPrompt(character, game) {
 - INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(", ")}
 - Features: ${character.features ? character.features.join(", ") : "None"}
-${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}
+${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}${statusLine}
 
 **CRITICAL - Structured Output Tags (MUST USE EXACT FORMAT):**
 

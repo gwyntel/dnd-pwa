@@ -39,7 +39,7 @@
   --shadow-strong: rgba(0, 0, 0, 0.5);
 }
 
-/* Added warm theme with golden/brown color scheme */
+/* Warm theme with golden/brown color scheme */
 [data-theme="warm"] {
   --bg-primary: #fdf6e3;
   --bg-secondary: #eee8d5;
@@ -57,7 +57,7 @@
   --shadow-strong: rgba(92, 74, 58, 0.2);
 }
 
-/* Added cool theme with blue/teal color scheme */
+/* Cool theme with blue/teal color scheme */
 [data-theme="cool"] {
   --bg-primary: #e8f4f8;
   --bg-secondary: #d6ebf2;
@@ -75,7 +75,7 @@
   --shadow-strong: rgba(30, 58, 74, 0.2);
 }
 
-/* Added forest theme with green/nature color scheme */
+/* Forest theme with green/nature color scheme */
 [data-theme="forest"] {
   --bg-primary: #f0f4ed;
   --bg-secondary: #e2ead8;
@@ -93,7 +93,7 @@
   --shadow-strong: rgba(44, 62, 47, 0.2);
 }
 
-/* Added midnight theme with dark blue color scheme */
+/* Midnight theme with dark blue color scheme */
 [data-theme="midnight"] {
   --bg-primary: #0f1419;
   --bg-secondary: #1a2332;
@@ -267,6 +267,18 @@ button:disabled,
   font-size: 0.875rem;
 }
 
+/* Added danger button variant */
+.btn-danger {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #a91f1f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
 /* Input fields */
 input,
 textarea,
@@ -305,6 +317,19 @@ textarea {
 
 .card:hover {
   box-shadow: 0 4px 12px var(--shadow-strong);
+}
+
+/* Card header and footer */
+.card-header {
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+}
+
+.card-footer {
+  border-top: 1px solid var(--border-color);
+  margin-top: 1rem;
+  padding-top: 1rem;
 }
 
 /* Navigation */
@@ -388,6 +413,31 @@ nav a:hover {
 }
 
 .message-warning {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+/* Badge variants */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.badge-error {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.badge-warning {
   background-color: var(--warning-color);
   color: white;
 }
@@ -758,7 +808,7 @@ a,
   font-weight: 600;
 }
 
-/* Added error message styling for API errors */
+/* Error message styling for API errors */
 .message-system[data-msg-id*="_error"] {
   background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
   border-left: 3px solid #d63031;
@@ -988,6 +1038,28 @@ a,
   color: var(--text-primary);
 }
 
+/* Added stat display and modifier styling */
+.stat-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.stat-display:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.stat-mod {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
 .combat-indicator {
   padding: 1rem;
   background-color: var(--error-color);
@@ -996,14 +1068,57 @@ a,
   text-align: center;
 }
 
-/* Badge */
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background-color: var(--bg-tertiary);
-  border-radius: 12px;
-  font-size: 0.875rem;
+/* Form field styling */
+.form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 0.5rem;
   font-weight: 500;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+}
+
+/* Hit dice helper text */
+#char-hitdice-help {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+
+/* Close button */
+.close-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  opacity: 0.7;
+  transform: scale(1.1);
 }
 
 /* Template Cards */

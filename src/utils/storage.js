@@ -11,7 +11,7 @@ const DEFAULT_DATA = {
   version: SCHEMA_VERSION,
   lastModified: new Date().toISOString(),
   settings: {
-    defaultNarrativeModel: null,
+    defaultNarrativeModel: process.env.DEFAULT_NARRATIVE_MODEL || null,
     theme: "auto",
     autoSave: true,
     diceAnimation: true,

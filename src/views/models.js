@@ -6,6 +6,7 @@
 import { fetchModels } from "../utils/openrouter.js"
 import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
+import { isNitroModel } from "../utils/model-utils.js"
 
 let allModels = []
 let filteredModels = []
@@ -217,8 +218,7 @@ function renderModelsList(currentModel) {
       const promptPrice = Number.parseFloat(model.pricing.prompt) * 1000000 // Convert to per-million
       const completionPrice = Number.parseFloat(model.pricing.completion) * 1000000
       const supportsStructured =
-        Array.isArray(model.supportedParameters) &&
-        model.supportedParameters.includes("structured_outputs")
+        Array.isArray(model.supportedParameters) && model.supportedParameters.includes("structured_outputs")
 
       return `
       <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
@@ -232,6 +232,7 @@ function renderModelsList(currentModel) {
             <span class="detail-label">Features:</span>
             <span class="detail-value">
               ${supportsStructured ? "✅ Structured Outputs" : "—"}
+              ${isNitroModel(model.id) ? " ⚡ Nitro" : ""}
             </span>
           </div>
           <div class="model-detail">
@@ -351,11 +352,17 @@ function selectModel(modelId) {
   data.settings.defaultNarrativeModel = modelId
   saveData(data)
 
-  // Show success message and navigate back
   showMessage("Model selected successfully!", "success")
 
+  const redirectTarget = sessionStorage.getItem("redirectAfterModelSelect")
+  sessionStorage.removeItem("redirectAfterModelSelect")
+
   setTimeout(() => {
-    navigateTo("/settings")
+    if (redirectTarget) {
+      navigateTo(redirectTarget)
+    } else {
+      navigateTo("/settings")
+    }
   }, 1000)
 }
 

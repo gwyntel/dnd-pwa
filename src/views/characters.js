@@ -8,7 +8,8 @@ import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
-import { CHARACTER_LLM_SYSTEM_PROMPT } from "./characterPrompts.js"
+import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
+import { validateHitDice } from "../utils/character-validation.js"
 
 export function renderCharacters() {
   const app = document.getElementById("app")
@@ -163,37 +164,45 @@ export function renderCharacterCreator(state = {}) {
     }
   }
 
-  // Initialize form data
-  const formData = character || initialTemplate || {
-    name: "",
-    race: "Human",
-    class: "Fighter",
-    level: 1,
-    stats: {
-      strength: 10,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 10,
-    },
-    maxHP: 10,
-    armorClass: 10,
-    proficiencyBonus: 2,
-    speed: 30,
-    hitDice: "1d10",
-    savingThrows: [],
-    skills: [],
-    proficiencies: {
-      armor: [],
-      weapons: [],
-      tools: [],
-    },
-    features: [],
-    spells: [],
-    inventory: [],
-    backstory: "",
+  if (!data.settings.defaultNarrativeModel && !state.params?.id) {
+    console.log("[v0] No default model, redirecting to model selector")
+    sessionStorage.setItem("redirectAfterModelSelect", "/characters/new")
+    navigateTo("/models")
+    return
   }
+
+  // Initialize form data
+  const formData = character ||
+    initialTemplate || {
+      name: "",
+      race: "Human",
+      class: "Fighter",
+      level: 1,
+      stats: {
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 10,
+      },
+      maxHP: 10,
+      armorClass: 10,
+      proficiencyBonus: 2,
+      speed: 30,
+      hitDice: "1d10",
+      savingThrows: [],
+      skills: [],
+      proficiencies: {
+        armor: [],
+        weapons: [],
+        tools: [],
+      },
+      features: [],
+      spells: [],
+      inventory: [],
+      backstory: "",
+    }
 
   const creationMode = state.creationMode || null
 
@@ -256,7 +265,18 @@ export function renderCharacterCreator(state = {}) {
             <div>
               <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Race *</label>
               <select id="char-race">
-                ${["Human", "Elf", "Dwarf", "Halfling", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling", "Custom"]
+                ${[
+                  "Human",
+                  "Elf",
+                  "Dwarf",
+                  "Halfling",
+                  "Dragonborn",
+                  "Gnome",
+                  "Half-Elf",
+                  "Half-Orc",
+                  "Tiefling",
+                  "Custom",
+                ]
                   .map((race) => `<option value="${race}" ${formData.race === race ? "selected" : ""}>${race}</option>`)
                   .join("")}
               </select>
@@ -403,24 +423,37 @@ export function renderCharacterCreator(state = {}) {
             </div>
             <div>
               <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Hit Dice</label>
-              <select id="char-hitdice">
-                ${["1d4", "1d6", "1d8", "1d10", "1d12", "2d4", "2d6", "2d8", "2d10", "2d12"]
-                  .map(
-                    (dice) => `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
-                  )
-                  .join("")}
+              <select id="char-hitdice" title="Select your character's hit die (e.g., 1d8 for a Fighter, 1d6 for a Wizard)">
+                <optgroup label="Standard Options">
+                  ${["1d4", "1d6", "1d8", "1d10", "1d12"]
+                    .map(
+                      (dice) =>
+                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+                    )
+                    .join("")}
+                </optgroup>
+                <optgroup label="Multiple Dice">
+                  ${["2d4", "2d6", "2d8", "2d10", "2d12"]
+                    .map(
+                      (dice) =>
+                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+                    )
+                    .join("")}
+                </optgroup>
               </select>
+              <small id="hitdice-validation" class="text-secondary" style="font-size: 0.75rem; margin-top: 0.25rem; display: block;"></small>
             </div>
           </div>
           
-          <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Skills (comma-separated)</label>
-            <input type="text" id="char-skills" value="${formData.skills.join(", ")}" placeholder="e.g., Athletics, Stealth, Perception">
-          </div>
-          
-          <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Features & Traits (comma-separated)</label>
-            <input type="text" id="char-features" value="${formData.features.join(", ")}" placeholder="e.g., Second Wind, Sneak Attack">
+          <div class="grid grid-2 mb-3">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Skills (comma-separated)</label>
+              <input type="text" id="char-skills" value="${formData.skills.join(", ")}" placeholder="e.g., Athletics, Stealth, Perception">
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Features & Traits (comma-separated)</label>
+              <input type="text" id="char-features" value="${formData.features.join(", ")}" placeholder="e.g., Second Wind, Sneak Attack">
+            </div>
           </div>
           
           <div class="mb-3">
@@ -446,7 +479,7 @@ export function renderCharacterCreator(state = {}) {
   // Toggle custom race/class inputs when "Custom" or a non-standard value is selected
   const raceSelect = document.getElementById("char-race")
   const raceCustomInput = document.getElementById("char-race-custom")
-  const standardRaces = ["Human","Elf","Dwarf","Halfling","Dragonborn","Gnome","Half-Elf","Half-Orc","Tiefling"]
+  const standardRaces = ["Human", "Elf", "Dwarf", "Halfling", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling"]
 
   const updateRaceCustomVisibility = () => {
     const value = raceSelect.value
@@ -520,10 +553,31 @@ export function renderCharacterCreator(state = {}) {
       })
     }
   }
+
+  const hitDiceSelect = document.getElementById("char-hitdice")
+  if (hitDiceSelect) {
+    const validateAndShowFeedback = () => {
+      const value = hitDiceSelect.value
+      const validated = validateHitDice(value)
+      const validationMsg = document.getElementById("hitdice-validation")
+
+      if (validated !== value) {
+        validationMsg.textContent = `⚠️ Invalid format "${value}" - using "${validated}" instead`
+        validationMsg.style.color = "var(--warning-color, #ff9800)"
+        hitDiceSelect.value = validated
+      } else {
+        validationMsg.textContent = "✓ Valid hit die"
+        validationMsg.style.color = "var(--success-color, #4caf50)"
+      }
+    }
+
+    hitDiceSelect.addEventListener("change", validateAndShowFeedback)
+    validateAndShowFeedback()
+  }
 }
 
 async function generateCharacterWithLLM(userPrompt = "") {
-  const systemPrompt = CHARACTER_LLM_SYSTEM_PROMPT
+  const systemPrompt = IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT
   const data = loadData()
   const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
 
@@ -634,9 +688,7 @@ async function generateCharacterWithLLM(userPrompt = "") {
       console.warn("[AI Character] Response was not valid JSON, using fallback normalization if possible.", {
         fullResponse,
       })
-      throw new Error(
-        "AI response was not valid JSON. Try again or choose a model that supports structured outputs.",
-      )
+      throw new Error("AI response was not valid JSON. Try again or choose a model that supports structured outputs.")
     }
 
     const parsed = normalizeJsonCharacter(raw)
@@ -700,17 +752,11 @@ function saveCharacter(existingId = null) {
 
   const selectedRace = document.getElementById("char-race").value
   const customRace = (document.getElementById("char-race-custom")?.value || "").trim()
-  const finalRace =
-    selectedRace === "Custom"
-      ? customRace || "Custom"
-      : selectedRace
+  const finalRace = selectedRace === "Custom" ? customRace || "Custom" : selectedRace
 
   const selectedClass = document.getElementById("char-class").value
   const customClass = (document.getElementById("char-class-custom")?.value || "").trim()
-  const finalClass =
-    selectedClass === "Custom"
-      ? customClass || "Custom"
-      : selectedClass
+  const finalClass = selectedClass === "Custom" ? customClass || "Custom" : selectedClass
 
   const character = {
     id: existingId || `char_${Date.now()}`,
@@ -795,51 +841,51 @@ function renderCreationOptions() {
   // Deprecated in this view: templates are now displayed on a dedicated Templates page.
   return ""
 
-  return `
-    <div class="mb-3">
-      <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <h2 style="margin:0;">Suggested Beginner Templates</h2>
-        <span class="text-secondary" style="font-size: 0.8rem;">
-          Pick a ready-to-play archetype, then tweak anything you like.
-        </span>
-      </div>
-      <div class="grid grid-3">
-        ${templates
-          .map(
-            (t) => `
-          <div class="card template-card" data-template-id="${t.id}" style="cursor:pointer; display:flex; flex-direction:column; justify-content:space-between;">
-            <div>
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                <h3 style="margin:0;">${t.icon} ${escapeHtml(t.name)}</h3>
-                <span class="badge" style="font-size:0.7rem; text-transform:capitalize;">${escapeHtml(
-                  t.difficulty,
-                )}</span>
-              </div>
-              <p class="text-secondary" style="margin:0.25rem 0 0.35rem 0; font-size:0.8rem;">
-                Level ${t.level} ${escapeHtml(t.race)} ${escapeHtml(t.class)} • ${escapeHtml(t.role)}
-              </p>
-              <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.8rem;">
-                ${escapeHtml(t.tagline)}
-              </p>
-              <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.75rem;">
-                Best for: ${t.bestFor.map((b) => escapeHtml(b)).join(" • ")}
-              </p>
-              <div style="display:flex; gap:0.35rem; flex-wrap:wrap; font-size:0.75rem; margin-bottom:0.35rem;">
-                <span class="badge">HP ${t.maxHP}</span>
-                <span class="badge">AC ${t.armorClass}</span>
-                <span class="badge">STR ${t.stats.strength}</span>
-                <span class="badge">DEX ${t.stats.dexterity}</span>
-                <span class="badge">CON ${t.stats.constitution}</span>
-              </div>
-            </div>
-            <button class="btn" style="margin-top:0.5rem; width:100%;">Use This Character</button>
-          </div>
-        `,
-          )
-          .join("")}
-      </div>
-    </div>
-  `
+  // return `
+  //   <div class="mb-3">
+  //     <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+  //       <h2 style="margin:0;">Suggested Beginner Templates</h2>
+  //       <span class="text-secondary" style="font-size: 0.8rem;">
+  //         Pick a ready-to-play archetype, then tweak anything you like.
+  //       </span>
+  //     </div>
+  //     <div class="grid grid-3">
+  //       ${templates
+  //         .map(
+  //           (t) => `
+  //         <div class="card template-card" data-template-id="${t.id}" style="cursor:pointer; display:flex; flex-direction:column; justify-content:space-between;">
+  //           <div>
+  //             <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+  //               <h3 style="margin:0;">${t.icon} ${escapeHtml(t.name)}</h3>
+  //               <span class="badge" style="font-size:0.7rem; text-transform:capitalize;">${escapeHtml(
+  //                 t.difficulty,
+  //               )}</span>
+  //             </div>
+  //             <p class="text-secondary" style="margin:0.25rem 0 0.35rem 0; font-size:0.8rem;">
+  //               Level ${t.level} ${escapeHtml(t.race)} ${escapeHtml(t.class)} • ${escapeHtml(t.role)}
+  //             </p>
+  //             <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.8rem;">
+  //               ${escapeHtml(t.tagline)}
+  //             </p>
+  //             <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.75rem;">
+  //               Best for: ${t.bestFor.map((b) => escapeHtml(b)).join(" • ")}
+  //             </p>
+  //             <div style="display:flex; gap:0.35rem; flex-wrap:wrap; font-size:0.75rem; margin-bottom:0.35rem;">
+  //               <span class="badge">HP ${t.maxHP}</span>
+  //               <span class="badge">AC ${t.armorClass}</span>
+  //               <span class="badge">STR ${t.stats.strength}</span>
+  //               <span class="badge">DEX ${t.stats.dexterity}</span>
+  //               <span class="badge">CON ${t.stats.constitution}</span>
+  //             </div>
+  //           </div>
+  //           <button class="btn" style="margin-top:0.5rem; width:100%;">Use This Character</button>
+  //         </div>
+  //       `,
+  //         )
+  //         .join("")}
+  //     </div>
+  //   </div>
+  // `
 }
 
 async function handleGenerateRandomCharacterFlow() {
@@ -916,35 +962,34 @@ function normalizeJsonCharacter(raw) {
     name: String(raw.name || "").trim(),
     race: String(raw.race || "").trim(),
     class: String(raw.class || "").trim(),
-    level: Number.isFinite(raw.level) ? raw.level : parseInt(raw.level, 10),
+    level: Number.isFinite(raw.level) ? raw.level : Number.parseInt(raw.level, 10),
   }
 
   // Normalize different incoming field names and shapes into our expected schema.
   const statsIn =
     // Preferred strict schema: object with named fields
     (raw.stats && !Array.isArray(raw.stats) && raw.stats) ||
-    raw.abilityScores ||
-    raw.abilities ||
-    // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
-    (Array.isArray(raw.stats) && {
-      strength: raw.stats[0],
-      dexterity: raw.stats[1],
-      constitution: raw.stats[2],
-      intelligence: raw.stats[3],
-      wisdom: raw.stats[4],
-      charisma: raw.stats[5],
-    }) ||
-    {
-      strength: raw.strength,
-      dexterity: raw.dexterity,
-      constitution: raw.constitution,
-      intelligence: raw.intelligence,
-      wisdom: raw.wisdom,
-      charisma: raw.charisma,
-    }
+      raw.abilityScores ||
+      raw.abilities ||
+      // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
+      (Array.isArray(raw.stats) && {
+        strength: raw.stats[0],
+        dexterity: raw.stats[1],
+        constitution: raw.stats[2],
+        intelligence: raw.stats[3],
+        wisdom: raw.stats[4],
+        charisma: raw.stats[5],
+      }) || {
+        strength: raw.strength,
+        dexterity: raw.dexterity,
+        constitution: raw.constitution,
+        intelligence: raw.intelligence,
+        wisdom: raw.wisdom,
+        charisma: raw.charisma,
+      }
 
   const num = (v, fallback) => {
-    const n = typeof v === "number" ? v : parseInt(v, 10)
+    const n = typeof v === "number" ? v : Number.parseInt(v, 10)
     return Number.isFinite(n) ? n : fallback
   }
 
@@ -962,9 +1007,7 @@ function normalizeJsonCharacter(raw) {
   const armorClass = num(raw.armorClass ?? raw.ac ?? combat.armor_class, 10)
   const speed = num(raw.speed ?? combat.speed, 30)
   const hitDice =
-    typeof (raw.hitDice || combat.hit_dice) === "string"
-      ? (raw.hitDice || combat.hit_dice).trim()
-      : "1d10"
+    typeof (raw.hitDice || combat.hit_dice) === "string" ? (raw.hitDice || combat.hit_dice).trim() : "1d10"
 
   const csvToArray = (val) =>
     String(val || "")
@@ -1049,7 +1092,17 @@ async function generateRandomCharacterWithPrompt() {
     document.getElementById("char-name").value = character.name
 
     // Handle race: if it matches a standard option, select it; otherwise choose Custom and prefill custom field
-    const standardRaces = ["Human","Elf","Dwarf","Halfling","Dragonborn","Gnome","Half-Elf","Half-Orc","Tiefling"]
+    const standardRaces = [
+      "Human",
+      "Elf",
+      "Dwarf",
+      "Halfling",
+      "Dragonborn",
+      "Gnome",
+      "Half-Elf",
+      "Half-Orc",
+      "Tiefling",
+    ]
     const raceSelect = document.getElementById("char-race")
     const raceCustomInput = document.getElementById("char-race-custom")
     if (standardRaces.includes(character.race)) {

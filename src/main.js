@@ -12,14 +12,8 @@ import { renderCharacters, renderCharacterCreator } from "./views/characters.js"
 import { renderCharacterTemplatesView } from "./views/characterTemplatesView.js"
 import { renderGameList, renderGame } from "./views/game.js"
 import { renderWorlds } from "./views/worlds.js"
-import {
-  startAuth,
-  handleAuthCallback,
-  setApiKey,
-  isAuthenticated,
-  autoLogin,
-  getDefaultModelFromEnv,
-} from "./utils/auth.js"
+import { startAuth, handleAuthCallback, setApiKey, isAuthenticated, autoLogin } from "./utils/auth.js"
+import { getDefaultModelFromEnv } from "./utils/model-utils.js"
 import { loadData, saveData } from "./utils/storage.js"
 
 /**
@@ -37,7 +31,7 @@ function init() {
   // Set default model from environment variable if not already set
   const envDefaultModel = getDefaultModelFromEnv()
   if (envDefaultModel && !data.settings.defaultNarrativeModel) {
-    console.log("Setting default model from environment variable:", envDefaultModel)
+    console.log("[v0] Setting default model from environment variable:", envDefaultModel)
     data.settings.defaultNarrativeModel = envDefaultModel
     saveData(data)
   }
@@ -168,13 +162,17 @@ function applyTheme(theme) {
  * Handle new character route - shows creation options
  */
 function handleNewCharacter(state) {
+  const data = loadData()
+  if (!data.settings.defaultNarrativeModel) {
+    console.log("[v0] No default model set, redirecting to model selector")
+    // Store intention to come back here after model selection
+    sessionStorage.setItem("redirectAfterModelSelect", "/characters/new")
+    window.location.href = "#/models"
+    return
+  }
+
   renderCharacterCreator(state)
 }
-
-/**
- * Legacy routes for from-scratch / random are now folded into unified creator.
- * They can be reintroduced here if old links must be supported.
- */
 
 // Start the app when DOM is ready
 if (document.readyState === "loading") {

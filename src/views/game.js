@@ -8,6 +8,7 @@ import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
+import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -176,6 +177,14 @@ export async function renderGame(state = {}) {
 
   currentGameId = gameId
   const data = loadData()
+
+  if (!data.settings.defaultNarrativeModel) {
+    console.log("[v0] No default model set in game view, redirecting to model selector")
+    sessionStorage.setItem("redirectAfterModelSelect", `/game/${gameId}`)
+    navigateTo("/models")
+    return
+  }
+
   const game = data.games.find((g) => g.id === gameId)
 
   if (!game) {
@@ -203,55 +212,61 @@ export async function renderGame(state = {}) {
       <div class="game-sidebar">
         <div class="card">
           <h3>${character.name}</h3>
-          <p class="text-secondary">Level ${character.level} ${character.race} ${character.class}</p>
+          <p class="text-secondary" style="margin: 0.25rem 0 1rem 0;">Level ${character.level} ${character.race} ${character.class}</p>
           
-          <div class="stat-bar mt-2">
+          <!-- Enhanced HP display with colored bar -->
+          <div class="stat-bar mt-2" style="margin-bottom: 1rem;">
             <div class="flex justify-between mb-1">
-              <span>HP</span>
+              <span style="font-weight: 500;">HP</span>
               <span>${game.currentHP}/${character.maxHP}</span>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${(game.currentHP / character.maxHP) * 100}%"></div>
+            <div class="progress-bar" style="height: 24px; border-radius: 4px; background-color: var(--muted); overflow: hidden;">
+              <div class="progress-fill" style="width: ${(game.currentHP / character.maxHP) * 100}%; height: 100%; background-color: ${game.currentHP > character.maxHP * 0.5 ? "var(--success-color, #4caf50)" : game.currentHP > character.maxHP * 0.25 ? "var(--warning-color, #ff9800)" : "var(--error-color, #f44336)"}; transition: width 0.3s ease;"></div>
             </div>
           </div>
           
-          <div class="mt-2">
-            <strong>AC:</strong> ${character.armorClass}
+          <!-- Improved AC and key stats display -->
+          <div class="flex justify-between mb-3" style="padding: 0.75rem; background-color: var(--muted); border-radius: 6px; font-size: 0.875rem;">
+            <div><strong>AC</strong><br>${character.armorClass}</div>
+            <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
+            <div><strong>SPD</strong><br>${character.speed}ft</div>
           </div>
           
-          <div class="stats-grid mt-2">
-            <div class="stat-item">
-              <span class="stat-label">STR</span>
-              <span class="stat-value">${character.stats.strength}</span>
+          <!-- Better organized ability scores grid -->
+          <div class="stats-grid mt-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">STR</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.strength}</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">DEX</span>
-              <span class="stat-value">${character.stats.dexterity}</span>
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">DEX</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.dexterity}</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">CON</span>
-              <span class="stat-value">${character.stats.constitution}</span>
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">CON</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.constitution}</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">INT</span>
-              <span class="stat-value">${character.stats.intelligence}</span>
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">INT</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.intelligence}</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">WIS</span>
-              <span class="stat-value">${character.stats.wisdom}</span>
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">WIS</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.wisdom}</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-label">CHA</span>
-              <span class="stat-value">${character.stats.charisma}</span>
+            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
+              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">CHA</span>
+              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.charisma}</span>
             </div>
           </div>
           
           ${
             game.combat.active
               ? `
-            <div class="combat-indicator mt-3">
+            <!-- Enhanced combat indicator -->
+            <div class="combat-indicator" style="margin-top: 1rem; padding: 0.75rem; background-color: var(--destructive); color: white; border-radius: 6px; text-align: center;">
               <strong>⚔️ IN COMBAT</strong>
-              <p class="text-secondary" style="font-size: 0.875rem;">Round ${game.combat.round}</p>
+              <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">Round ${game.combat.round}</p>
             </div>
           `
               : ""
@@ -261,12 +276,13 @@ export async function renderGame(state = {}) {
       
       <div class="game-main">
         <div class="card" style="height: 100%; display: flex; flex-direction: column;">
-          <div class="game-header">
-            <h2>${game.title}</h2>
-            <p class="text-secondary">${game.currentLocation}</p>
+          <!-- Enhanced game header with location icon -->
+          <div class="game-header" style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+            <h2 style="margin: 0 0 0.5rem 0;">${game.title}</h2>
+            <p class="text-secondary" style="margin: 0; font-size: 0.9rem;">${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong></p>
           </div>
 
-          <div id="messages-container" class="messages-container">
+          <div id="messages-container" class="messages-container" style="flex: 1; overflow-y: auto; margin-bottom: 1rem; padding: 0.5rem 0;">
             ${renderMessages(game.messages)}
           </div>
           
@@ -274,11 +290,11 @@ export async function renderGame(state = {}) {
             ${
               game.suggestedActions && game.suggestedActions.length > 0
                 ? `
-              <div class="suggested-actions">
+              <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
                 ${game.suggestedActions
                   .map(
                     (action) => `
-                  <button class="action-bubble" data-action="${escapeHtml(action)}">
+                  <button class="action-bubble" data-action="${escapeHtml(action)}" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background-color: var(--muted); cursor: pointer; font-size: 0.875rem; transition: all 0.2s; white-space: nowrap;">
                     ${escapeHtml(action)}
                   </button>
                 `,
@@ -293,7 +309,7 @@ export async function renderGame(state = {}) {
                 type="text" 
                 id="player-input" 
                 placeholder="What do you do?" 
-                style="flex: 1;"
+                style="flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem;"
                 ${isStreaming ? "disabled" : ""}
               >
               <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
@@ -304,10 +320,11 @@ export async function renderGame(state = {}) {
         </div>
       </div>
 
+      <!-- Enhanced roll history panel -->
       <div class="game-rolls">
         <div class="card">
-          <h3>Recent Rolls</h3>
-          <div id="roll-history-container" class="roll-history-container">
+          <h3 style="margin-top: 0;">Recent Rolls</h3>
+          <div id="roll-history-container" class="roll-history-container" style="max-height: 400px; overflow-y: auto;">
             ${renderRollHistory(game.messages)}
           </div>
         </div>
@@ -354,28 +371,45 @@ function renderSingleMessage(msg) {
   if (msg.hidden) return ""
 
   let className = "message"
+  let iconPrefix = ""
+
   if (msg.role === "user") {
     className += " message-user"
+    iconPrefix = "👤 "
   } else if (msg.role === "assistant") {
     className += " message-assistant"
+    iconPrefix = "🎭 "
   } else if (msg.role === "system") {
     className += " message-system"
-    if (msg.metadata?.diceRoll) className += " message-dice"
-    else if (msg.metadata?.damage) className += " message-damage"
-    else if (msg.metadata?.healing) className += " message-healing"
-    else if (msg.metadata?.combatEvent) className += " message-combat"
+
+    if (msg.metadata?.diceRoll) {
+      className += " message-dice"
+      iconPrefix = Icons.DICE + " "
+    } else if (msg.metadata?.damage) {
+      className += " message-damage"
+      iconPrefix = Icons.DAMAGE + " "
+    } else if (msg.metadata?.healing) {
+      className += " message-healing"
+      iconPrefix = Icons.HEAL + " "
+    } else if (msg.metadata?.combatEvent === "start") {
+      className += " message-combat"
+      iconPrefix = Icons.COMBAT + " "
+    } else if (msg.metadata?.combatEvent === "end") {
+      className += " message-combat"
+      iconPrefix = "✓ "
+    }
   }
 
-  const cleanContent = stripTags(msg.content || '')
+  const cleanContent = stripTags(msg.content || "")
 
   // Do not render empty assistant messages unless they have dice roll metadata
-  if (msg.role === 'assistant' && !cleanContent.trim() && !msg.metadata?.diceRoll) {
-    return ''
+  if (msg.role === "assistant" && !cleanContent.trim() && !msg.metadata?.diceRoll) {
+    return ""
   }
 
   const messageHTML = `
     <div class="${className}" data-msg-id="${msg.id}">
-      <div class="message-content">${parseMarkdown(cleanContent)}</div>
+      <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
     </div>
@@ -388,7 +422,6 @@ function createRollMetadata(extra = {}) {
   const timestamp = new Date().toISOString()
   return { rollId: id, timestamp, ...extra }
 }
-
 
 function appendMessage(msg) {
   const messagesContainer = document.getElementById("messages-container")
@@ -463,7 +496,7 @@ function renderRollHistory(messages) {
           const total =
             typeof meta.diceRoll?.total === "number"
               ? meta.diceRoll.total
-              : meta.diceRoll?.toHit?.total ?? meta.diceRoll?.damage?.total ?? ""
+              : (meta.diceRoll?.toHit?.total ?? meta.diceRoll?.damage?.total ?? "")
 
           return `
             <li class="roll-history-item">
@@ -495,8 +528,10 @@ function stripTags(text) {
   // Remove all game tags but keep the content inside when appropriate
   let cleaned = text
 
-  // LOCATION tags - keep the label text
-  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, "$1")
+  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, (match, location) => {
+    const icon = getLocationIcon(location)
+    return `${icon}`
+  })
 
   // ROLL tags - not shown in narrative
   cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, "")
@@ -677,7 +712,7 @@ async function sendMessage(game, userText, data) {
         if (!streamingMsgElement) {
           appendMessage(gameRef.messages[assistantMsgIndex])
         } else {
-          const contentElement = streamingMsgElement.querySelector('.message-content')
+          const contentElement = streamingMsgElement.querySelector(".message-content")
           if (contentElement) {
             const cleanContent = stripTags(assistantMessage)
             contentElement.innerHTML = parseMarkdown(cleanContent)
@@ -686,7 +721,7 @@ async function sendMessage(game, userText, data) {
 
         const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
         if (newMessages.length > 0) {
-          newMessages.forEach(msg => {
+          newMessages.forEach((msg) => {
             gameRef.messages.push(msg)
             appendMessage(msg)
           })
@@ -699,7 +734,7 @@ async function sendMessage(game, userText, data) {
 
         const gameHeader = document.querySelector(".game-header p")
         if (gameHeader) {
-          gameHeader.textContent = gameRef.currentLocation
+          gameHeader.textContent = `${getLocationIcon(gameRef.currentLocation)} ${gameRef.currentLocation}`
         }
 
         debouncedSave(data, 100)
@@ -741,122 +776,121 @@ async function sendMessage(game, userText, data) {
 
 async function processGameCommandsRealtime(game, character, text, processedTags) {
   // Process tags as they stream in, but only once per tag
-  const newMessages = [];
-  let needsUIUpdate = false;
+  const newMessages = []
+  let needsUIUpdate = false
 
   // Precompute dice profile if we have a character
-  const diceProfile = character ? buildDiceProfile(character) : null;
+  const diceProfile = character ? buildDiceProfile(character) : null
 
   // Helpers for inventory / currency / conditions
 
   const ensureInventory = () => {
     if (!Array.isArray(game.inventory)) {
-      game.inventory = [];
-    }
-  };
-
-  const ensureCurrency = () => {
-    if (!game.currency || typeof game.currency.gp !== "number") {
-      game.currency = { gp: 0 };
-    }
-  };
-
-  const ensureConditions = () => {
-    if (!Array.isArray(game.conditions)) {
-      game.conditions = [];
-    }
-  };
-
-  const upsertItem = (rawName, deltaQty, { equip, unequip } = {}) => {
-    ensureInventory();
-    const name = (rawName || "").trim();
-    if (!name) return null;
-
-    const findIndex = () =>
-      game.inventory.findIndex(
-        (it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase(),
-      );
-
-    let idx = findIndex();
-    if (idx === -1 && deltaQty > 0) {
-      game.inventory.push({ item: name, quantity: deltaQty, equipped: false });
-      idx = findIndex();
-    }
-
-    if (idx === -1) {
-      return null;
-    }
-
-    const item = game.inventory[idx];
-    const oldQty = typeof item.quantity === "number" ? item.quantity : 0;
-    const newQty = Math.max(0, oldQty + deltaQty);
-
-    item.quantity = newQty;
-
-    if (equip === true) {
-      item.equipped = true;
-    } else if (unequip === true) {
-      item.equipped = false;
-    }
-
-    if (item.quantity === 0) {
-      game.inventory.splice(idx, 1);
-    }
-
-    return { name: item.item, oldQty, newQty, equipped: !!item.equipped };
-  };
-
-  const changeGold = (deltaRaw) => {
-    const delta = Number.parseInt(deltaRaw, 10);
-    if (Number.isNaN(delta) || delta === 0) return null;
-    ensureCurrency();
-    const before = game.currency.gp;
-    let after = before + delta;
-    if (after < 0) after = 0;
-    game.currency.gp = after;
-    return { before, after, applied: after - before };
-  };
-
-  const addStatus = (raw) => {
-    ensureConditions();
-    const name = (raw || "").trim();
-    if (!name) return false;
-
-    const exists = game.conditions.some((c) => {
-      if (typeof c === "string") return c.toLowerCase() === name.toLowerCase();
-      return c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase();
-    });
-    if (exists) return false;
-
-    game.conditions.push({ name });
-    return true;
-  };
-
-  const removeStatus = (raw) => {
-    ensureConditions();
-    const name = (raw || "").trim();
-    if (!name) return false;
-
-    const before = game.conditions.length;
-    game.conditions = game.conditions.filter((c) => {
-      if (typeof c === "string") return c.toLowerCase() !== name.toLowerCase();
-      return !(c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase());
-    });
-    return game.conditions.length !== before;
-  };
-
-  // LOCATION updates
-  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g);
-  for (const match of locationMatches) {
-    const tagKey = `location_${match[0]}`;
-    if (!processedTags.has(tagKey)) {
-      game.currentLocation = match[1];
-      processedTags.add(tagKey);
+      game.inventory = []
     }
   }
 
-// COMBAT_START with initiative
-  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]*)\]/g);
+  const ensureCurrency = () => {
+    if (!game.currency || typeof game.currency.gp !== "number") {
+      game.currency = { gp: 0 }
+    }
+  }
+
+  const ensureConditions = () => {
+    if (!Array.isArray(game.conditions)) {
+      game.conditions = []
+    }
+  }
+
+  const upsertItem = (rawName, deltaQty, { equip, unequip } = {}) => {
+    ensureInventory()
+    const name = (rawName || "").trim()
+    if (!name) return null
+
+    const findIndex = () =>
+      game.inventory.findIndex((it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase())
+
+    let idx = findIndex()
+    if (idx === -1 && deltaQty > 0) {
+      game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
+      idx = findIndex()
+    }
+
+    if (idx === -1) {
+      return null
+    }
+
+    const item = game.inventory[idx]
+    const oldQty = typeof item.quantity === "number" ? item.quantity : 0
+    const newQty = Math.max(0, oldQty + deltaQty)
+
+    item.quantity = newQty
+
+    if (equip === true) {
+      item.equipped = true
+    } else if (unequip === true) {
+      item.equipped = false
+    }
+
+    if (item.quantity === 0) {
+      game.inventory.splice(idx, 1)
+    }
+
+    return { name: item.item, oldQty, newQty, equipped: !!item.equipped }
+  }
+
+  const changeGold = (deltaRaw) => {
+    const delta = Number.parseInt(deltaRaw, 10)
+    if (Number.isNaN(delta) || delta === 0) return null
+    ensureCurrency()
+    const before = game.currency.gp
+    let after = before + delta
+    if (after < 0) after = 0
+    game.currency.gp = after
+    return { before, after, applied: after - before }
+  }
+
+  const addStatus = (raw) => {
+    ensureConditions()
+    const name = (raw || "").trim()
+    if (!name) return false
+
+    const exists = game.conditions.some((c) => {
+      if (typeof c === "string") return c.toLowerCase() === name.toLowerCase()
+      return c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase()
+    })
+    if (exists) return false
+
+    game.conditions.push({ name })
+    return true
+  }
+
+  const removeStatus = (raw) => {
+    ensureConditions()
+    const name = (raw || "").trim()
+    if (!name) return false
+
+    const before = game.conditions.length
+    game.conditions = game.conditions.filter((c) => {
+      if (typeof c === "string") return c.toLowerCase() !== name.toLowerCase()
+      return !(c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase())
+    })
+    return game.conditions.length !== before
+  }
+
+  // LOCATION updates
+  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g)
+  for (const match of locationMatches) {
+    const tagKey = `location_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      game.currentLocation = match[1]
+      processedTags.add(tagKey)
+      // Icon will be added in UI
+    }
+  }
+
+  // COMBAT_START with initiative
+  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]*)\]/g)
   for (const match of combatStartMatches) {
     const tagKey = `combat_start_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -959,8 +993,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-// COMBAT_END
-  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g);
+  // COMBAT_END
+  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g)
   for (const match of combatEndMatches) {
     const tagKey = `combat_end_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -982,16 +1016,16 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   // DAMAGE
-  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g);
+  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g)
   for (const match of damageMatches) {
-    const tagKey = `damage_${match[0]}`;
+    const tagKey = `damage_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const target = match[1];
-      const amount = Number.parseInt(match[2], 10);
+      const target = match[1]
+      const amount = Number.parseInt(match[2], 10)
 
       if (target.toLowerCase() === "player") {
-        const oldHP = game.currentHP;
-        game.currentHP = Math.max(0, game.currentHP - amount);
+        const oldHP = game.currentHP
+        game.currentHP = Math.max(0, game.currentHP - amount)
 
         newMessages.push({
           id: `msg_${Date.now()}_damage`,
@@ -1000,24 +1034,24 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           timestamp: new Date().toISOString(),
           hidden: false,
           metadata: { damage: amount },
-        });
-        processedTags.add(tagKey);
+        })
+        processedTags.add(tagKey)
       }
     }
   }
 
   // HEAL
-  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g);
+  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g)
   for (const match of healMatches) {
-    const tagKey = `heal_${match[0]}`;
+    const tagKey = `heal_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const target = match[1];
-      const amount = Number.parseInt(match[2], 10);
+      const target = match[1]
+      const amount = Number.parseInt(match[2], 10)
 
       if (target.toLowerCase() === "player") {
-        const oldHP = game.currentHP;
-        game.currentHP = Math.min(character.maxHP, game.currentHP + amount);
-        const actualHealing = game.currentHP - oldHP;
+        const oldHP = game.currentHP
+        game.currentHP = Math.min(character.maxHP, game.currentHP + amount)
+        const actualHealing = game.currentHP - oldHP
 
         newMessages.push({
           id: `msg_${Date.now()}_heal`,
@@ -1026,14 +1060,14 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           timestamp: new Date().toISOString(),
           hidden: false,
           metadata: { healing: actualHealing },
-        });
-        processedTags.add(tagKey);
+        })
+        processedTags.add(tagKey)
       }
     }
   }
 
   // ROLL (numeric + semantic)
-  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
+  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g)
   for (const match of rollMatches) {
     const tagKey = `roll_${match[0]}`
     if (processedTags.has(tagKey)) continue
@@ -1053,7 +1087,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     const parseDC = (raw) => {
       if (!raw) return null
       const m = raw.toString().toLowerCase().match(/(\d+)/)
-      return m ? parseInt(m[1], 10) : null
+      return m ? Number.parseInt(m[1], 10) : null
     }
     const parseAdv = (flagRaw) => {
       const flag = (flagRaw || "").toLowerCase()
@@ -1073,7 +1107,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
       try {
         if (kind === "skill") {
-          console.debug("[dice][ROLL] Handling semantic skill roll", { key, dc, adv, raw: match[0] })
+          console.debug("[dice][ROLL] Handling semantic skill roll", { key, dc: parseDC(third), adv, raw: match[0] })
           const dc = parseDC(third)
           const result = rollSkillCheck(character, key, { dc, ...adv })
           const meta = createRollMetadata({ sourceType: "skill" })
@@ -1083,9 +1117,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             content:
               `🎲 Skill (${key || "check"}): ` +
               `${formatRoll(result)}` +
-              (dc != null
-                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
-                : ""),
+              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
             timestamp: meta.timestamp,
             hidden: false,
             metadata: {
@@ -1108,9 +1140,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             content:
               `🎲 Save (${(key || "").toUpperCase() || "save"}): ` +
               `${formatRoll(result)}` +
-              (dc != null
-                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
-                : ""),
+              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
             timestamp: meta.timestamp,
             hidden: false,
             metadata: {
@@ -1134,9 +1164,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           const segments = []
           segments.push(
             `🎲 Attack (${label}): ${formatRoll(toHit)}` +
-              (targetAC != null
-                ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}`
-                : ""),
+              (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}` : ""),
           )
           if (dmg) {
             segments.push(`💥 Damage: ${formatRoll(dmg)}`)
@@ -1206,11 +1234,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       role: "system",
       content:
         formatRoll(result) +
-        (request.dc
-          ? ` vs DC ${request.dc} - ${
-              result.total >= request.dc ? "✓ Success!" : "✗ Failure"
-            }`
-          : ""),
+        (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
       timestamp: meta.timestamp,
       hidden: false,
       metadata: {
@@ -1225,13 +1249,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   // INVENTORY_ADD[item|qty]
-  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]|\|]+)\|?(\d+)?\]/g);
+  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]||]+)\|?(\d+)?\]/g)
   for (const match of invAddMatches) {
-    const tagKey = `inv_add_${match[0]}`;
+    const tagKey = `inv_add_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const name = match[1];
-      const qty = match[2] ? Number.parseInt(match[2], 10) : 1;
-      const res = upsertItem(name, qty);
+      const name = match[1]
+      const qty = match[2] ? Number.parseInt(match[2], 10) : 1
+      const res = upsertItem(name, qty)
       if (res) {
         newMessages.push({
           id: `msg_${Date.now()}_inv_add`,
@@ -1239,21 +1263,21 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           content: `📦 Gained ${qty} x ${res.name}.`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
-      needsUIUpdate = true;
+      processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
   // INVENTORY_REMOVE[item|qty]
-  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]|\|]+)\|?(\d+)?\]/g);
+  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]||]+)\|?(\d+)?\]/g)
   for (const match of invRemoveMatches) {
-    const tagKey = `inv_remove_${match[0]}`;
+    const tagKey = `inv_remove_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const name = match[1];
-      const qty = match[2] ? Number.parseInt(match[2], 10) : 1;
-      const res = upsertItem(name, -qty);
+      const name = match[1]
+      const qty = match[2] ? Number.parseInt(match[2], 10) : 1
+      const res = upsertItem(name, -qty)
       if (res) {
         newMessages.push({
           id: `msg_${Date.now()}_inv_remove`,
@@ -1261,19 +1285,19 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           content: `📦 Used/removed ${qty} x ${res.name}.`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
-      needsUIUpdate = true;
+      processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
   // INVENTORY_EQUIP[item]
-  const invEquipMatches = text.matchAll(/INVENTORY_EQUIP\[([^\]]+)\]/g);
+  const invEquipMatches = text.matchAll(/INVENTORY_EQUIP\[([^\]]+)\]/g)
   for (const match of invEquipMatches) {
-    const tagKey = `inv_equip_${match[0]}`;
+    const tagKey = `inv_equip_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const res = upsertItem(match[1], 0, { equip: true });
+      const res = upsertItem(match[1], 0, { equip: true })
       if (res) {
         newMessages.push({
           id: `msg_${Date.now()}_inv_equip`,
@@ -1281,19 +1305,19 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           content: `🛡️ Equipped ${res.name}.`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
-      needsUIUpdate = true;
+      processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
   // INVENTORY_UNEQUIP[item]
-  const invUnequipMatches = text.matchAll(/INVENTORY_UNEQUIP\[([^\]]+)\]/g);
+  const invUnequipMatches = text.matchAll(/INVENTORY_UNEQUIP\[([^\]]+)\]/g)
   for (const match of invUnequipMatches) {
-    const tagKey = `inv_unequip_${match[0]}`;
+    const tagKey = `inv_unequip_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const res = upsertItem(match[1], 0, { unequip: true });
+      const res = upsertItem(match[1], 0, { unequip: true })
       if (res) {
         newMessages.push({
           id: `msg_${Date.now()}_inv_unequip`,
@@ -1301,55 +1325,55 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           content: `🛡️ Unequipped ${res.name}.`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
-      needsUIUpdate = true;
+      processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
   // GOLD_CHANGE[delta]
-  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+)\]/g);
+  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+)\]/g)
   for (const match of goldMatches) {
-    const tagKey = `gold_${match[0]}`;
+    const tagKey = `gold_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      const res = changeGold(match[1]);
+      const res = changeGold(match[1])
       if (res && res.applied !== 0) {
-        const symbol = res.applied > 0 ? "+" : "";
+        const symbol = res.applied > 0 ? "+" : ""
         newMessages.push({
           id: `msg_${Date.now()}_gold`,
           role: "system",
           content: `💰 Gold: ${res.before} → ${res.after} (${symbol}${res.applied} gp)`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
+      processedTags.add(tagKey)
     }
   }
 
   // STATUS_ADD[name]
-  const statusAddMatches = text.matchAll(/STATUS_ADD\[([^\]]+)\]/g);
+  const statusAddMatches = text.matchAll(/STATUS_ADD\[([^\]]+)\]/g)
   for (const match of statusAddMatches) {
-    const tagKey = `status_add_${match[0]}`;
+    const tagKey = `status_add_${match[0]}`
     if (!processedTags.has(tagKey)) {
       if (addStatus(match[1])) {
         newMessages.push({
           id: `msg_${Date.now()}_status_add`,
           role: "system",
-          content: `⚠️ Status applied: ${match[1]}`,
+          content: `${getConditionIcon(match[1])} Status applied: ${match[1]}`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
+      processedTags.add(tagKey)
     }
   }
 
   // STATUS_REMOVE[name]
-  const statusRemoveMatches = text.matchAll(/STATUS_REMOVE\[([^\]]+)\]/g);
+  const statusRemoveMatches = text.matchAll(/STATUS_REMOVE\[([^\]]+)\]/g)
   for (const match of statusRemoveMatches) {
-    const tagKey = `status_remove_${match[0]}`;
+    const tagKey = `status_remove_${match[0]}`
     if (!processedTags.has(tagKey)) {
       if (removeStatus(match[1])) {
         newMessages.push({
@@ -1358,33 +1382,33 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           content: `✅ Status removed: ${match[1]}`,
           timestamp: new Date().toISOString(),
           hidden: false,
-        });
+        })
       }
-      processedTags.add(tagKey);
+      processedTags.add(tagKey)
     }
   }
 
   // ACTION suggestions
-  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g);
-  const newActions = [];
+  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g)
+  const newActions = []
   for (const match of actionMatches) {
-    const tagKey = `action_${match[0]}`;
+    const tagKey = `action_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      newActions.push(match[1]);
-      processedTags.add(tagKey);
+      newActions.push(match[1])
+      processedTags.add(tagKey)
     }
   }
 
   if (newActions.length > 0) {
-    game.suggestedActions.push(...newActions);
-    needsUIUpdate = true;
+    game.suggestedActions.push(...newActions)
+    needsUIUpdate = true
   }
 
   if (needsUIUpdate) {
-    updateInputContainer(game);
+    updateInputContainer(game)
   }
 
-  return newMessages;
+  return newMessages
 }
 
 async function processGameCommands(game, character, text) {
@@ -1518,7 +1542,7 @@ async function processGameCommands(game, character, text) {
 
   // Process roll requests - legacy numeric ROLL[...] only.
   // Semantic ROLL tags are handled in processGameCommandsRealtime during streaming.
-  // Legacy numeric-only fallback:
+  // Legacy numeric:
   // Ignore semantic-style tags (skill/save/attack) here; they are handled in processGameCommandsRealtime.
   const rollRequests = parseRollRequests(text).filter((request) => {
     const head = (request.notation || "").toLowerCase().trim()
@@ -1543,9 +1567,7 @@ async function processGameCommands(game, character, text) {
         role: "system",
         content:
           formatRoll(result) +
-          (request.dc
-            ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}`
-            : ""),
+          (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
         timestamp: new Date().toISOString(),
         hidden: false,
         metadata: {
@@ -1708,7 +1730,7 @@ Never combine:
 
    - Skill checks:
      - Format: ROLL[skill|skill_name|DC]
-     - Example: "ROLL[skill|perception|15]" → Perception check vs DC 15.
+       - Example: "ROLL[skill|perception|15]" → Perception check vs DC 15.
    - Saving throws:
      - Format: ROLL[save|ability|DC]
        - ability: str, dex, con, int, wis, cha (or full names)
@@ -1830,11 +1852,11 @@ function updateInputContainer(game) {
     ${
       game.suggestedActions && game.suggestedActions.length > 0
         ? `
-      <div class="suggested-actions">
+      <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
         ${game.suggestedActions
           .map(
             (action) => `
-          <button class="action-bubble" data-action="${escapeHtml(action)}">
+          <button class="action-bubble" data-action="${escapeHtml(action)}" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background-color: var(--muted); cursor: pointer; font-size: 0.875rem; transition: all 0.2s; white-space: nowrap;">
             ${escapeHtml(action)}
           </button>
         `,
@@ -1849,7 +1871,7 @@ function updateInputContainer(game) {
         type="text" 
         id="player-input" 
         placeholder="What do you do?" 
-        style="flex: 1;"
+        style="flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem;"
         ${isStreaming ? "disabled" : ""}
       >
       <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
@@ -1887,4 +1909,20 @@ function updateInputContainer(game) {
   })
 
   setupRollHistoryToggle()
+}
+
+// Renamed function to avoid redeclaration
+async function sendChatCompletionRequest(apiMessages, model) {
+  try {
+    const { getCleanModelId } = await import("../utils/model-utils.js")
+    const cleanedModel = getCleanModelId(model)
+
+    console.log("[v0] Using model:", cleanedModel, `${model.includes(":nitro") ? "(Nitro - fast throughput)" : ""}`)
+
+    const response = await sendChatCompletion(apiMessages, cleanedModel)
+    return response
+  } catch (error) {
+    console.error("[v0] Error in sendChatCompletion:", error)
+    throw error
+  }
 }

@@ -46,17 +46,32 @@ export function renderCharacterTemplatesView() {
     </div>
   `
 
-  // Wire up "Use This Character" buttons
+  // Wire up template interactions
   document.querySelectorAll("[data-template-id]").forEach((card) => {
     const btn = card.querySelector("button.use-template-btn")
-    if (!btn) return
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation()
-      const id = card.getAttribute("data-template-id")
-      if (!id) return
-      // Navigate to creator, then apply template via query/route state convention.
-      navigateTo(`/characters/new?template=${encodeURIComponent(id)}`)
-    })
+
+    // Dedicated button click: use template
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = "true"
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation()
+        const id = card.getAttribute("data-template-id")
+        if (!id) return
+        navigateTo(`/characters/new?template=${encodeURIComponent(id)}`)
+      })
+    }
+
+    // Clicking anywhere on the card (except the button) should also use the template
+    if (!card.dataset.bound) {
+      card.dataset.bound = "true"
+      card.style.cursor = "pointer"
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button.use-template-btn")) return
+        const id = card.getAttribute("data-template-id")
+        if (!id) return
+        navigateTo(`/characters/new?template=${encodeURIComponent(id)}`)
+      })
+    }
   })
 }
 

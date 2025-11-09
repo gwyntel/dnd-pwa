@@ -540,14 +540,22 @@ nav a:hover {
 }
 
 .message-user {
-  background-color: var(--accent-color);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   margin-left: 2rem;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .message-assistant {
-  background-color: var(--bg-tertiary);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
   margin-right: 2rem;
+  box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .message-assistant {
+  background: linear-gradient(135deg, #434343 0%, #000000 100%);
+  color: #e0e0e0;
 }
 
 .message-system {
@@ -557,9 +565,67 @@ nav a:hover {
   text-align: center;
 }
 
+/* Dice roll messages */
+.message-dice {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+  border-left: 3px solid #fdcb6e;
+  color: #2d3436;
+}
+
+[data-theme="dark"] .message-dice {
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  color: white;
+}
+
+/* Damage messages */
+.message-damage {
+  background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
+  border-left: 3px solid #d63031;
+  color: white;
+  font-weight: 500;
+}
+
+/* Healing messages */
+.message-healing {
+  background: linear-gradient(135deg, #55efc4 0%, #00b894 100%);
+  border-left: 3px solid #00b894;
+  color: white;
+  font-weight: 500;
+}
+
+/* Combat messages */
+.message-combat {
+  background: linear-gradient(135deg, #fab1a0 0%, #e17055 100%);
+  border-left: 3px solid #e17055;
+  color: white;
+  font-weight: 600;
+}
+
 .message-content {
   line-height: 1.6;
-  white-space: pre-wrap;
+}
+
+.message-content code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.message-user .message-content code,
+.message-damage .message-content code,
+.message-healing .message-content code,
+.message-combat .message-content code {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.message-content em {
+  font-style: italic;
+}
+
+.message-content strong {
+  font-weight: 600;
 }
 
 .dice-result {

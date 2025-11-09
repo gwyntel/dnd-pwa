@@ -279,17 +279,62 @@ function renderMessages(messages) {
     if (msg.hidden) return '';
     
     let className = 'message';
-    if (msg.role === 'user') className += ' message-user';
-    else if (msg.role === 'assistant') className += ' message-assistant';
-    else className += ' message-system';
+    let messageType = '';
+    
+    if (msg.role === 'user') {
+      className += ' message-user';
+      messageType = 'player';
+    } else if (msg.role === 'assistant') {
+      className += ' message-assistant';
+      messageType = 'dm';
+    } else if (msg.role === 'system') {
+      className += ' message-system';
+      // Determine system message type
+      if (msg.metadata?.diceRoll) {
+        className += ' message-dice';
+        messageType = 'dice';
+      } else if (msg.metadata?.damage) {
+        className += ' message-damage';
+        messageType = 'damage';
+      } else if (msg.metadata?.healing) {
+        className += ' message-healing';
+        messageType = 'healing';
+      } else if (msg.metadata?.combatEvent) {
+        className += ' message-combat';
+        messageType = 'combat';
+      } else {
+        messageType = 'system';
+      }
+    }
     
     return `
       <div class="${className}">
-        <div class="message-content">${escapeHtml(msg.content).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+        <div class="message-content">${parseMarkdown(msg.content)}</div>
         ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ''}
       </div>
     `;
   }).join('');
+}
+
+function parseMarkdown(text) {
+  // Escape HTML first
+  let html = escapeHtml(text);
+  
+  // Bold: **text** or __text__
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+  
+  // Italic: *text* or _text_
+  html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+  
+  // Code: `text`
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  
+  return html;
 }
 
 async function startGame(game, character) {
@@ -564,8 +609,8 @@ function buildSystemPrompt(character, game) {
 - STR: ${character.stats.strength} (${modStr(character.stats.strength)}), DEX: ${character.stats.dexterity} (${modStr(character.stats.dexterity)}), CON: ${character.stats.constitution} (${modStr(character.stats.constitution)})
 - INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(', ')}
-- Features: ${character.features.join(', ')}
-${character.spells.length > 0 ? `- Spells: ${character.spells.map(s => s.name).join(', ')}` : ''}
+- Features: ${character.features ? character.features.join(', ') : 'None'}
+${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map(s => s.name).join(', ')}` : ''}
 
 **IMPORTANT - Structured Output Tags:**
 - LOCATION[name] - Update current location (e.g., LOCATION[Dark Forest])

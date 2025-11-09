@@ -1,0 +1,307 @@
+/**
+ * Model Selector View
+ * Browse and select OpenRouter models
+ */
+
+import { fetchModels } from '../utils/openrouter.js';
+import { loadData, saveData } from '../utils/storage.js';
+import { navigateTo } from '../router.js';
+
+let allModels = [];
+let filteredModels = [];
+let currentFilter = 'all';
+let currentSort = 'name';
+let searchQuery = '';
+
+export async function renderModels() {
+  const app = document.getElementById('app');
+  const data = loadData();
+  
+  // Show loading state
+  app.innerHTML = `
+    <nav>
+      <div class="container">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/characters">Characters</a></li>
+          <li><a href="/settings">Settings</a></li>
+        </ul>
+      </div>
+    </nav>
+    
+    <div class="container">
+      <h1>Select Model</h1>
+      <div class="text-center" style="padding: 3rem 0;">
+        <div class="spinner"></div>
+        <p class="text-secondary mt-3">Loading models...</p>
+      </div>
+    </div>
+  `;
+  
+  try {
+    // Fetch models from OpenRouter
+    allModels = await fetchModels();
+    filteredModels = [...allModels];
+    
+    // Render the model selector UI
+    renderModelSelector(data);
+  } catch (error) {
+    console.error('Error loading models:', error);
+    app.innerHTML = `
+      <nav>
+        <div class="container">
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/characters">Characters</a></li>
+            <li><a href="/settings">Settings</a></li>
+          </ul>
+        </div>
+      </nav>
+      
+      <div class="container">
+        <h1>Select Model</h1>
+        <div class="card">
+          <p class="text-error">Failed to load models: ${error.message}</p>
+          <button id="retry-btn" class="btn-secondary mt-2">Retry</button>
+          <a href="/settings" class="btn-secondary mt-2">Back to Settings</a>
+        </div>
+      </div>
+    `;
+    
+    document.getElementById('retry-btn')?.addEventListener('click', () => {
+      renderModels();
+    });
+  }
+}
+
+function renderModelSelector(data) {
+  const app = document.getElementById('app');
+  const currentModel = data.settings.defaultNarrativeModel;
+  
+  // Get unique providers for filter
+  const providers = [...new Set(allModels.map(m => m.provider))].sort();
+  
+  app.innerHTML = `
+    <nav>
+      <div class="container">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/characters">Characters</a></li>
+          <li><a href="/settings">Settings</a></li>
+        </ul>
+      </div>
+    </nav>
+    
+    <div class="container">
+      <div class="flex justify-between align-center mb-3">
+        <h1>Select Model</h1>
+        <a href="/settings" class="btn-secondary">Back</a>
+      </div>
+      
+      <div class="card mb-3">
+        <div class="mb-2">
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Search models..." 
+            value="${searchQuery}"
+            style="width: 100%;"
+          >
+        </div>
+        
+        <div class="flex gap-2 mb-2" style="flex-wrap: wrap;">
+          <select id="provider-filter" style="flex: 1; min-width: 150px;">
+            <option value="all">All Providers</option>
+            ${providers.map(p => `<option value="${p}" ${currentFilter === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+          
+          <select id="sort-select" style="flex: 1; min-width: 150px;">
+            <option value="name" ${currentSort === 'name' ? 'selected' : ''}>Sort by Name</option>
+            <option value="price-low" ${currentSort === 'price-low' ? 'selected' : ''}>Price: Low to High</option>
+            <option value="price-high" ${currentSort === 'price-high' ? 'selected' : ''}>Price: High to Low</option>
+            <option value="context" ${currentSort === 'context' ? 'selected' : ''}>Context Length</option>
+          </select>
+        </div>
+        
+        <p class="text-secondary" style="font-size: 0.9rem;">
+          Showing ${filteredModels.length} of ${allModels.length} models
+        </p>
+      </div>
+      
+      <div id="models-list">
+        ${renderModelsList(currentModel)}
+      </div>
+    </div>
+  `;
+  
+  // Event listeners
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    applyFiltersAndSort();
+    updateModelsList(currentModel);
+  });
+  
+  document.getElementById('provider-filter').addEventListener('change', (e) => {
+    currentFilter = e.target.value;
+    applyFiltersAndSort();
+    updateModelsList(currentModel);
+  });
+  
+  document.getElementById('sort-select').addEventListener('change', (e) => {
+    currentSort = e.target.value;
+    applyFiltersAndSort();
+    updateModelsList(currentModel);
+  });
+  
+  // Model selection handlers
+  document.querySelectorAll('.model-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const modelId = card.dataset.modelId;
+      selectModel(modelId);
+    });
+  });
+}
+
+function renderModelsList(currentModel) {
+  if (filteredModels.length === 0) {
+    return `
+      <div class="card text-center">
+        <p class="text-secondary">No models found matching your criteria.</p>
+      </div>
+    `;
+  }
+  
+  return filteredModels.map(model => {
+    const isSelected = model.id === currentModel;
+    const promptPrice = parseFloat(model.pricing.prompt) * 1000000; // Convert to per-million
+    const completionPrice = parseFloat(model.pricing.completion) * 1000000;
+    
+    return `
+      <div class="model-card ${isSelected ? 'selected' : ''}" data-model-id="${model.id}">
+        <div class="model-header">
+          <h3 class="model-name">${escapeHtml(model.name)}</h3>
+          ${isSelected ? '<span class="badge-selected">✓ Selected</span>' : ''}
+        </div>
+        <p class="model-id">${escapeHtml(model.id)}</p>
+        <div class="model-details">
+          <div class="model-detail">
+            <span class="detail-label">Provider:</span>
+            <span class="detail-value">${escapeHtml(model.provider)}</span>
+          </div>
+          <div class="model-detail">
+            <span class="detail-label">Context:</span>
+            <span class="detail-value">${formatNumber(model.contextLength)} tokens</span>
+          </div>
+          <div class="model-detail">
+            <span class="detail-label">Pricing:</span>
+            <span class="detail-value">
+              $${promptPrice.toFixed(2)} / $${completionPrice.toFixed(2)} per 1M tokens
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateModelsList(currentModel) {
+  const listContainer = document.getElementById('models-list');
+  listContainer.innerHTML = renderModelsList(currentModel);
+  
+  // Re-attach event listeners
+  document.querySelectorAll('.model-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const modelId = card.dataset.modelId;
+      selectModel(modelId);
+    });
+  });
+  
+  // Update count
+  const countText = document.querySelector('.text-secondary');
+  if (countText) {
+    countText.textContent = `Showing ${filteredModels.length} of ${allModels.length} models`;
+  }
+}
+
+function applyFiltersAndSort() {
+  // Start with all models
+  filteredModels = [...allModels];
+  
+  // Apply search filter
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    filteredModels = filteredModels.filter(model => 
+      model.name.toLowerCase().includes(query) ||
+      model.id.toLowerCase().includes(query) ||
+      model.provider.toLowerCase().includes(query)
+    );
+  }
+  
+  // Apply provider filter
+  if (currentFilter !== 'all') {
+    filteredModels = filteredModels.filter(model => model.provider === currentFilter);
+  }
+  
+  // Apply sorting
+  switch (currentSort) {
+    case 'name':
+      filteredModels.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'price-low':
+      filteredModels.sort((a, b) => {
+        const aPrice = parseFloat(a.pricing.prompt) + parseFloat(a.pricing.completion);
+        const bPrice = parseFloat(b.pricing.prompt) + parseFloat(b.pricing.completion);
+        return aPrice - bPrice;
+      });
+      break;
+    case 'price-high':
+      filteredModels.sort((a, b) => {
+        const aPrice = parseFloat(a.pricing.prompt) + parseFloat(a.pricing.completion);
+        const bPrice = parseFloat(b.pricing.prompt) + parseFloat(b.pricing.completion);
+        return bPrice - aPrice;
+      });
+      break;
+    case 'context':
+      filteredModels.sort((a, b) => b.contextLength - a.contextLength);
+      break;
+  }
+}
+
+function selectModel(modelId) {
+  const data = loadData();
+  data.settings.defaultNarrativeModel = modelId;
+  saveData(data);
+  
+  // Show success message and navigate back
+  showMessage('Model selected successfully!', 'success');
+  
+  setTimeout(() => {
+    navigateTo('/settings');
+  }, 1000);
+}
+
+function showMessage(text, type) {
+  const container = document.querySelector('.container');
+  const existing = container.querySelector('.message');
+  if (existing) existing.remove();
+  
+  const message = document.createElement('div');
+  message.className = `message message-${type}`;
+  message.textContent = text;
+  message.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem; border-radius: 8px; background: var(--primary-color); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+  document.body.appendChild(message);
+  
+  setTimeout(() => {
+    message.remove();
+  }, 3000);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatNumber(num) {
+  return num.toLocaleString();
+}

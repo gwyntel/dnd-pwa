@@ -317,7 +317,9 @@ export async function renderGame(state = {}) {
   // Action bubble click handlers
   document.querySelectorAll(".action-bubble").forEach((bubble) => {
     bubble.addEventListener("click", (e) => {
-      const action = e.target.dataset.action
+      e.preventDefault()
+      e.stopPropagation()
+      const action = e.currentTarget.getAttribute("data-action")
       const input = document.getElementById("player-input")
       if (input && action) {
         input.value = action
@@ -444,9 +446,18 @@ async function startGame(game, character) {
   const systemPrompt = buildSystemPrompt(character, game)
 
   const initialMessage = {
+    role: "user",
+    content:
+      "Begin the adventure. Describe the opening scene and set the stage for the player. Use LOCATION[name] to set the starting location.",
+  }
+
+  game.messages.push({
+    id: `msg_${Date.now()}_system`,
     role: "system",
     content: systemPrompt,
-  }
+    timestamp: new Date().toISOString(),
+    hidden: true,
+  })
 
   game.messages.push({
     id: `msg_${Date.now()}`,
@@ -457,11 +468,7 @@ async function startGame(game, character) {
 
   saveData(data)
 
-  // Request initial scene
-  await sendMessage(
-    game,
-    "Begin the adventure. Describe the opening scene and set the stage for the player. Use LOCATION[name] to set the starting location.",
-  )
+  await sendMessage(game, initialMessage.content)
 }
 
 async function handlePlayerInput() {
@@ -492,39 +499,77 @@ async function handlePlayerInput() {
   }
 
   game.messages.push(userMessage)
+
+  game.suggestedActions = []
+
   saveData(data)
 
-  // Re-render to show user message
-  await renderGame({ params: { id: currentGameId } })
+  const messagesContainer = document.getElementById("messages-container")
+  if (messagesContainer) {
+    messagesContainer.innerHTML = renderMessages(game.messages)
+    messagesContainer.scrollTop = messagesContainer.scrollHeight
+  }
 
-  // Send to LLM
+  updateInputContainer(game)
+
+  // Send to LLM - now game has the user message and will persist through the streaming
   await sendMessage(game, text)
 }
 
 async function sendMessage(game, userText) {
   const data = loadData()
-  const character = data.characters.find((c) => c.id === game.characterId)
+  const gameRef = data.games.find((g) => g.id === game.id)
+  if (!gameRef) {
+    console.error("[v0] Game not found in storage!")
+    return
+  }
+
+  const character = data.characters.find((c) => c.id === gameRef.characterId)
 
   try {
-    // Build messages for API
-    const messages = game.messages
-      .filter((m) => !m.hidden || m.role === "system")
-      .map((m) => ({ role: m.role, content: m.content }))
+    console.log("[v0] Before API call, message count:", gameRef.messages.length)
 
-    // Add current user message if not already in history
-    if (userText && !messages.find((m) => m.role === "user" && m.content === userText)) {
-      messages.push({ role: "user", content: userText })
+    // Filter messages: include all non-hidden messages and all system messages
+    const apiMessages = gameRef.messages
+      .filter((m) => !m.hidden || m.role === "system")
+      .map((m) => ({
+        role: m.role,
+        content: typeof m.content === "string" ? m.content : "", // Ensure content is a string
+      }))
+      .filter((m) => m.content.trim().length > 0) // Remove empty messages
+
+    // OpenRouter requires at least one non-system message
+    // If we only have system messages, we need to ensure there's at least a user message
+    const hasNonSystemMessage = apiMessages.some((m) => m.role === "user" || m.role === "assistant")
+
+    if (!hasNonSystemMessage && apiMessages.length > 0) {
+      // We have system messages but no user/assistant messages
+      // This shouldn't happen in normal flow, but handle it gracefully
+      console.error("[v0] Only system messages found, no user/assistant messages")
+      throw new Error("Cannot send API request with only system messages")
     }
 
-    const response = await sendChatCompletion(messages, game.narrativeModel)
+    if (apiMessages.length === 0) {
+      console.error("[v0] No valid messages to send to API")
+      throw new Error("Messages array cannot be empty - check the openrouter docs for chat completions please")
+    }
+
+    console.log(
+      "[v0] Sending to API:",
+      apiMessages.length,
+      "messages",
+      apiMessages.map((m) => `${m.role}: ${m.content.substring(0, 50)}...`),
+    )
+
+    const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel)
 
     let assistantMessage = ""
     const assistantMsgId = `msg_${Date.now()}`
 
-    game.suggestedActions = []
+    gameRef.suggestedActions = []
 
-    // Create placeholder message
-    game.messages.push({
+    const assistantMsgIndex = gameRef.messages.length
+    gameRef.messages.push({
       id: assistantMsgId,
       role: "assistant",
       content: "",
@@ -532,20 +577,33 @@ async function sendMessage(game, userText) {
       hidden: false,
     })
 
+    console.log("[v0] After adding assistant placeholder, message count:", gameRef.messages.length)
+
+    saveData(data)
+
     // Stream response and process tags in real-time
-    const processedTags = new Set() // Track which tags we've already processed
+    const processedTags = new Set()
+    let chunkCount = 0
 
     for await (const chunk of parseStreamingResponse(response)) {
       const delta = chunk.choices?.[0]?.delta?.content
       if (delta) {
+        chunkCount++
         assistantMessage += delta
 
-        // Update message in game
-        const msgIndex = game.messages.findIndex((m) => m.id === assistantMsgId)
-        game.messages[msgIndex].content = assistantMessage
+        gameRef.messages[assistantMsgIndex].content = assistantMessage
+
+        if (chunkCount === 1) {
+          console.log("[v0] First chunk received, re-rendering messages")
+          const messagesContainer = document.getElementById("messages-container")
+          if (messagesContainer) {
+            messagesContainer.innerHTML = renderMessages(gameRef.messages)
+            messagesContainer.scrollTop = messagesContainer.scrollHeight
+          }
+        }
 
         // Process tags as they appear in the stream
-        await processGameCommandsRealtime(game, character, assistantMessage, processedTags)
+        await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
 
         // Update UI - only update the streaming message to prevent flashing
         const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"] .message-content`)
@@ -556,7 +614,7 @@ async function sendMessage(game, userText) {
           // Fallback: full re-render if element not found
           const messagesContainer = document.getElementById("messages-container")
           if (messagesContainer) {
-            messagesContainer.innerHTML = renderMessages(game.messages)
+            messagesContainer.innerHTML = renderMessages(gameRef.messages)
             messagesContainer.scrollTop = messagesContainer.scrollHeight
           }
         }
@@ -570,20 +628,45 @@ async function sendMessage(game, userText) {
         // Update sidebar if HP or combat state changed
         const gameHeader = document.querySelector(".game-header p")
         if (gameHeader) {
-          gameHeader.textContent = game.currentLocation
+          gameHeader.textContent = gameRef.currentLocation
         }
 
         debouncedSave(data, 100)
       }
     }
 
-    // Final processing to catch any remaining tags
-    await processGameCommands(game, character, assistantMessage)
+    await processGameCommands(gameRef, character, assistantMessage)
+
+    gameRef.messages[assistantMsgIndex].content = assistantMessage
+
+    console.log("[v0] Streaming complete, final message count:", gameRef.messages.length)
 
     saveData(data)
+
+    updateInputContainer(gameRef)
   } catch (error) {
-    console.error("Error sending message:", error)
-    alert("Failed to send message: " + error.message)
+    console.error("[v0] Error sending message:", error)
+
+    const errorMessage = error.message || "An unknown error occurred"
+
+    // Add error message to chat so user can see what went wrong
+    gameRef.messages.push({
+      id: `msg_${Date.now()}_error`,
+      role: "system",
+      content: `❌ Error: ${errorMessage}`,
+      timestamp: new Date().toISOString(),
+      hidden: false,
+      metadata: { isError: true },
+    })
+
+    saveData(data)
+
+    // Re-render to show error message
+    const messagesContainer = document.getElementById("messages-container")
+    if (messagesContainer) {
+      messagesContainer.innerHTML = renderMessages(gameRef.messages)
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
+    }
   } finally {
     isStreaming = false
     const input = document.getElementById("player-input")
@@ -762,53 +845,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   if (needsUIUpdate) {
-    const inputContainer = document.querySelector(".input-container")
-    if (inputContainer) {
-      inputContainer.innerHTML = `
-        ${
-          game.suggestedActions && game.suggestedActions.length > 0
-            ? `
-          <div class="suggested-actions">
-            ${game.suggestedActions
-              .map(
-                (action) => `
-              <button class="action-bubble" data-action="${escapeHtml(action)}">
-                ${escapeHtml(action)}
-              </button>
-            `,
-              )
-              .join("")}
-          </div>
-        `
-            : ""
-        }
-        <form id="chat-form" style="display: flex; gap: 0.5rem;">
-          <input 
-            type="text" 
-            id="player-input" 
-            placeholder="What do you do?" 
-            style="flex: 1;"
-            ${isStreaming ? "disabled" : ""}
-          >
-          <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
-            ${isStreaming ? "Sending..." : "Send"}
-          </button>
-        </form>
-      `
-
-      const chatForm = document.getElementById("chat-form")
-      if (chatForm) {
-        // Remove old listener if exists
-        const newForm = chatForm.cloneNode(true)
-        chatForm.parentNode.replaceChild(newForm, chatForm)
-
-        // Add new listener
-        newForm.addEventListener("submit", async (e) => {
-          e.preventDefault()
-          await handlePlayerInput()
-        })
-      }
-    }
+    updateInputContainer(game)
   }
 
   saveData(data)
@@ -1050,4 +1087,62 @@ function escapeHtml(text) {
   const div = document.createElement("div")
   div.textContent = text
   return div.innerHTML
+}
+
+function updateInputContainer(game) {
+  const inputContainer = document.querySelector(".input-container")
+  if (!inputContainer) return
+
+  inputContainer.innerHTML = `
+    ${
+      game.suggestedActions && game.suggestedActions.length > 0
+        ? `
+      <div class="suggested-actions">
+        ${game.suggestedActions
+          .map(
+            (action) => `
+          <button class="action-bubble" data-action="${escapeHtml(action)}">
+            ${escapeHtml(action)}
+          </button>
+        `,
+          )
+          .join("")}
+      </div>
+    `
+        : ""
+    }
+    <form id="chat-form" style="display: flex; gap: 0.5rem;">
+      <input 
+        type="text" 
+        id="player-input" 
+        placeholder="What do you do?" 
+        style="flex: 1;"
+        ${isStreaming ? "disabled" : ""}
+      >
+      <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
+        ${isStreaming ? "Sending..." : "Send"}
+      </button>
+    </form>
+  `
+
+  const chatForm = document.getElementById("chat-form")
+  if (chatForm) {
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault()
+      await handlePlayerInput()
+    })
+  }
+
+  document.querySelectorAll(".action-bubble").forEach((bubble) => {
+    bubble.addEventListener("click", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const action = e.currentTarget.getAttribute("data-action")
+      const input = document.getElementById("player-input")
+      if (input && action) {
+        input.value = action
+        input.focus()
+      }
+    })
+  })
 }

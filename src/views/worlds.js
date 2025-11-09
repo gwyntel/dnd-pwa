@@ -4,12 +4,196 @@
  */
 
 import { loadData, saveData } from "../utils/storage.js"
+import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 
 let editingWorldId = null
+
+const WORLD_TEMPLATES = [
+  {
+    id: "template_classic_fantasy",
+    name: "Classic Fantasy",
+    settingType: "classic-fantasy",
+    briefDescription: "Villages, dragons, and medieval kingdoms in a traditional high fantasy world.",
+    fullDescription:
+      "A timeless realm of sword and sorcery where brave heroes venture forth from cozy villages to face ancient dragons, explore mysterious dungeons, and navigate the politics of medieval kingdoms. Magic is studied in towers, clerics pray to benevolent gods, and evil lurks in forgotten places.",
+    tone: "Heroic and adventurous with clear good vs evil",
+    magicLevel: "medium",
+    techLevel: "medieval",
+    systemPrompt: `This is a classic high fantasy world inspired by traditional D&D settings. Medieval kingdoms rule the land, with castles, villages, and bustling market towns. Magic is real but not commonplace - wizards study in towers, clerics serve their gods, and magical items are rare treasures. 
+
+Dragons are ancient and powerful beings. Dungeons hide forgotten treasures and dangers. The world has a clear sense of good vs evil - heroes are called to protect the innocent from dark forces like undead, demons, and evil wizards.
+
+Common races include humans, elves, dwarves, halflings, and occasionally half-orcs or tieflings. Technology is medieval - swords, bows, plate armor, but no gunpowder. Travel is by foot, horse, or ship.
+
+Tone: Heroic adventure with moments of wonder. Players should feel like classic fantasy heroes on an epic quest.`,
+    startingLocation: "The village of Greenhollow, a peaceful farming community on the edge of the Whispering Woods",
+  },
+  {
+    id: "template_urban_noir",
+    name: "Urban Noir",
+    settingType: "urban-noir",
+    briefDescription: "City intrigue, thieves guilds, and political drama in a dark urban fantasy setting.",
+    fullDescription:
+      "The sprawling city of Shadowhaven never sleeps. In its maze of alleys and grand boulevards, nobles scheme in candlelit salons while thieves prowl the rooftops. Every faction has an agenda, every ally a secret, and trust is the rarest currency of all.",
+    tone: "Dark, mysterious, morally grey with political intrigue",
+    magicLevel: "low",
+    techLevel: "renaissance",
+    systemPrompt: `This is an urban fantasy noir setting centered on the city of Shadowhaven - a sprawling metropolis of stone and shadow where intrigue runs deeper than the sewers.
+
+Magic exists but is subtle and often illegal. Street mages sell charms in back alleys, while the noble houses employ court wizards who wield magic with aristocratic discretion. Technology is renaissance-era: rapiers, crossbows, early gunpowder, printing presses.
+
+The city is ruled by a council of noble houses, each with their own agenda. The Thieves Guild operates openly under a charter. The City Watch is overworked and underpaid. Corruption is everywhere.
+
+Key factions: The Silver Council (nobles), The Black Hand (thieves guild), The Greycoats (city watch), The Veil (spy network), The Burned (fire cultists).
+
+Tone: Noir detective stories meet fantasy. Morally grey situations, political intrigue, shadowy deals. Information is power. Trust no one. The mystery is as important as the action. Think Dishonored or Dragon Age's city of Kirkwall.`,
+    startingLocation: "The Lamplight District, where taverns glow warmly but danger lurks in every shadow",
+  },
+  {
+    id: "template_high_seas",
+    name: "High Seas Adventure",
+    settingType: "high-seas",
+    briefDescription: "Pirates, naval combat, and island hopping across a vast archipelago.",
+    fullDescription:
+      "The Shattered Isles stretch across an endless ocean - hundreds of islands connected by trade routes and pirate raids. Ancient treasures lie buried on forgotten atolls, sea monsters hunt in the deep, and every ship's crew has their own code. The sea is freedom, danger, and destiny.",
+    tone: "Adventurous and swashbuckling with nautical flavor",
+    magicLevel: "medium",
+    techLevel: "renaissance",
+    systemPrompt: `This is a high seas adventure setting centered on the Shattered Isles - an archipelago of hundreds of islands connected by dangerous waters.
+
+Ships are the primary means of travel. Naval combat, boarding actions, and ship-to-ship battles are common. Technology is age of sail: cannons, cutlasses, flintlock pistols, tall ships.
+
+The islands vary wildly: jungle paradises, volcanic rocks, frozen northern isles, mysterious fog-shrouded atolls. Ancient civilizations left ruins and treasures. Sea monsters (krakens, dragon turtles, sahuagin) haunt the waters.
+
+Key factions: The Merchant Navy (trade monopoly), The Free Captains (pirate alliance), The Storm Lords (island natives), The Tidecaller Cult (worships the sea goddess).
+
+Magic is tied to the sea - weather control, water breathing, divination. Sailors are superstitious. Certain islands have unique magical properties.
+
+Tone: Swashbuckling adventure! Think Pirates of the Caribbean meets D&D. Freedom, exploration, treasure hunting, and naval combat. Every island should feel unique. The sea is both beautiful and deadly.`,
+    startingLocation: "Port Meridian, a bustling harbor city serving as the gateway to the Shattered Isles",
+  },
+  {
+    id: "template_dungeon_crawler",
+    name: "Dungeon Crawler",
+    settingType: "dungeon-crawler",
+    briefDescription: "Focus on underground exploration with less overworld - delve deep into ancient ruins.",
+    fullDescription:
+      "The world above has fallen to darkness. Survivors huddle in the Last Sanctuary, a fortress built at the entrance to the Endless Delve - a vast network of ancient dungeons, caves, and underground cities. All adventures begin with the question: how deep will you go?",
+    tone: "Tense and atmospheric dungeon exploration",
+    magicLevel: "high",
+    techLevel: "mixed",
+    systemPrompt: `This is a dungeon crawler setting focused on underground exploration. The surface world is dangerous and mostly abandoned - the real story happens in the depths.
+
+The Endless Delve is a massive underground complex of interconnected dungeons, ancient ruins, natural caverns, and forgotten cities. Each level goes deeper. The deeper you go, the more dangerous and rewarding it becomes.
+
+Base Camp: The Last Sanctuary, a fortified town built at the entrance to the Delve. This is the only safe place - a hub where adventurers rest, trade, and prepare for the next expedition.
+
+Magic is common in the depths - ancient wards, magical traps, enchanted creatures. Technology is mixed - adventurers use whatever works. Magical light sources are essential.
+
+Dungeon ecology: Each level has its own ecosystem. Monsters don't just wait in rooms - they patrol, hunt, and have territorial behaviors. Resources are scarce - food, water, light must be managed.
+
+Tone: Tense atmospheric exploration. Resource management matters. Every delve is a risk vs reward calculation. Map the unknown. Survive the depths. Return to tell the tale. Think Dark Souls meets traditional dungeon crawling.`,
+    startingLocation: "The Last Sanctuary, the only safe haven at the entrance to the Endless Delve",
+  },
+  {
+    id: "template_dark_fantasy",
+    name: "Dark Fantasy",
+    settingType: "dark-fantasy",
+    briefDescription: "Grimdark horror elements with morally grey choices and dark themes.",
+    fullDescription:
+      "The Old Kingdom is dying. The sun grows dimmer each year, the dead don't stay buried, and the gods have gone silent. In this world of ash and shadow, there are no heroes - only survivors who make terrible choices to see another dawn.",
+    tone: "Dark, gritty, morally complex with horror elements",
+    magicLevel: "medium",
+    techLevel: "medieval",
+    systemPrompt: `This is a dark fantasy setting inspired by grimdark literature, Dark Souls, and Berserk. The world is dying, hope is scarce, and every victory comes at a cost.
+
+The Old Kingdom once prospered, but now it's fragmented into cursed lands, plague-ridden cities, and monster-infested wilds. The sun is fading - days grow shorter each year. Undead rise spontaneously. Demons slip through cracks in reality. The gods abandoned humanity long ago... or something worse.
+
+Magic is powerful but corrupting. Every spell has a price - sanity, humanity, or worse. Magical items are often cursed. Power comes with consequences.
+
+There is no clear good vs evil. NPCs have complex motivations. The "villains" may have sympathetic reasons. Heroes can fall to darkness. Choices are morally grey - sometimes you choose the lesser evil.
+
+Tone: Grim, visceral, psychological. Horror elements are common - body horror, cosmic dread, psychological terror. Combat is brutal and dangerous. Death is always possible. But small moments of human connection and kindness shine brighter in the darkness. Not grimdark for edginess sake - darkness that makes the light matter.`,
+    startingLocation: "Ashenmoor, a walled town barely holding back the encroaching darkness",
+  },
+  {
+    id: "template_wilderness",
+    name: "Wilderness Survival",
+    settingType: "wilderness",
+    briefDescription: "Monster-filled frontier where harsh nature and survival are constant challenges.",
+    fullDescription:
+      "Beyond the Last Wall lies the Untamed Wilds - an endless expanse of primordial forest, savage mountains, and monster-haunted plains. Civilization is a distant memory. Out here, only the prepared survive the night.",
+    tone: "Survival-focused with naturalistic danger",
+    magicLevel: "low",
+    techLevel: "primitive",
+    systemPrompt: `This is a wilderness survival setting focused on exploration and survival in a monster-filled frontier.
+
+The world is mostly untamed wilderness - vast forests, mountains, swamps, and plains. Civilization exists only in small frontier outposts and isolated settlements. Between these safe points lies days or weeks of dangerous travel through wild lands.
+
+Survival is key: Players must track rations, find clean water, make shelter, start fires, and avoid exposure. Weather matters. Seasons matter. Getting lost is a real danger.
+
+The wilderness is actively hostile: Dire wolves, owlbears, giant spiders, dragons, and worse. Monsters aren't waiting in dungeons - they hunt, migrate, and have territories. Nature itself can be deadly - poisonous plants, dangerous terrain, natural disasters.
+
+Technology is primitive - stone age to early bronze age. Bows, spears, simple tools. Finding metal is valuable. Magic is primal and shamanistic - nature spirits, animal totems, elemental forces.
+
+Few NPCs: Most encounters are with nature and monsters. When you do meet other survivors, they're desperate, territorial, or need help. Every friendly NPC matters.
+
+Tone: Survival horror meets exploration. The world is beautiful but deadly. Every journey is an expedition. Every night survived is a victory. Think Far Cry Primal meets Monster Hunter. Respect the wild or die to it.`,
+    startingLocation: "Outpost Seven, a palisaded settlement on the edge of the Untamed Wilds",
+  },
+  {
+    id: "template_planar",
+    name: "Planar Adventure",
+    settingType: "planar",
+    briefDescription: "Travel between dimensions and planes with reality-bending adventures.",
+    fullDescription:
+      "The Material Plane is just the beginning. Beyond the veil lie infinite realities - the burning wastes of the Fire Plane, the crystalline cities of the Astral Sea, the nightmare realm of the Shadowfell. You are a planeswalker, and all of existence is your playground.",
+    tone: "Surreal and fantastical with reality-bending elements",
+    magicLevel: "high",
+    techLevel: "mixed",
+    systemPrompt: `This is a planar adventure setting where travel between different planes of existence is central to the story.
+
+The Multiverse: Countless planes exist - some well-known (Elemental Planes, Feywild, Shadowfell, Upper/Lower Planes), others unique and strange. Each plane has its own rules, inhabitants, and dangers.
+
+Planeshift is possible through: Portals (permanent or temporary), magical items, rituals, or natural phenomena. Finding reliable portal routes is valuable information.
+
+Each plane should feel truly alien:
+- Feywild: Whimsical but dangerous, time works differently, emotions amplified
+- Shadowfell: Dark mirror of reality, life-draining, full of undead and despair
+- Elemental Fire: Everything burns, fire-based life, volcanic landscapes
+- Astral Sea: Weightless silver void, psychic phenomena, githyanki raiders
+- Mechanus: Clockwork plane of absolute law and order
+- The Far Realm: Reality breaks down, cosmic horror, madness-inducing
+
+Create unique planes: The Living Library, The Singing Desert, The Infinite Staircase, The Clockwork Kingdom, The Dreaming Garden.
+
+Planar travelers: Not everyone can planeshift. NPCs from different planes have wildly different perspectives and goals.
+
+Tone: High fantasy meets science fantasy. Reality is malleable. Magic is everywhere. Each plane adventure feels completely different from the last. Think Planescape meets Doctor Who. Embrace the weird and wonderful.`,
+    startingLocation: "Sigil, the City of Doors - a planar hub where portals to all realities converge",
+  },
+]
 
 export function renderWorlds() {
   const app = document.getElementById("app")
   const data = loadData()
+
+  if (!data.worlds) {
+    data.worlds = [
+      {
+        id: "world_default",
+        name: "Generic Fantasy",
+        settingType: "custom",
+        sourceType: "default",
+        briefDescription: "A classic high fantasy world with magic, monsters, and adventure.",
+        systemPrompt:
+          "This is a high fantasy world with magic, mythical creatures, and medieval technology. Dragons exist, magic is real and studied by wizards, and various races (humans, elves, dwarves, halflings, etc.) live together. The tone is heroic adventure with clear good vs evil themes.",
+        createdAt: new Date().toISOString(),
+        isDefault: true,
+      },
+    ]
+    saveData(data)
+  }
 
   app.innerHTML = `
     <nav>
@@ -17,21 +201,22 @@ export function renderWorlds() {
         <ul>
           <li><a href="/">Home</a></li>
           <li><a href="/characters">Characters</a></li>
+          <li><a href="/worlds">Worlds</a></li>
           <li><a href="/settings">Settings</a></li>
         </ul>
       </div>
     </nav>
     
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: 1.5rem;">
         <h1>Worlds</h1>
-        <button id="create-world-btn" class="btn">Create World</button>
+        <button id="create-world-btn" class="btn">+ New World</button>
       </div>
       
       <div id="world-form-container"></div>
       
       <div class="worlds-grid">
-        ${data.worlds.map((world) => renderWorldCard(world)).join("")}
+        ${data.worlds.map((world) => renderWorldCard(world, data.games)).join("")}
       </div>
     </div>
   `
@@ -39,13 +224,16 @@ export function renderWorlds() {
   // Event listeners
   document.getElementById("create-world-btn").addEventListener("click", () => {
     editingWorldId = null
-    renderWorldForm()
+    renderWorldCreationOptions()
   })
 
   // Edit buttons
   document.querySelectorAll(".edit-world-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
-      editingWorldId = e.target.dataset.worldId
+      e.preventDefault()
+      e.stopPropagation()
+      editingWorldId = e.target.closest("button").dataset.worldId
+      const data = loadData()
       renderWorldForm(data.worlds.find((w) => w.id === editingWorldId))
     })
   })
@@ -53,7 +241,10 @@ export function renderWorlds() {
   // Delete buttons
   document.querySelectorAll(".delete-world-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
-      const worldId = e.target.dataset.worldId
+      e.preventDefault()
+      e.stopPropagation()
+      const worldId = e.target.closest("button").dataset.worldId
+      const data = loadData()
       const world = data.worlds.find((w) => w.id === worldId)
 
       if (world.isDefault) {
@@ -78,13 +269,16 @@ export function renderWorlds() {
   })
 }
 
-function renderWorldCard(world) {
+function renderWorldCard(world, games) {
+  const gamesUsingWorld = games.filter((g) => g.worldId === world.id).length
+
   return `
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-        <div>
+        <div style="flex: 1;">
           <h3>${world.name} ${world.isDefault ? '<span class="badge">Default</span>' : ""}</h3>
-          <p class="text-secondary" style="font-size: 0.875rem;">${world.description}</p>
+          <p class="text-secondary" style="font-size: 0.875rem;">${world.briefDescription}</p>
+          ${gamesUsingWorld > 0 ? `<p class="text-secondary" style="font-size: 0.75rem; margin-top: 0.5rem;">Used in ${gamesUsingWorld} game${gamesUsingWorld > 1 ? "s" : ""}</p>` : ""}
         </div>
         <div style="display: flex; gap: 0.5rem;">
           <button class="btn-icon edit-world-btn" data-world-id="${world.id}" title="Edit">
@@ -110,25 +304,250 @@ function renderWorldCard(world) {
       
       <div style="background: var(--card-bg-secondary); padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
         <strong style="font-size: 0.875rem;">System Prompt:</strong>
-        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem; white-space: pre-wrap;">${world.systemPrompt}</p>
+        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${world.systemPrompt}</p>
       </div>
     </div>
   `
 }
 
-function renderWorldForm(world = null) {
+function renderWorldCreationOptions() {
   const container = document.getElementById("world-form-container")
-
-  const isEditing = world !== null
-  const formData = world || {
-    name: "",
-    description: "",
-    systemPrompt: "",
-  }
 
   container.innerHTML = `
     <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
-      <h2>${isEditing ? "Edit World" : "Create New World"}</h2>
+      <h2>Create New World</h2>
+      <p class="text-secondary mb-3">Choose how you'd like to create your world:</p>
+      
+      <div style="display: grid; gap: 1rem;">
+        <button id="option-template" class="btn" style="text-align: left; padding: 1rem;">
+          <strong>📚 Use a Template</strong><br>
+          <span style="font-size: 0.875rem; font-weight: normal;">Start with a pre-made setting (Classic Fantasy, Urban Noir, etc.)</span>
+        </button>
+        
+        <button id="option-ai" class="btn-secondary" style="text-align: left; padding: 1rem;">
+          <strong>✨ Generate with AI</strong><br>
+          <span style="font-size: 0.875rem; font-weight: normal;">Describe your world idea and let AI create the details</span>
+        </button>
+        
+        <button id="option-custom" class="btn-secondary" style="text-align: left; padding: 1rem;">
+          <strong>✏️ Custom (Manual Entry)</strong><br>
+          <span style="font-size: 0.875rem; font-weight: normal;">Build your world from scratch with full control</span>
+        </button>
+      </div>
+      
+      <button id="cancel-options-btn" class="btn-secondary mt-3" style="width: 100%;">Cancel</button>
+    </div>
+  `
+
+  container.scrollIntoView({ behavior: "smooth" })
+
+  document.getElementById("option-template").addEventListener("click", () => renderTemplateSelection())
+  document.getElementById("option-ai").addEventListener("click", () => renderAIGenerator())
+  document.getElementById("option-custom").addEventListener("click", () => renderWorldForm())
+  document.getElementById("cancel-options-btn").addEventListener("click", () => {
+    container.innerHTML = ""
+    editingWorldId = null
+  })
+}
+
+function renderTemplateSelection() {
+  const container = document.getElementById("world-form-container")
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Choose a Template</h2>
+        <button id="back-to-options" class="btn-secondary">← Back</button>
+      </div>
+      
+      <div style="display: grid; gap: 1rem;">
+        ${WORLD_TEMPLATES.map(
+          (template) => `
+          <div class="card" style="cursor: pointer; border: 2px solid var(--border); transition: border-color 0.2s;" 
+               data-template-id="${template.id}"
+               onmouseover="this.style.borderColor='var(--primary)'"
+               onmouseout="this.style.borderColor='var(--border)'">
+            <h3>${template.name}</h3>
+            <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 0.5rem;">${template.briefDescription}</p>
+            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">${template.fullDescription}</p>
+            <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-secondary);">
+              <span>Magic: ${template.magicLevel}</span>
+              <span>Tech: ${template.techLevel}</span>
+              <span>Tone: ${template.tone}</span>
+            </div>
+          </div>
+        `,
+        ).join("")}
+      </div>
+    </div>
+  `
+
+  container.scrollIntoView({ behavior: "smooth" })
+
+  document.getElementById("back-to-options").addEventListener("click", () => renderWorldCreationOptions())
+
+  document.querySelectorAll("[data-template-id]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const templateId = card.dataset.templateId
+      const template = WORLD_TEMPLATES.find((t) => t.id === templateId)
+      renderWorldForm(template, true)
+    })
+  })
+}
+
+function renderAIGenerator() {
+  const container = document.getElementById("world-form-container")
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Generate World with AI</h2>
+        <button id="back-to-options" class="btn-secondary">← Back</button>
+      </div>
+      
+      <form id="ai-generation-form">
+        <div class="mb-3">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Describe your world idea *</label>
+          <textarea 
+            id="world-idea" 
+            required 
+            rows="4"
+            placeholder="e.g., A steampunk city built on the back of a giant turtle&#10;Post-apocalyptic wasteland where magic returned after nuclear war&#10;Underwater kingdom of merfolk and sea monsters"
+          ></textarea>
+          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+            Be as creative as you want! The AI will generate a complete world setting based on your description.
+          </p>
+        </div>
+        
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="btn">Generate World</button>
+          <button type="button" id="cancel-ai-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </form>
+      
+      <div id="generation-status" style="margin-top: 1rem; display: none;">
+        <p class="text-secondary">✨ Generating your world...</p>
+      </div>
+    </div>
+  `
+
+  container.scrollIntoView({ behavior: "smooth" })
+
+  document.getElementById("back-to-options").addEventListener("click", () => renderWorldCreationOptions())
+  document.getElementById("cancel-ai-btn").addEventListener("click", () => renderWorldCreationOptions())
+
+  document.getElementById("ai-generation-form").addEventListener("submit", async (e) => {
+    e.preventDefault()
+    await generateWorldWithAI()
+  })
+}
+
+async function generateWorldWithAI() {
+  const idea = document.getElementById("world-idea").value.trim()
+  const statusDiv = document.getElementById("generation-status")
+  const submitBtn = document.querySelector("#ai-generation-form button[type='submit']")
+
+  submitBtn.disabled = true
+  submitBtn.textContent = "Generating..."
+  statusDiv.style.display = "block"
+
+  try {
+    const data = loadData()
+    const model = data.settings.defaultNarrativeModel
+
+    if (!model) {
+      alert("Please set a default narrative model in settings first.")
+      return
+    }
+
+    const prompt = `You are a creative world builder for D&D campaigns. Based on the following description, create a detailed world setting.
+
+User's world idea: "${idea}"
+
+Generate a JSON response with this EXACT structure:
+{
+  "name": "World Name",
+  "briefDescription": "One sentence description",
+  "fullDescription": "2-3 paragraph full description",
+  "tone": "Description of tone and theme",
+  "magicLevel": "none|low|medium|high",
+  "techLevel": "medieval|renaissance|industrial|modern|sci-fi",
+  "systemPrompt": "Comprehensive 3-4 paragraph system prompt that describes the world's lore, rules, tone, magic system, technology level, major factions, geography, and any unique features. This will be used to give context to the AI DM during gameplay.",
+  "startingLocation": "Description of a good starting location for adventures"
+}
+
+Make the systemPrompt detailed and specific - it's what the AI DM will use to understand this world. Include world-building details that will make adventures feel unique and consistent.`
+
+    const messages = [{ role: "user", content: prompt }]
+    const response = await sendChatCompletion(messages, model)
+
+    let fullResponse = ""
+    for await (const chunk of parseStreamingResponse(response)) {
+      const delta = chunk.choices?.[0]?.delta?.content
+      if (delta) {
+        fullResponse += delta
+      }
+    }
+
+    // Parse JSON from response
+    const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error("Could not parse AI response")
+    }
+
+    const generatedWorld = JSON.parse(jsonMatch[0])
+
+    // Create world object with generated data
+    const worldTemplate = {
+      id: `world_ai_${Date.now()}`,
+      name: generatedWorld.name,
+      settingType: "custom",
+      sourceType: "ai-generated",
+      generationPrompt: idea,
+      briefDescription: generatedWorld.briefDescription,
+      fullDescription: generatedWorld.fullDescription,
+      tone: generatedWorld.tone,
+      magicLevel: generatedWorld.magicLevel,
+      techLevel: generatedWorld.techLevel,
+      systemPrompt: generatedWorld.systemPrompt,
+      startingLocation: generatedWorld.startingLocation,
+    }
+
+    // Show the generated world in edit form
+    renderWorldForm(worldTemplate, false, true)
+  } catch (error) {
+    console.error("Error generating world:", error)
+    alert("Failed to generate world: " + error.message)
+    submitBtn.disabled = false
+    submitBtn.textContent = "Generate World"
+    statusDiv.style.display = "none"
+  }
+}
+
+function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false) {
+  const container = document.getElementById("world-form-container")
+
+  const isEditing = world !== null && !isTemplate && !isAIGenerated
+  const formData = world || {
+    name: "",
+    briefDescription: "",
+    fullDescription: "",
+    tone: "",
+    magicLevel: "medium",
+    techLevel: "medieval",
+    systemPrompt: "",
+    startingLocation: "",
+  }
+
+  let headerText = "Create New World"
+  if (isEditing) headerText = "Edit World"
+  else if (isTemplate) headerText = `Using Template: ${formData.name}`
+  else if (isAIGenerated) headerText = "Review AI Generated World"
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
+      <h2>${headerText}</h2>
+      ${isAIGenerated ? '<p class="text-secondary mb-3">Review and edit the generated world before saving.</p>' : ""}
       
       <form id="world-form">
         <div class="mb-3">
@@ -137,8 +556,52 @@ function renderWorldForm(world = null) {
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Description *</label>
-          <input type="text" id="world-description" required placeholder="Brief description of the world" value="${formData.description}">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Brief Description *</label>
+          <input type="text" id="world-description" required placeholder="One sentence summary" value="${formData.briefDescription}">
+        </div>
+        
+        <div class="mb-3">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Full Description (Optional)</label>
+          <textarea 
+            id="world-full-description" 
+            rows="3"
+            placeholder="2-3 paragraph detailed description"
+          >${formData.fullDescription || ""}</textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Magic Level</label>
+            <select id="world-magic-level">
+              <option value="none" ${formData.magicLevel === "none" ? "selected" : ""}>None</option>
+              <option value="low" ${formData.magicLevel === "low" ? "selected" : ""}>Low</option>
+              <option value="medium" ${formData.magicLevel === "medium" ? "selected" : ""}>Medium</option>
+              <option value="high" ${formData.magicLevel === "high" ? "selected" : ""}>High</option>
+            </select>
+          </div>
+          
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tech Level</label>
+            <select id="world-tech-level">
+              <option value="primitive" ${formData.techLevel === "primitive" ? "selected" : ""}>Primitive</option>
+              <option value="medieval" ${formData.techLevel === "medieval" ? "selected" : ""}>Medieval</option>
+              <option value="renaissance" ${formData.techLevel === "renaissance" ? "selected" : ""}>Renaissance</option>
+              <option value="industrial" ${formData.techLevel === "industrial" ? "selected" : ""}>Industrial</option>
+              <option value="modern" ${formData.techLevel === "modern" ? "selected" : ""}>Modern</option>
+              <option value="sci-fi" ${formData.techLevel === "sci-fi" ? "selected" : ""}>Sci-Fi</option>
+              <option value="mixed" ${formData.techLevel === "mixed" ? "selected" : ""}>Mixed</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tone (Optional)</label>
+          <input type="text" id="world-tone" placeholder="e.g., Dark and gritty, Lighthearted adventure" value="${formData.tone || ""}">
+        </div>
+        
+        <div class="mb-3">
+          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Starting Location (Optional)</label>
+          <input type="text" id="world-starting-location" placeholder="e.g., The bustling port city of Meridian" value="${formData.startingLocation || ""}">
         </div>
         
         <div class="mb-3">
@@ -146,12 +609,12 @@ function renderWorldForm(world = null) {
           <textarea 
             id="world-system-prompt" 
             required 
-            rows="8"
-            placeholder="Describe the world's lore, rules, tone, magic system, technology level, major factions, etc. This will be prepended to all AI interactions for adventures in this world."
+            rows="10"
+            placeholder="Describe the world's lore, rules, tone, magic system, technology level, major factions, etc. This will guide the AI DM during adventures in this world."
             style="resize: vertical;"
           >${formData.systemPrompt}</textarea>
           <p class="text-secondary mt-1" style="font-size: 0.875rem;">
-            This prompt sets the context for all adventures in this world. Be specific about the setting, tone, and rules.
+            This is the most important field - it sets the context for all adventures in this world.
           </p>
         </div>
         
@@ -163,13 +626,12 @@ function renderWorldForm(world = null) {
     </div>
   `
 
-  // Scroll to form
   container.scrollIntoView({ behavior: "smooth" })
 
   // Event listeners
   document.getElementById("world-form").addEventListener("submit", (e) => {
     e.preventDefault()
-    saveWorld()
+    saveWorld(isEditing ? world.id : null)
   })
 
   document.getElementById("cancel-world-btn").addEventListener("click", () => {
@@ -178,23 +640,34 @@ function renderWorldForm(world = null) {
   })
 }
 
-function saveWorld() {
+function saveWorld(existingWorldId = null) {
   const data = loadData()
   const name = document.getElementById("world-name").value.trim()
-  const description = document.getElementById("world-description").value.trim()
+  const briefDescription = document.getElementById("world-description").value.trim()
+  const fullDescription = document.getElementById("world-full-description").value.trim()
+  const magicLevel = document.getElementById("world-magic-level").value
+  const techLevel = document.getElementById("world-tech-level").value
+  const tone = document.getElementById("world-tone").value.trim()
+  const startingLocation = document.getElementById("world-starting-location").value.trim()
   const systemPrompt = document.getElementById("world-system-prompt").value.trim()
 
-  if (!name || !description || !systemPrompt) {
-    alert("Please fill in all fields.")
+  if (!name || !briefDescription || !systemPrompt) {
+    alert("Please fill in all required fields.")
     return
   }
 
-  if (editingWorldId) {
+  if (existingWorldId || editingWorldId) {
     // Update existing world
-    const world = data.worlds.find((w) => w.id === editingWorldId)
+    const worldId = existingWorldId || editingWorldId
+    const world = data.worlds.find((w) => w.id === worldId)
     if (world) {
       world.name = name
-      world.description = description
+      world.briefDescription = briefDescription
+      world.fullDescription = fullDescription
+      world.tone = tone
+      world.magicLevel = magicLevel
+      world.techLevel = techLevel
+      world.startingLocation = startingLocation
       world.systemPrompt = systemPrompt
     }
   } else {
@@ -202,7 +675,14 @@ function saveWorld() {
     const newWorld = {
       id: `world_${Date.now()}`,
       name,
-      description,
+      settingType: "custom",
+      sourceType: "custom",
+      briefDescription,
+      fullDescription,
+      tone,
+      magicLevel,
+      techLevel,
+      startingLocation,
       systemPrompt,
       createdAt: new Date().toISOString(),
       isDefault: false,

@@ -33,20 +33,70 @@ async function makeRequest(endpoint, options = {}) {
       headers,
     })
 
-    // Handle token expiration
-    if (response.status === 401) {
-      throw new Error("Authentication expired. Please log in again.")
-    }
-
+    // Check for pre-stream errors (HTTP status will match error code)
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.message || `API request failed: ${response.status}`)
+      const errorData = await response.json().catch(() => ({}))
+      const errorCode = response.status
+      const errorMessage = errorData.error?.message || `API request failed`
+      const metadata = errorData.error?.metadata
+
+      // Build user-friendly error message based on error code
+      let userMessage = errorMessage
+
+      switch (errorCode) {
+        case 400:
+          userMessage = "Bad request: " + errorMessage
+          break
+        case 401:
+          userMessage = "Authentication expired. Please log in again."
+          break
+        case 402:
+          userMessage = "Insufficient credits. Please add credits to your OpenRouter account."
+          break
+        case 403:
+          if (metadata?.reasons) {
+            userMessage = `Input flagged by moderation: ${metadata.reasons.join(", ")}`
+          } else {
+            userMessage = "Input was blocked by content moderation."
+          }
+          break
+        case 408:
+          userMessage = "Request timed out. The model took too long to respond. Please try again."
+          break
+        case 429:
+          userMessage = "Rate limited. Please wait a moment and try again."
+          break
+        case 502:
+          if (metadata?.provider_name) {
+            userMessage = `Model provider (${metadata.provider_name}) is currently down or returned an invalid response. Try a different model.`
+          } else {
+            userMessage = "Model is currently unavailable. Please try a different model."
+          }
+          break
+        case 503:
+          userMessage = "No available model provider meets requirements. Please try again or choose a different model."
+          break
+        default:
+          userMessage = `Error ${errorCode}: ${errorMessage}`
+      }
+
+      const error = new Error(userMessage)
+      error.code = errorCode
+      error.metadata = metadata
+      error.rawMessage = errorMessage
+      throw error
     }
 
     return response
   } catch (error) {
+    // Re-throw our formatted errors
+    if (error.code) {
+      throw error
+    }
+
+    // Network or other errors
     console.error("OpenRouter API error:", error)
-    throw error
+    throw new Error("Network error: Unable to reach OpenRouter. Please check your connection.")
   }
 }
 
@@ -84,15 +134,44 @@ export async function sendChatCompletion(messages, model, options = {}) {
     const data = loadData()
     const temperature = options.temperature !== undefined ? options.temperature : data.settings.temperature || 1.0
 
+    if (!messages || messages.length === 0) {
+      throw new Error("Messages array cannot be empty")
+    }
+
+    // Ensure all messages have required fields
+    const validMessages = messages.map((msg) => {
+      if (!msg.role || !["user", "assistant", "system", "tool"].includes(msg.role)) {
+        console.error("[v0] Invalid message role:", msg)
+        throw new Error("Invalid message role")
+      }
+      if (msg.content === undefined || msg.content === null) {
+        console.error("[v0] Invalid message content:", msg)
+        throw new Error("Invalid message content")
+      }
+      return {
+        role: msg.role,
+        content: String(msg.content), // Ensure content is a string
+      }
+    })
+
+    console.log("[v0] Sending payload with", validMessages.length, "messages")
+
+    const payload = {
+      model,
+      messages: validMessages,
+      stream: true,
+      temperature,
+    }
+
+    // Only add specific supported options if provided
+    if (options.max_tokens) payload.max_tokens = options.max_tokens
+    if (options.top_p) payload.top_p = options.top_p
+    if (options.frequency_penalty) payload.frequency_penalty = options.frequency_penalty
+    if (options.presence_penalty) payload.presence_penalty = options.presence_penalty
+
     const response = await makeRequest("/chat/completions", {
       method: "POST",
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: true,
-        temperature,
-        ...options,
-      }),
+      body: JSON.stringify(payload),
     })
 
     return response
@@ -138,8 +217,45 @@ export async function* parseStreamingResponse(response) {
           const data = line.slice(6)
           try {
             const parsed = JSON.parse(data)
+
+            if (parsed.error) {
+              const errorCode = parsed.error.code
+              const errorMessage = parsed.error.message
+              const metadata = parsed.error.metadata
+
+              let userMessage = errorMessage
+
+              switch (errorCode) {
+                case 402:
+                  userMessage = "Insufficient credits during generation. Please add credits to your OpenRouter account."
+                  break
+                case 408:
+                  userMessage = "Model timed out during generation. Please try again."
+                  break
+                case 502:
+                  if (metadata?.provider_name) {
+                    userMessage = `Model provider (${metadata.provider_name}) encountered an error during generation.`
+                  } else {
+                    userMessage = "Model encountered an error during generation."
+                  }
+                  break
+                default:
+                  userMessage = `Generation error: ${errorMessage}`
+              }
+
+              const error = new Error(userMessage)
+              error.code = errorCode
+              error.metadata = metadata
+              error.isMidStream = true
+              throw error
+            }
+
             yield parsed
           } catch (e) {
+            // Re-throw our error objects
+            if (e.isMidStream) {
+              throw e
+            }
             console.warn("Failed to parse SSE data:", line)
           }
         }

@@ -33,6 +33,10 @@ export function renderSettings() {
           <option value="auto" ${data.settings.theme === "auto" ? "selected" : ""}>Auto (System)</option>
           <option value="light" ${data.settings.theme === "light" ? "selected" : ""}>Light</option>
           <option value="dark" ${data.settings.theme === "dark" ? "selected" : ""}>Dark</option>
+          <option value="warm" ${data.settings.theme === "warm" ? "selected" : ""}>Warm</option>
+          <option value="cool" ${data.settings.theme === "cool" ? "selected" : ""}>Cool</option>
+          <option value="forest" ${data.settings.theme === "forest" ? "selected" : ""}>Forest</option>
+          <option value="midnight" ${data.settings.theme === "midnight" ? "selected" : ""}>Midnight</option>
         </select>
       </div>
       

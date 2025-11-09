@@ -25,8 +25,9 @@ export function renderCharacters() {
     </nav>
     
     <div class="container">
-      <div class="flex justify-between align-center mb-3" style="margin-top: 1rem;">
-        <h1>Your Characters</h1>
+      <!-- Added gap and proper flex properties to prevent title/button overlap -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 2rem; gap: 1rem; flex-wrap: wrap;">
+        <h1 style="margin: 0;">Your Characters</h1>
         <button id="new-character-btn" class="btn">+ New Character</button>
       </div>
       
@@ -174,7 +175,7 @@ export function renderCharacterCreator(state = {}) {
     </nav>
     
     <div class="container">
-      <div class="flex justify-between align-center mb-3">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1.5rem;">
         <h1>${isEdit ? "Edit Character" : "Create Character"}</h1>
         <a href="/characters" class="btn-secondary">Cancel</a>
       </div>

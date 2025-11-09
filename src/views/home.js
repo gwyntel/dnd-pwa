@@ -2,7 +2,7 @@
  * Home view - Dashboard with game list
  */
 
-import { loadData } from "../utils/storage.js"
+import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { isAuthenticated } from "../utils/auth.js"
 
@@ -29,8 +29,9 @@ export function renderHome() {
     </nav>
     
     <div class="container">
-      <div class="flex justify-between items-center mb-4" style="margin-top: 1rem;">
-        <h1>Your Adventures</h1>
+      <!-- Added gap and proper flex properties to prevent title/button overlap -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 2rem; gap: 1rem; flex-wrap: wrap;">
+        <h1 style="margin: 0;">Your Adventures</h1>
         <button id="new-game-btn" class="btn">+ New Game</button>
       </div>
       
@@ -45,9 +46,19 @@ export function renderHome() {
 
   // Game card click handlers
   document.querySelectorAll(".game-card").forEach((card) => {
-    card.addEventListener("click", () => {
-      const gameId = card.dataset.gameId
-      navigateTo(`/game/${gameId}`)
+    card.addEventListener("click", (e) => {
+      if (!e.target.closest(".delete-btn")) {
+        const gameId = card.dataset.gameId
+        navigateTo(`/game/${gameId}`)
+      }
+    })
+  })
+
+  document.querySelectorAll(".delete-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation()
+      const gameId = btn.dataset.gameId
+      deleteGame(gameId)
     })
   })
 }
@@ -87,8 +98,8 @@ function renderEmptyState() {
       <h2>No Adventures Yet</h2>
       <p class="text-secondary mb-3">Create your first character and start a new game!</p>
       <div class="flex gap-2 justify-center">
-        <button id="create-character-btn" class="btn">Create Character</button>
-        <button id="quick-start-btn" class="btn-secondary">Quick Start</button>
+        <a href="/characters/new" class="btn">Create Character</a>
+        <a href="/game/new" class="btn-secondary">Quick Start</a>
       </div>
     </div>
   `
@@ -116,7 +127,8 @@ function renderGameList(games, characters) {
           else timeAgo = `${diffDays}d ago`
 
           return `
-          <div class="card game-card" data-game-id="${game.id}" style="cursor: pointer;">
+          <div class="card game-card" data-game-id="${game.id}" style="cursor: pointer; position: relative;">
+            <button class="delete-btn" data-game-id="${game.id}" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem; background: var(--error-color); border-radius: 6px; border: none; color: white; cursor: pointer;">✕</button>
             <h3>${game.title}</h3>
             <p class="text-secondary">${character?.name || "Unknown"} - Level ${character?.level || 1} ${character?.class || ""}</p>
             <div class="flex justify-between items-center mt-2">
@@ -142,4 +154,17 @@ function renderGameList(games, characters) {
         .join("")}
     </div>
   `
+}
+
+function deleteGame(gameId) {
+  if (!confirm("Are you sure you want to delete this adventure? This cannot be undone.")) {
+    return
+  }
+
+  const data = loadData()
+  data.games = data.games.filter((g) => g.id !== gameId)
+  saveData(data)
+
+  // Re-render
+  renderHome()
 }

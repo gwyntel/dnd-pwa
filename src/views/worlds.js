@@ -178,16 +178,58 @@ export function renderWorlds() {
   const app = document.getElementById("app")
   const data = loadData()
 
-  if (!data.worlds) {
+  if (!data.worlds || data.worlds.length === 0) {
     data.worlds = [
       {
-        id: "world_default",
-        name: "Generic Fantasy",
-        settingType: "custom",
+        id: "world_default_classic_fantasy",
+        name: "Default: Classic Fantasy Realm",
+        settingType: "classic-fantasy",
         sourceType: "default",
-        briefDescription: "A classic high fantasy world with magic, monsters, and adventure.",
-        systemPrompt:
-          "This is a high fantasy world with magic, mythical creatures, and medieval technology. Dragons exist, magic is real and studied by wizards, and various races (humans, elves, dwarves, halflings, etc.) live together. The tone is heroic adventure with clear good vs evil themes.",
+        briefDescription: "Beginner-friendly heroic fantasy with clear good vs evil and straightforward adventure hooks.",
+        fullDescription:
+          "A welcoming, classic fantasy realm designed for quick-start play. Cozy villages, ancient ruins, and nearby threats give you immediate reasons to adventure without overwhelming lore. Magic exists but feels special. Heroes protect the innocent, explore ruins, and uncover secrets step by step.",
+        tone: "Heroic, hopeful, beginner-friendly; emphasizes clarity, fun, and easy decision-making.",
+        magicLevel: "medium",
+        techLevel: "medieval",
+        startingLocation:
+          "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
+        systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
+
+CORE GOALS:
+- Make it EASY for new players and DMs.
+- Keep stakes clear and tone heroic with room for light drama.
+- Offer obvious hooks, simple factions, and readable consequences.
+- Avoid overwhelming lore; suggest, don't drown in details.
+
+WORLD OVERVIEW:
+- Greenhollow: Friendly riverside town, ideal home base. Key NPCs:
+  - Mayor Elira Thorne: Kind but slightly overwhelmed, wants practical heroes.
+  - Captain Bram: Town watch leader, honest and direct.
+  - Sister Maelin: Temple priest, healer and quest-giver.
+  - Old Tamsin: Retired adventurer, local rumors and map fragments.
+- Nearby Locations:
+  - Whispering Woods: Goblins, wolves, fey lights, lost shrines.
+  - Old Watchtower: Bandits or cultists; simple but dramatic dungeon.
+  - Crystalford Mine: Miners missing, strange magic or monsters below.
+- Factions:
+  - Town Watch (order and safety),
+  - Road Wardens (travelers and caravans),
+  - Hidden Cult or Dark Mage (slow-burn villain).
+  Keep them simple and readable.
+
+MAGIC & TONE:
+- Magic exists and is understood but not mundane.
+- Standard fantasy races and classes fit easily.
+- Moral compass leans towards clear good vs evil, but allow nuance if players seek it.
+
+DM/AI GUIDELINES:
+- Give 2–3 clear options instead of 10 vague ones.
+- Explain rules, abilities, and consequences in plain language.
+- Offer gentle safety tools: check in, tone check, content check.
+- Encourage teamwork, heroism, and creative problem solving.
+- When in doubt, choose the option that keeps things fun, fair, and flowing.
+
+Use this prompt to ground scenes, NPCs, quests, and descriptions so that new players feel confident and excited from the first session.`,
         createdAt: new Date().toISOString(),
         isDefault: true,
       },

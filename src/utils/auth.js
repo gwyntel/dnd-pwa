@@ -149,3 +149,34 @@ export function logout() {
 export function setApiKey(apiKey) {
   sessionStorage.setItem(TOKEN_KEY, apiKey);
 }
+
+/**
+ * Auto-login using environment variable if available
+ * Checks for VITE_OPENROUTER_API_KEY in .env file
+ * Also sets default model if VITE_DEFAULT_MODEL is provided
+ */
+export function autoLogin() {
+  // Check if already authenticated
+  if (isAuthenticated()) {
+    return true;
+  }
+  
+  // Check for environment variable
+  const envApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  
+  if (envApiKey && envApiKey.startsWith('sk-or-')) {
+    console.log('Auto-login: Using API key from environment variable');
+    setApiKey(envApiKey);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Get default model from environment variable
+ * @returns {string|null} The default model ID or null
+ */
+export function getDefaultModelFromEnv() {
+  return import.meta.env.VITE_DEFAULT_MODEL || null;
+}

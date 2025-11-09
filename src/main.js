@@ -10,8 +10,8 @@ import { renderSettings } from './views/settings.js';
 import { renderModels } from './views/models.js';
 import { renderCharacters, renderCharacterCreator } from './views/characters.js';
 import { renderGameList, renderGame } from './views/game.js';
-import { startAuth, handleAuthCallback, setApiKey, isAuthenticated } from './utils/auth.js';
-import { loadData } from './utils/storage.js';
+import { startAuth, handleAuthCallback, setApiKey, isAuthenticated, autoLogin, getDefaultModelFromEnv } from './utils/auth.js';
+import { loadData, saveData } from './utils/storage.js';
 
 /**
  * Initialize the application
@@ -19,8 +19,20 @@ import { loadData } from './utils/storage.js';
 function init() {
   console.log('D&D PWA - Initializing...');
   
-  // Apply saved theme
+  // Try auto-login from environment variable
+  autoLogin();
+  
+  // Apply saved theme and set default model if provided
   const data = loadData();
+  
+  // Set default model from environment variable if not already set
+  const envDefaultModel = getDefaultModelFromEnv();
+  if (envDefaultModel && !data.settings.defaultNarrativeModel) {
+    console.log('Setting default model from environment variable:', envDefaultModel);
+    data.settings.defaultNarrativeModel = envDefaultModel;
+    saveData(data);
+  }
+  
   applyTheme(data.settings.theme);
   
   // Register routes

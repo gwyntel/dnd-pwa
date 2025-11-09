@@ -164,12 +164,6 @@ export function renderCharacterCreator(state = {}) {
     }
   }
 
-  if (!data.settings.defaultNarrativeModel && !state.params?.id) {
-    console.log("[v0] No default model, redirecting to model selector")
-    window.location.hash = "#/models"
-    return
-  }
-
   // Initialize form data
   const formData = character ||
     initialTemplate || {

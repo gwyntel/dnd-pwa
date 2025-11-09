@@ -4,7 +4,7 @@
  */
 
 import "./style.css"
-import { initRouter, registerRoute } from "./router.js"
+import { initRouter, registerRoute, navigateTo } from "./router.js"
 import { renderHome } from "./views/home.js"
 import { renderSettings } from "./views/settings.js"
 import { renderModels } from "./views/models.js"
@@ -165,7 +165,7 @@ function handleNewCharacter(state) {
   const data = loadData()
   if (!data.settings.defaultNarrativeModel) {
     console.log("[v0] No default model set, redirecting to model selector")
-    window.location.hash = "#/models"
+    navigateTo("/models")
     return
   }
 

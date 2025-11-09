@@ -165,9 +165,7 @@ function handleNewCharacter(state) {
   const data = loadData()
   if (!data.settings.defaultNarrativeModel) {
     console.log("[v0] No default model set, redirecting to model selector")
-    // Store intention to come back here after model selection
-    sessionStorage.setItem("redirectAfterModelSelect", "/characters/new")
-    window.location.href = "#/models"
+    window.location.hash = "#/models"
     return
   }
 

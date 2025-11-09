@@ -166,8 +166,7 @@ export function renderCharacterCreator(state = {}) {
 
   if (!data.settings.defaultNarrativeModel && !state.params?.id) {
     console.log("[v0] No default model, redirecting to model selector")
-    sessionStorage.setItem("redirectAfterModelSelect", "/characters/new")
-    navigateTo("/models")
+    window.location.hash = "#/models"
     return
   }
 

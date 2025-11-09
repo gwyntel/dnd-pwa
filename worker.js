@@ -1,47 +1,46 @@
 // Cloudflare Worker for SPA fallback with static assets from ./dist
 // - Serves built assets normally
 // - Falls back to /index.html for any non-asset route (e.g. /auth/callback)
+// Fix: do NOT rewrite /auth/* asset URLs like /auth/assets/*.js|css to index.html;
+// only treat real app routes (no extension and not under /assets) as SPA paths.
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Serve static assets directly (JS, CSS, images, etc.)
-    if (isAssetRequest(url.pathname)) {
-      const assetResponse = await env.ASSETS.fetch(request);
-      // If asset exists, return it
-      if (assetResponse.status !== 404) {
-        return assetResponse;
-      }
-      // If not found, fall through to SPA fallback
+    // Let the Pages/assets handler try first with the original path.
+    const assetResponse = await env.ASSETS.fetch(request);
+
+    // If it's not a 404, return as-is (correct MIME types for JS/CSS/etc).
+    if (assetResponse.status !== 404) {
+      return assetResponse;
     }
 
-    // SPA fallback: always return index.html for non-asset routes
-    const indexUrl = new URL("/", request.url);
-    const indexRequest = new Request(indexUrl.toString(), request);
-    return env.ASSETS.fetch(indexRequest);
+    // If 404 from ASSETS, decide whether this should be a SPA route.
+    if (isSpaRoute(url.pathname)) {
+      // Serve index.html for SPA routes (e.g. /auth/callback, /characters, etc.)
+      const indexUrl = new URL("/", request.url);
+      const indexRequest = new Request(indexUrl.toString(), request);
+      return env.ASSETS.fetch(indexRequest);
+    }
+
+    // Otherwise, return original 404.
+    return assetResponse;
   },
 };
 
-// Detect asset requests by path/extension
-function isAssetRequest(pathname) {
-  if (pathname === "/" || pathname === "") return false;
-  // Common static asset extensions from Vite build
-  return (
-    pathname.includes("/assets/") ||
-    pathname.endsWith(".js") ||
-    pathname.endsWith(".css") ||
-    pathname.endsWith(".map") ||
-    pathname.endsWith(".png") ||
-    pathname.endsWith(".jpg") ||
-    pathname.endsWith(".jpeg") ||
-    pathname.endsWith(".gif") ||
-    pathname.endsWith(".svg") ||
-    pathname.endsWith(".ico") ||
-    pathname.endsWith(".webp") ||
-    pathname.endsWith(".txt") ||
-    pathname.endsWith(".json") ||
-    pathname.endsWith(".xml") ||
-    pathname.endsWith(".pdf")
-  );
+// Treat as SPA route if:
+// - It has no file extension, and
+// - It's not obviously a static asset directory.
+function isSpaRoute(pathname) {
+  // Root is SPA
+  if (pathname === "/" || pathname === "") return true;
+
+  // If path looks like it has a file extension, it's not a SPA route
+  const lastSegment = pathname.split("/").pop() || "";
+  if (lastSegment.includes(".")) return false;
+
+  // Anything else (no extension) we treat as SPA route
+  // e.g. /auth/callback, /characters, /worlds/123
+  return true;
 }

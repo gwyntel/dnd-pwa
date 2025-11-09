@@ -524,87 +524,92 @@ export function renderCharacterCreator(state = {}) {
 
 async function generateCharacterWithLLM(userPrompt = "") {
   const systemPrompt = CHARACTER_LLM_SYSTEM_PROMPT
+  const data = loadData()
+  const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
 
-  try {
-    const messages = [
-      {
-        role: "user",
-        content:
-          (userPrompt && userPrompt.trim().length
-            ? `Generate a D&D 5e character based on this idea:\n"${userPrompt.trim()}".`
-            : "Generate a random, creative D&D 5e character.") +
-          "\n\nRespond ONLY with JSON matching the specified schema.",
-      },
-    ]
+  // Allow up to 3 attempts; provide structured JSON-specific feedback on failure.
+  let messages = [
+    {
+      role: "user",
+      content:
+        (userPrompt && userPrompt.trim().length
+          ? `Generate a D&D 5e character based on this idea:\n"${userPrompt.trim()}".`
+          : "Generate a random, creative D&D 5e character.") +
+        "\n\nRespond ONLY with the JSON object in the exact format described in the system prompt.",
+    },
+  ]
 
-    // Get the default model or use a good default
-    const data = loadData()
-    const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
+  let lastErrorSummary = null
 
-    const response = await sendChatCompletion(messages, model, {
-      system: systemPrompt,
-      temperature: 0.8,
-    })
-
-    let fullResponse = ""
-    for await (const chunk of parseStreamingResponse(response)) {
-      if (chunk.choices && chunk.choices[0]?.delta?.content) {
-        fullResponse += chunk.choices[0].delta.content
-      }
-    }
-
-    // Parse the JSON response
-    const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error("Invalid response format from LLM")
-    }
-
-    let characterData
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      characterData = JSON.parse(jsonMatch[0])
-    } catch (e) {
-      console.error("Failed to parse LLM JSON:", e, fullResponse)
-      throw new Error("Invalid JSON from AI. Please try again.")
+      const response = await sendChatCompletion(messages, model, {
+        system: systemPrompt,
+        temperature: 0.8,
+      })
+
+      let fullResponse = ""
+      for await (const chunk of parseStreamingResponse(response)) {
+        if (chunk.choices && chunk.choices[0]?.delta?.content) {
+          fullResponse += chunk.choices[0].delta.content
+        }
+      }
+
+      console.log(`[AI Character] Raw JSON response (attempt ${attempt}):`, fullResponse)
+
+      // Try to parse JSON strictly
+      let raw
+      try {
+        raw = JSON.parse(fullResponse)
+      } catch (e) {
+        const summary =
+          "Response was not valid JSON. Output must be EXACTLY one JSON object matching the specified schema, with no extra text."
+        console.warn("[AI Character] " + summary, { fullResponse })
+        lastErrorSummary = summary
+
+        messages.push({ role: "assistant", content: fullResponse })
+        messages.push({
+          role: "user",
+          content:
+            summary +
+            "\nNow respond again with ONLY a valid JSON object matching the schema. No code fences, no explanation.",
+        })
+        continue
+      }
+
+      const parsed = normalizeJsonCharacter(raw)
+      console.log(`[AI Character] Parsed result (attempt ${attempt}):`, parsed)
+
+      if (!parsed || !parsed.name || !parsed.race || !parsed.class) {
+        const summary =
+          'Missing or invalid core fields. Ensure JSON includes "name", "race", "class", "level", "stats", "maxHP", "armorClass", "speed", "hitDice", "skills", "features", "backstory" as specified.'
+        console.warn("[AI Character] " + summary, raw)
+        lastErrorSummary = summary
+
+        messages.push({ role: "assistant", content: JSON.stringify(raw) })
+        messages.push({
+          role: "user",
+          content:
+            summary +
+            "\nNow respond again with ONLY a corrected JSON object that exactly matches the schema. No extra keys, no markdown.",
+        })
+        continue
+      }
+
+      return parsed
+    } catch (error) {
+      console.error(`[AI Character] Error during attempt ${attempt}:`, error)
+      lastErrorSummary =
+        lastErrorSummary ||
+        "Unexpected error while generating or parsing the character sheet. Ensure output is a single valid JSON object."
+      break
     }
-
-    // Basic shape validation with safer defaults instead of hard failure
-    if (!characterData || typeof characterData !== "object") {
-      throw new Error("AI response missing character data.")
-    }
-
-    // Ensure nested structures exist
-    characterData.stats = characterData.stats || {
-      strength: 10,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 10,
-    }
-    characterData.skills = Array.isArray(characterData.skills) ? characterData.skills : []
-    characterData.features = Array.isArray(characterData.features) ? characterData.features : []
-
-    // Fill critical fields with fallbacks if missing
-    characterData.name = characterData.name || "AI Generated Hero"
-    characterData.race =
-      characterData.race || "Human"
-    characterData.class =
-      characterData.class || "Fighter"
-    characterData.level =
-      typeof characterData.level === "number" && characterData.level >= 1 && characterData.level <= 20
-        ? characterData.level
-        : 1
-    characterData.maxHP = characterData.maxHP || 10
-    characterData.armorClass = characterData.armorClass || 10
-    characterData.speed = characterData.speed || 30
-    characterData.hitDice = characterData.hitDice || "1d10"
-    characterData.backstory = characterData.backstory || ""
-
-    return characterData
-  } catch (error) {
-    console.error("Error calling LLM for character generation:", error)
-    throw error
   }
+
+  throw new Error(
+    lastErrorSummary ||
+      "The AI response was not in the expected JSON format after multiple attempts. Please try again.",
+  )
 }
 
 function applyTemplate(templateId) {
@@ -859,6 +864,78 @@ export async function generateRandomCharacter() {
   return generateRandomCharacterWithPrompt()
 }
 
+function normalizeJsonCharacter(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null
+  }
+
+  const core = {
+    name: String(raw.name || "").trim(),
+    race: String(raw.race || "").trim(),
+    class: String(raw.class || "").trim(),
+    level: Number.isFinite(raw.level) ? raw.level : parseInt(raw.level, 10),
+  }
+
+  const statsIn = raw.stats || {}
+  const num = (v, fallback) => {
+    const n = typeof v === "number" ? v : parseInt(v, 10)
+    return Number.isFinite(n) ? n : fallback
+  }
+
+  const stats = {
+    strength: num(statsIn.strength, 10),
+    dexterity: num(statsIn.dexterity, 10),
+    constitution: num(statsIn.constitution, 10),
+    intelligence: num(statsIn.intelligence, 10),
+    wisdom: num(statsIn.wisdom, 10),
+    charisma: num(statsIn.charisma, 10),
+  }
+
+  const maxHP = num(raw.maxHP, 10)
+  const armorClass = num(raw.armorClass, 10)
+  const speed = num(raw.speed, 30)
+  const hitDice = typeof raw.hitDice === "string" ? raw.hitDice.trim() : "1d10"
+
+  const csvToArray = (val) =>
+    String(val || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+  const skills = csvToArray(raw.skills)
+  const features = csvToArray(raw.features)
+  const backstory = String(raw.backstory || "").trim()
+
+  if (!core.name || !core.race || !core.class) {
+    return {
+      ...core,
+      stats,
+      maxHP,
+      armorClass,
+      speed,
+      hitDice,
+      skills,
+      features,
+      backstory,
+    }
+  }
+
+  return {
+    name: core.name,
+    race: core.race,
+    class: core.class,
+    level: num(core.level, 1),
+    stats,
+    maxHP,
+    armorClass,
+    speed,
+    hitDice,
+    skills,
+    features,
+    backstory,
+  }
+}
+
 async function generateRandomCharacterWithPrompt() {
   if (!isAuthenticated()) {
     alert("Please authenticate to use AI character generation.")
@@ -890,8 +967,48 @@ async function generateRandomCharacterWithPrompt() {
 
     // Fill form with generated character data
     document.getElementById("char-name").value = character.name
-    document.getElementById("char-race").value = character.race
-    document.getElementById("char-class").value = character.class
+
+    // Handle race: if it matches a standard option, select it; otherwise choose Custom and prefill custom field
+    const standardRaces = ["Human","Elf","Dwarf","Halfling","Dragonborn","Gnome","Half-Elf","Half-Orc","Tiefling"]
+    const raceSelect = document.getElementById("char-race")
+    const raceCustomInput = document.getElementById("char-race-custom")
+    if (standardRaces.includes(character.race)) {
+      raceSelect.value = character.race
+      raceCustomInput.style.display = "none"
+      raceCustomInput.value = ""
+    } else {
+      raceSelect.value = "Custom"
+      raceCustomInput.style.display = "block"
+      raceCustomInput.value = character.race || ""
+    }
+
+    // Handle class: if it matches a standard option, select it; otherwise choose Custom and prefill custom field
+    const standardClasses = [
+      "Fighter",
+      "Wizard",
+      "Rogue",
+      "Cleric",
+      "Barbarian",
+      "Bard",
+      "Druid",
+      "Monk",
+      "Paladin",
+      "Ranger",
+      "Sorcerer",
+      "Warlock",
+    ]
+    const classSelect = document.getElementById("char-class")
+    const classCustomInput = document.getElementById("char-class-custom")
+    if (standardClasses.includes(character.class)) {
+      classSelect.value = character.class
+      classCustomInput.style.display = "none"
+      classCustomInput.value = ""
+    } else {
+      classSelect.value = "Custom"
+      classCustomInput.style.display = "block"
+      classCustomInput.value = character.class || ""
+    }
+
     document.getElementById("char-level").value = character.level
     document.getElementById("char-hp").value = character.maxHP
     document.getElementById("char-ac").value = character.armorClass

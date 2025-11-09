@@ -122,6 +122,7 @@ async function createGame() {
       initiative: [],
       currentTurnIndex: 0
     },
+    suggestedActions: [],
     messages: [],
     createdAt: new Date().toISOString(),
     lastPlayedAt: new Date().toISOString(),
@@ -232,6 +233,15 @@ export async function renderGame(state = {}) {
           </div>
           
           <div class="input-container">
+            ${game.suggestedActions && game.suggestedActions.length > 0 ? `
+              <div class="suggested-actions">
+                ${game.suggestedActions.map(action => `
+                  <button class="action-bubble" data-action="${escapeHtml(action)}">
+                    ${escapeHtml(action)}
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
             <form id="chat-form" style="display: flex; gap: 0.5rem;">
               <input 
                 type="text" 
@@ -258,6 +268,18 @@ export async function renderGame(state = {}) {
   document.getElementById('chat-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     await handlePlayerInput();
+  });
+  
+  // Action bubble click handlers
+  document.querySelectorAll('.action-bubble').forEach(bubble => {
+    bubble.addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      const input = document.getElementById('player-input');
+      if (input && action) {
+        input.value = action;
+        input.focus();
+      }
+    });
   });
   
   // If no messages, start the game
@@ -340,6 +362,9 @@ function stripTags(text) {
   
   // Remove HEAL tags
   cleaned = cleaned.replace(/HEAL\[([^\]]+)\]/g, '');
+  
+  // Remove ACTION tags
+  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, '');
   
   return cleaned;
 }
@@ -655,6 +680,22 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
   
+  // Process suggested actions
+  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g);
+  const newActions = [];
+  for (const match of actionMatches) {
+    const tagKey = `action_${match[0]}`;
+    if (!processedTags.has(tagKey)) {
+      newActions.push(match[1]);
+      processedTags.add(tagKey);
+    }
+  }
+  
+  // If we found new actions, replace the current suggested actions
+  if (newActions.length > 0) {
+    game.suggestedActions = newActions;
+  }
+  
   saveData(data);
 }
 
@@ -851,6 +892,14 @@ You MUST use these tags in your narrative. The app parses them in real-time to u
    - amount: number only
    - Example: "You drink the potion. HEAL[player|10]"
 
+7. **ACTION[action_text]** - Suggest contextual actions
+   - Format: ACTION[Search the room]
+   - Provide 3-5 contextual action suggestions
+   - Actions should be specific to the current situation
+   - Examples: ACTION[Attack the goblin], ACTION[Search for traps], ACTION[Talk to the merchant]
+   - Place all ACTION tags together in your response
+   - These will appear as clickable buttons for the player
+
 **Formatting Rules:**
 - Use **bold** for emphasis: **important text**
 - Use *italic* for thoughts: *I wonder what's inside*
@@ -863,7 +912,12 @@ You MUST use these tags in your narrative. The app parses them in real-time to u
 
 As you approach, you hear a low growl. A **skeletal guardian** rises from the shadows! COMBAT_START[Skeletal guardian attacks!]
 
-Roll for initiative: ROLL[1d20+2|normal|0]"
+Roll for initiative: ROLL[1d20+2|normal|0]
+
+ACTION[Attack the skeleton]
+ACTION[Grab the artifact and run]
+ACTION[Try to reason with the guardian]
+ACTION[Search for another exit]"
 
 Current location: ${game.currentLocation}
 ${game.combat.active ? `Currently in combat (Round ${game.combat.round})` : ''}

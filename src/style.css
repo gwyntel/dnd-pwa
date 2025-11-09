@@ -113,7 +113,7 @@
 
 /* Auto theme - follows system preference */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]):not([data-theme="warm"]):not([data-theme="cool"]):not([data-theme="forest"]) {
     --bg-primary: #1a1a1a;
     --bg-secondary: #2a2a2a;
     --bg-tertiary: #3a3a3a;
@@ -611,8 +611,17 @@ nav a:hover {
 }
 
 /* Smooth transitions */
-* {
-  transition-property: background-color, border-color, color;
+body,
+.card,
+.btn,
+.btn-secondary,
+input,
+textarea,
+select,
+nav,
+a,
+.model-card {
+  transition-property: background-color, border-color, color, box-shadow, transform;
   transition-duration: 0.2s;
   transition-timing-function: ease;
 }

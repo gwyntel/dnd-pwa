@@ -185,18 +185,10 @@ function handleNewCharacterScratch(state) {
  * Handle new character random generation route
  */
 async function handleNewCharacterRandom(state) {
+  // Only set up the page in "random" mode.
+  // Actual generation is triggered explicitly by the user via the UI button.
   state.creationMode = "random"
   renderCharacterCreator(state)
-
-  // Start random generation after a brief delay to ensure form is rendered
-  setTimeout(async () => {
-    const { generateRandomCharacter } = await import("./views/characters.js")
-    try {
-      await generateRandomCharacter()
-    } catch (error) {
-      console.error("Error generating random character:", error)
-    }
-  }, 100)
 }
 
 // Start the app when DOM is ready

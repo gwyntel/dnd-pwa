@@ -265,7 +265,36 @@ export async function renderGame(state = {}) {
             <h2>${game.title}</h2>
             <p class="text-secondary">${game.currentLocation}</p>
           </div>
-          
+
+          <div class="dice-tray" id="dice-tray">
+            <div class="dice-tray-row">
+              <button class="btn-small dice-btn" data-dice="d20">d20</button>
+              <button class="btn-small dice-btn" data-dice="d12">d12</button>
+              <button class="btn-small dice-btn" data-dice="d10">d10</button>
+              <button class="btn-small dice-btn" data-dice="d8">d8</button>
+              <button class="btn-small dice-btn" data-dice="d6">d6</button>
+              <button class="btn-small dice-btn" data-dice="d4">d4</button>
+            </div>
+            <div class="dice-tray-row">
+              <button class="btn-small adv-toggle" data-mode="normal">Normal</button>
+              <button class="btn-small adv-toggle" data-mode="advantage">Adv</button>
+              <button class="btn-small adv-toggle" data-mode="disadvantage">Dis</button>
+            </div>
+            <div class="dice-tray-row" id="dice-tray-character-actions">
+              <!-- Character-aware quick actions populated at runtime -->
+            </div>
+            <div class="dice-tray-row">
+              <button class="btn-small roll-history-toggle" id="roll-history-toggle" data-visible="1">
+                Hide Roll History
+              </button>
+              <span class="roll-history-label">Recent Rolls</span>
+            </div>
+          </div>
+
+          <div id="roll-history-container" class="roll-history-container">
+            ${renderRollHistory(game.messages)}
+          </div>
+
           <div id="messages-container" class="messages-container">
             ${renderMessages(game.messages)}
           </div>
@@ -330,6 +359,9 @@ export async function renderGame(state = {}) {
     })
   })
 
+  // Dice Tray: wire up buttons after DOM is ready
+  setupDiceTray(game, character, data)
+
   // If no messages, start the game
   if (game.messages.length === 0) {
     await startGame(game, character, data)
@@ -367,9 +399,227 @@ function renderSingleMessage(msg) {
     <div class="${className}" data-msg-id="${msg.id}">
       <div class="message-content">${parseMarkdown(cleanContent)}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
+      ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
     </div>
   `
   return messageHTML
+}
+
+function createRollMetadata(extra = {}) {
+  const id = `roll_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  const timestamp = new Date().toISOString()
+  return { rollId: id, timestamp, ...extra }
+}
+
+function getActiveAdvMode() {
+  const active = document.querySelector(".adv-toggle.active")
+  return active ? active.getAttribute("data-mode") || "normal" : "normal"
+}
+
+function setupDiceTray(game, character, data) {
+  const diceProfile = character ? buildDiceProfile(character) : null
+
+  // Advantage/Disadvantage toggle buttons
+  document.querySelectorAll(".adv-toggle").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault()
+      document.querySelectorAll(".adv-toggle").forEach((b) => b.classList.remove("active"))
+      btn.classList.add("active")
+    })
+  })
+  // Default to normal
+  const normalBtn = document.querySelector('.adv-toggle[data-mode="normal"]')
+  if (normalBtn) normalBtn.classList.add("active")
+
+  // Generic dice buttons
+  document.querySelectorAll(".dice-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault()
+      if (isStreaming) return
+
+      const die = btn.getAttribute("data-dice")
+      if (!die) return
+
+      const mode = getActiveAdvMode()
+      const notation = `1${die}`
+      let result
+
+      if (mode === "advantage") {
+        result = rollAdvantage(notation)
+      } else if (mode === "disadvantage") {
+        result = rollDisadvantage(notation)
+      } else {
+        result = rollDice(notation)
+      }
+
+      const rollMsg = {
+        id: `msg_${Date.now()}_tray_${die}_${mode}`,
+        role: "system",
+        content: `🎲 ${die.toUpperCase()} (${mode}) → ${formatRoll(result)}`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: {
+          diceRoll: result,
+          source: "dice-tray",
+          die,
+          mode,
+          ...createRollMetadata({ sourceType: "generic" }),
+        },
+      }
+
+      const dataRef = loadData()
+      const gameRef = dataRef.games.find((g) => g.id === currentGameId)
+      if (!gameRef) return
+
+      gameRef.messages.push(rollMsg)
+      saveData(dataRef)
+      appendMessage(rollMsg)
+
+      const messagesContainer = document.getElementById("messages-container")
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight
+      }
+    })
+  })
+
+  // Character-aware quick actions
+  const actionsContainer = document.getElementById("dice-tray-character-actions")
+  if (!actionsContainer || !diceProfile) return
+
+  const skills = Object.keys(diceProfile.skills || {}).slice(0, 4)
+  const saves = Object.keys(diceProfile.saves || {}).slice(0, 2)
+  const attacks = (diceProfile.attacks || []).slice(0, 2)
+
+  const makeBtn = (label, onClick) => {
+    const btn = document.createElement("button")
+    btn.className = "btn-small dice-quick-btn"
+    btn.textContent = label
+    btn.addEventListener("click", (e) => {
+      e.preventDefault()
+      if (isStreaming) return
+      onClick()
+    })
+    return btn
+  }
+
+  skills.forEach((key) => {
+    actionsContainer.appendChild(
+      makeBtn(key, () => {
+        const mode = getActiveAdvMode()
+        const opts =
+          mode === "advantage"
+            ? { advantage: true }
+            : mode === "disadvantage"
+            ? { disadvantage: true }
+            : {}
+        const result = rollSkillCheck(character, key, opts)
+        const msg = {
+          id: `msg_${Date.now()}_tray_skill_${key}`,
+          role: "system",
+          content: `🎲 Skill (${key}): ${formatRoll(result)}`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: {
+            diceRoll: result,
+            type: "skill",
+            key,
+            source: "dice-tray",
+            ...createRollMetadata({ sourceType: "skill" }),
+          },
+        }
+        const dataRef = loadData()
+        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
+        if (!gameRef) return
+        gameRef.messages.push(msg)
+        saveData(dataRef)
+        appendMessage(msg)
+      }),
+    )
+  })
+
+  saves.forEach((key) => {
+    actionsContainer.appendChild(
+      makeBtn(`${key.toUpperCase()} Save`, () => {
+        const mode = getActiveAdvMode()
+        const opts =
+          mode === "advantage"
+            ? { advantage: true }
+            : mode === "disadvantage"
+            ? { disadvantage: true }
+            : {}
+        const result = rollSavingThrow(character, key, opts)
+        const msg = {
+          id: `msg_${Date.now()}_tray_save_${key}`,
+          role: "system",
+          content: `🎲 Save (${key.toUpperCase()}): ${formatRoll(result)}`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: {
+            diceRoll: result,
+            type: "save",
+            key,
+            source: "dice-tray",
+            ...createRollMetadata({ sourceType: "save" }),
+          },
+        }
+        const dataRef = loadData()
+        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
+        if (!gameRef) return
+        gameRef.messages.push(msg)
+        saveData(dataRef)
+        appendMessage(msg)
+      }),
+    )
+  })
+
+  attacks.forEach((attack) => {
+    const label = attack.name || attack.key || "Attack"
+    actionsContainer.appendChild(
+      makeBtn(label, () => {
+        const mode = getActiveAdvMode()
+        const opts =
+          mode === "advantage"
+            ? { advantage: true }
+            : mode === "disadvantage"
+            ? { disadvantage: true }
+            : {}
+        const attackResult = rollAttack(character, label, opts)
+        const toHit = attackResult.toHit
+        const dmg = attackResult.damage
+
+        const parts = [`🎲 Attack (${label}): ${formatRoll(toHit)}`]
+        if (dmg) {
+          parts.push(`💥 Damage: ${formatRoll(dmg)}`)
+        }
+
+        const msg = {
+          id: `msg_${Date.now()}_tray_attack_${label}`,
+          role: "system",
+          content: parts.join(" "),
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: {
+            diceRoll: {
+              attack: attackResult.attack,
+              toHit,
+              damage: dmg,
+            },
+            type: "attack",
+            key: label,
+            source: "dice-tray",
+            ...createRollMetadata({ sourceType: "attack" }),
+          },
+        }
+
+        const dataRef = loadData()
+        const gameRef = dataRef.games.find((g) => g.id === currentGameId)
+        if (!gameRef) return
+        gameRef.messages.push(msg)
+        saveData(dataRef)
+        appendMessage(msg)
+      }),
+    )
+  })
 }
 
 function appendMessage(msg) {
@@ -377,15 +627,93 @@ function appendMessage(msg) {
   if (!messagesContainer) return
 
   const messageHTML = renderSingleMessage(msg)
-  if (!messageHTML) return // Don't append if the message is empty
+  if (!messageHTML) return
 
-  const div = document.createElement('div')
+  const div = document.createElement("div")
   div.innerHTML = messageHTML
 
-  // Append the new message element(s) from the rendered HTML
   while (div.firstChild) {
     messagesContainer.appendChild(div.firstChild)
   }
+
+  // Keep roll history in sync
+  const rollHistoryContainer = document.getElementById("roll-history-container")
+  if (rollHistoryContainer) {
+    const data = loadData()
+    const game = data.games.find((g) => g.id === currentGameId)
+    if (game) {
+      rollHistoryContainer.innerHTML = renderRollHistory(game.messages)
+    }
+  }
+}
+
+function renderRollHistory(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return '<div class="roll-history-empty text-secondary">No rolls yet.</div>'
+  }
+
+  // Take last 20 messages that have diceRoll metadata
+  const rolls = messages.filter((m) => m?.metadata?.diceRoll).slice(-20)
+
+  if (rolls.length === 0) {
+    return '<div class="roll-history-empty text-secondary">No rolls yet.</div>'
+  }
+
+  return `
+    <ul class="roll-history-list">
+      ${rolls
+        .map((m) => {
+          const meta = m.metadata || {}
+          const labelParts = []
+
+          if (meta.type === "attack") {
+            labelParts.push("Attack")
+            if (meta.key) labelParts.push(meta.key)
+            if (meta.targetAC) labelParts.push(`vs AC ${meta.targetAC}`)
+            if (meta.success === true) labelParts.push("✓")
+            if (meta.success === false) labelParts.push("✗")
+          } else if (meta.type === "save") {
+            labelParts.push("Save")
+            if (meta.key) labelParts.push(meta.key.toUpperCase())
+            if (meta.dc) labelParts.push(`DC ${meta.dc}`)
+            if (meta.success === true) labelParts.push("✓")
+            if (meta.success === false) labelParts.push("✗")
+          } else if (meta.type === "skill") {
+            labelParts.push("Skill")
+            if (meta.key) labelParts.push(meta.key)
+            if (meta.dc) labelParts.push(`DC ${meta.dc}`)
+            if (meta.success === true) labelParts.push("✓")
+            if (meta.success === false) labelParts.push("✗")
+          } else {
+            labelParts.push("Roll")
+          }
+
+          const label = labelParts.join(" ")
+
+          const id = meta.rollId || ""
+          const ts = meta.timestamp || ""
+          const total =
+            typeof meta.diceRoll?.total === "number"
+              ? meta.diceRoll.total
+              : meta.diceRoll?.toHit?.total ?? meta.diceRoll?.damage?.total ?? ""
+
+          return `
+            <li class="roll-history-item">
+              <div class="roll-history-main">
+                <span class="roll-history-label-text">${label || "Roll"}</span>
+                ${total !== "" ? `<span class="roll-history-total">${total}</span>` : ""}
+              </div>
+              <div class="roll-history-meta">
+                ${id ? `<span class="roll-history-id">${id}</span>` : ""}
+                ${ts ? `<span class="roll-history-ts">${ts}</span>` : ""}
+                ${meta.source ? `<span class="roll-history-source">${meta.source}</span>` : ""}
+              </div>
+            </li>
+          `
+        })
+        .join("")}
+    </ul>
+  `
 }
 
 function renderMessages(messages) {
@@ -758,44 +1086,129 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // COMBAT_START
-  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]+)\]/g);
+// COMBAT_START with initiative
+  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]*)\]/g);
   for (const match of combatStartMatches) {
-    const tagKey = `combat_start_${match[0]}`;
+    const tagKey = `combat_start_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      game.combat.active = true;
-      game.combat.round = 1;
+      game.combat.active = true
+      game.combat.round = 1
 
+      // Build initiative entries (player + optional hinted NPCs)
+      const initiativeEntries = []
+
+      if (character) {
+        const profile = diceProfile || buildDiceProfile(character)
+        const dexMod = profile.abilities?.dex ?? 0
+        const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)
+        const meta = createRollMetadata({ sourceType: "initiative" })
+
+        initiativeEntries.push({
+          id: `init_player`,
+          name: character.name || "Player",
+          type: "player",
+          roll: initRoll,
+          total: initRoll.total,
+          ...meta,
+        })
+
+        newMessages.push({
+          id: `msg_${meta.rollId}_initiative_player`,
+          role: "system",
+          content: `⚔️ Initiative (You): ${formatRoll(initRoll)}`,
+          timestamp: meta.timestamp,
+          hidden: false,
+          metadata: {
+            diceRoll: initRoll,
+            type: "initiative",
+            actorType: "player",
+            actorName: character.name || "Player",
+            ...meta,
+          },
+        })
+      }
+
+      // Very light enemy initiative parsing from description (non-breaking best-effort).
+      const desc = (match[1] || "").trim()
+      const enemyNames = []
+      const enemyMatch = desc.match(/(?:vs\.?\s+)?(.+?)$/i)
+      if (enemyMatch && enemyMatch[1]) {
+        const raw = enemyMatch[1]
+        raw.split(/,|and/).forEach((chunk) => {
+          const name = chunk.trim()
+          if (name && name.length > 1) enemyNames.push(name)
+        })
+      }
+
+      enemyNames.slice(0, 5).forEach((name, idx) => {
+        const initRoll = rollDice("1d20")
+        const meta = createRollMetadata({ sourceType: "initiative" })
+        initiativeEntries.push({
+          id: `init_npc_${idx}`,
+          name,
+          type: "npc",
+          roll: initRoll,
+          total: initRoll.total,
+          ...meta,
+        })
+        newMessages.push({
+          id: `msg_${meta.rollId}_initiative_npc_${idx}`,
+          role: "system",
+          content: `⚔️ Initiative (${name}): ${formatRoll(initRoll)}`,
+          timestamp: meta.timestamp,
+          hidden: false,
+          metadata: {
+            diceRoll: initRoll,
+            type: "initiative",
+            actorType: "npc",
+            actorName: name,
+            ...meta,
+          },
+        })
+      })
+
+      if (initiativeEntries.length > 0) {
+        initiativeEntries.sort((a, b) => b.total - a.total)
+        game.combat.initiative = initiativeEntries
+        game.combat.currentTurnIndex = 0
+      } else {
+        game.combat.initiative = []
+        game.combat.currentTurnIndex = 0
+      }
+
+      const startMeta = { combatEvent: "start" }
       newMessages.push({
-        id: `msg_${Date.now()}_combat`,
+        id: `msg_${Date.now()}_combat_start`,
         role: "system",
-        content: `⚔️ Combat has begun! ${match[1]}`,
+        content: `⚔️ Combat has begun! ${desc || ""}`.trim(),
         timestamp: new Date().toISOString(),
         hidden: false,
-        metadata: { combatEvent: "start" },
-      });
-      processedTags.add(tagKey);
+        metadata: startMeta,
+      })
+
+      processedTags.add(tagKey)
     }
   }
 
-  // COMBAT_END
+// COMBAT_END
   const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g);
   for (const match of combatEndMatches) {
-    const tagKey = `combat_end_${match[0]}`;
+    const tagKey = `combat_end_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      game.combat.active = false;
-      game.combat.round = 0;
-      game.combat.initiative = [];
+      game.combat.active = false
+      game.combat.round = 0
+      game.combat.initiative = []
+      game.combat.currentTurnIndex = 0
 
       newMessages.push({
-        id: `msg_${Date.now()}_combat`,
+        id: `msg_${Date.now()}_combat_end`,
         role: "system",
         content: `✓ Combat ended: ${match[1]}`,
         timestamp: new Date().toISOString(),
         hidden: false,
         metadata: { combatEvent: "end" },
-      });
-      processedTags.add(tagKey);
+      })
+      processedTags.add(tagKey)
     }
   }
 
@@ -853,46 +1266,47 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   // ROLL (numeric + semantic)
   const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g);
   for (const match of rollMatches) {
-    const tagKey = `roll_${match[0]}`;
-    if (processedTags.has(tagKey)) continue;
+    const tagKey = `roll_${match[0]}`
+    if (processedTags.has(tagKey)) continue
 
-    const parts = match[1].split("|").map((p) => p.trim());
-    const mode = (parts[0] || "").toLowerCase();
+    const parts = match[1].split("|").map((p) => p.trim())
+    const kind = (parts[0] || "").toLowerCase()
 
-    // Semantic: ROLL[skill|perception|15]
-    if ((mode === "skill" || mode === "save" || mode === "attack") && diceProfile) {
-      const kind = mode;
-      const key = parts[1] || "";
-      const third = parts[2] || "";
-      const advFlag = (parts[3] || "").toLowerCase();
+    // Shared helpers
+    const parseDC = (raw) => {
+      if (!raw) return null
+      const m = raw.toString().toLowerCase().match(/(\d+)/)
+      return m ? parseInt(m[1], 10) : null
+    }
+    const parseAdv = (flagRaw) => {
+      const flag = (flagRaw || "").toLowerCase()
+      return {
+        advantage: flag === "advantage" || flag === "adv",
+        disadvantage: flag === "disadvantage" || flag === "dis",
+      }
+    }
 
-      // Shared helpers
-      const parseDC = (raw) => {
-        if (!raw) return null;
-        const m = raw.toString().toLowerCase().match(/(\d+)/);
-        return m ? parseInt(m[1], 10) : null;
-      };
-      const parseAdv = () => ({
-        advantage: advFlag === "advantage" || advFlag === "adv",
-        disadvantage: advFlag === "disadvantage" || advFlag === "dis",
-      });
+    // Semantic: ROLL[skill|...], ROLL[save|...], ROLL[attack|...]
+    if ((kind === "skill" || kind === "save" || kind === "attack") && diceProfile && character) {
+      const key = parts[1] || ""
+      const third = parts[2] || ""
+      const adv = parseAdv(parts[3])
 
       try {
         if (kind === "skill") {
-          const dc = parseDC(third);
-          const { advantage, disadvantage } = parseAdv();
-          const result = rollSkillCheck(character, key, { dc, advantage, disadvantage });
-
+          const dc = parseDC(third)
+          const result = rollSkillCheck(character, key, { dc, ...adv })
+          const meta = createRollMetadata({ sourceType: "skill" })
           newMessages.push({
-            id: `msg_${Date.now()}_roll_skill_${Math.random()}`,
+            id: `msg_${meta.rollId}_roll_skill`,
             role: "system",
             content:
-              `🎲 ${key || "Skill check"}: ` +
+              `🎲 Skill (${key || "check"}): ` +
               `${formatRoll(result)}` +
               (dc != null
                 ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
                 : ""),
-            timestamp: new Date().toISOString(),
+            timestamp: meta.timestamp,
             hidden: false,
             metadata: {
               diceRoll: result,
@@ -900,23 +1314,23 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               key,
               dc,
               success: result.success,
+              ...meta,
             },
-          });
+          })
         } else if (kind === "save") {
-          const dc = parseDC(third);
-          const { advantage, disadvantage } = parseAdv();
-          const result = rollSavingThrow(character, key, { dc, advantage, disadvantage });
-
+          const dc = parseDC(third)
+          const result = rollSavingThrow(character, key, { dc, ...adv })
+          const meta = createRollMetadata({ sourceType: "save" })
           newMessages.push({
-            id: `msg_${Date.now()}_roll_save_${Math.random()}`,
+            id: `msg_${meta.rollId}_roll_save`,
             role: "system",
             content:
-              `🎲 ${key || "Save"}: ` +
+              `🎲 Save (${(key || "").toUpperCase() || "save"}): ` +
               `${formatRoll(result)}` +
               (dc != null
                 ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}`
                 : ""),
-            timestamp: new Date().toISOString(),
+            timestamp: meta.timestamp,
             hidden: false,
             metadata: {
               diceRoll: result,
@@ -924,33 +1338,33 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               key,
               dc,
               success: result.success,
+              ...meta,
             },
-          });
+          })
         } else if (kind === "attack") {
-          const targetAC = parseDC(third);
-          const { advantage, disadvantage } = parseAdv();
-          const attackResult = rollAttack(character, key, { targetAC, advantage, disadvantage });
+          const targetAC = parseDC(third)
+          const attackResult = rollAttack(character, key, { targetAC, ...adv })
+          const toHit = attackResult.toHit
+          const dmg = attackResult.damage
+          const label = attackResult.attack?.name || key || "Attack"
+          const meta = createRollMetadata({ sourceType: "attack" })
 
-          const toHit = attackResult.toHit;
-          const dmg = attackResult.damage;
-          const partsOut = [];
-
-          partsOut.push(
-            `🎲 Attack (${attackResult.attack.name || key || "Attack"}): ${formatRoll(toHit)}` +
+          const segments = []
+          segments.push(
+            `🎲 Attack (${label}): ${formatRoll(toHit)}` +
               (targetAC != null
                 ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}`
                 : ""),
-          );
-
+          )
           if (dmg) {
-            partsOut.push(`💥 Damage: ${formatRoll(dmg)}`);
+            segments.push(`💥 Damage: ${formatRoll(dmg)}`)
           }
 
           newMessages.push({
-            id: `msg_${Date.now()}_roll_attack_${Math.random()}`,
+            id: `msg_${meta.rollId}_roll_attack`,
             role: "system",
-            content: partsOut.join(" "),
-            timestamp: new Date().toISOString(),
+            content: segments.join(" "),
+            timestamp: meta.timestamp,
             hidden: false,
             metadata: {
               diceRoll: {
@@ -962,35 +1376,38 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               key,
               targetAC,
               success: toHit.success,
+              ...meta,
             },
-          });
+          })
         }
-        processedTags.add(tagKey);
-        continue; // semantic handled, skip numeric fallback
+
+        processedTags.add(tagKey)
+        continue // semantic handled, skip numeric fallback
       } catch (e) {
-        console.warn("Semantic ROLL tag failed, falling back to numeric:", e);
-        // fall through to numeric parsing
+        console.warn("Semantic ROLL tag failed, falling back to numeric:", e)
+        // fall through to legacy numeric handling
       }
     }
 
-    // Legacy numeric: ROLL[1d20+5|normal|15]
+    // Legacy numeric: ROLL[1d20+5|type|DC]
     const request = {
       notation: parts[0],
       type: parts[1] || "normal",
       dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
-    };
-
-    let result;
-    if (request.type === "advantage") {
-      result = rollAdvantage(request.notation);
-    } else if (request.type === "disadvantage") {
-      result = rollDisadvantage(request.notation);
-    } else {
-      result = rollDice(request.notation);
     }
 
+    let result
+    if (request.type === "advantage") {
+      result = rollAdvantage(request.notation)
+    } else if (request.type === "disadvantage") {
+      result = rollDisadvantage(request.notation)
+    } else {
+      result = rollDice(request.notation)
+    }
+
+    const meta = createRollMetadata({ sourceType: "legacy" })
     newMessages.push({
-      id: `msg_${Date.now()}_roll_${Math.random()}`,
+      id: `msg_${meta.rollId}_roll_legacy`,
       role: "system",
       content:
         formatRoll(result) +
@@ -999,15 +1416,17 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               result.total >= request.dc ? "✓ Success!" : "✗ Failure"
             }`
           : ""),
-      timestamp: new Date().toISOString(),
+      timestamp: meta.timestamp,
       hidden: false,
       metadata: {
         diceRoll: result,
+        type: "roll",
         dc: request.dc,
         success: request.dc ? result.total >= request.dc : null,
+        ...meta,
       },
-    });
-    processedTags.add(tagKey);
+    })
+    processedTags.add(tagKey)
   }
 
   // INVENTORY_ADD[item|qty]
@@ -1183,17 +1602,56 @@ async function processGameCommands(game, character, text) {
     game.currentLocation = locationMatch[1]
   }
 
-  // Check for combat start
-  const combatStartMatch = text.match(/COMBAT_START\[([^\]]+)\]/)
+  // Check for combat start (fallback - streaming handler should normally cover this)
+  const combatStartMatch = text.match(/COMBAT_START\[([^\]]*)\]/)
   if (combatStartMatch) {
     game.combat.active = true
     game.combat.round = 1
 
-    // Add system message
+    // If initiative not already set by streaming handler, roll basic player initiative.
+    if (!Array.isArray(game.combat.initiative) || game.combat.initiative.length === 0) {
+      if (character) {
+        const diceProfile = buildDiceProfile(character)
+        const dexMod = diceProfile.abilities?.dex ?? 0
+        const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)
+        const meta = createRollMetadata({ sourceType: "initiative-fallback" })
+
+        game.combat.initiative = [
+          {
+            id: "init_player",
+            name: character.name || "Player",
+            type: "player",
+            roll: initRoll,
+            total: initRoll.total,
+            ...meta,
+          },
+        ]
+        game.combat.currentTurnIndex = 0
+
+        game.messages.push({
+          id: `msg_${meta.rollId}_initiative_player_fb`,
+          role: "system",
+          content: `⚔️ Initiative (You): ${formatRoll(initRoll)}`,
+          timestamp: meta.timestamp,
+          hidden: false,
+          metadata: {
+            diceRoll: initRoll,
+            type: "initiative",
+            actorType: "player",
+            actorName: character.name || "Player",
+            ...meta,
+          },
+        })
+      } else {
+        game.combat.initiative = []
+        game.combat.currentTurnIndex = 0
+      }
+    }
+
     game.messages.push({
       id: `msg_${Date.now()}_combat`,
       role: "system",
-      content: `⚔️ Combat has begun! ${combatStartMatch[1]}`,
+      content: `⚔️ Combat has begun! ${combatStartMatch[1] || ""}`.trim(),
       timestamp: new Date().toISOString(),
       hidden: false,
       metadata: { combatEvent: "start" },
@@ -1206,10 +1664,10 @@ async function processGameCommands(game, character, text) {
     game.combat.active = false
     game.combat.round = 0
     game.combat.initiative = []
+    game.combat.currentTurnIndex = 0
 
-    // Add system message
     game.messages.push({
-      id: `msg_${Date.now()}_combat`,
+      id: `msg_${Date.now()}_combat_end`,
       role: "system",
       content: `✓ Combat ended: ${combatEndMatch[1]}`,
       timestamp: new Date().toISOString(),
@@ -1278,8 +1736,9 @@ async function processGameCommands(game, character, text) {
         result = rollDice(request.notation)
       }
 
+      const meta = createRollMetadata({ sourceType: "legacy-fallback" })
       const rollMessage = {
-        id: `msg_${Date.now()}_roll_${Math.random()}`,
+        id: `msg_${meta.rollId}_roll_fallback`,
         role: "system",
         content:
           formatRoll(result) +
@@ -1292,6 +1751,7 @@ async function processGameCommands(game, character, text) {
           diceRoll: result,
           dc: request.dc,
           success: request.dc ? result.total >= request.dc : null,
+          ...meta,
         },
       }
 
@@ -1312,7 +1772,7 @@ async function sendRollResultToAI(game, rollResult, request) {
 }
 
 function buildSystemPrompt(character, game) {
-  const diceProfile = buildDiceProfile(character);
+  const diceProfile = buildDiceProfile(character)
   const modStr = (stat) => {
     const mod = Math.floor((stat - 10) / 2)
     return mod >= 0 ? `+${mod}` : `${mod}`
@@ -1356,7 +1816,12 @@ function buildSystemPrompt(character, game) {
   const statusLine =
     statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""
 
-  return `${worldPrompt}You are the Dungeon Master for a D&D 5e adventure. The player is:
+  return `${worldPrompt}You are the Dungeon Master for a D&D 5e adventure. The app you are running in is the single source of truth for all dice rolls and mechanical state.
+
+You MUST NOT simulate or assume random dice results yourself.
+Instead, you MUST emit structured tags and let the app roll locally and feed results back.
+
+The player is:
 
 **${character.name}** - Level ${character.level} ${character.race} ${character.class}
 - HP: ${game.currentHP}/${character.maxHP}, AC: ${character.armorClass}, Speed: ${character.speed}ft
@@ -1369,14 +1834,14 @@ ${character.spells && character.spells.length > 0 ? `- Spells: ${character.spell
 
 **CRITICAL - Structured Output Tags (MUST USE EXACT FORMAT):**
 
-You MUST use these tags in your narrative. The app parses them in real-time to update game state.
+You MUST use these tags in your narrative. The app parses them in real-time to update game state and to perform all dice rolls LOCALLY.
 
 1. **LOCATION[location_name]** - Update current location
    - Format: LOCATION[Tavern] or LOCATION[Dark Forest Path]
    - Use when player moves to a new area
    - Example: "You enter the LOCATION[Rusty Dragon Inn]"
 
-2. **ROLL[dice|type|DC]** - Request a dice roll from the app (legacy numeric)
+2. **ROLL[dice|type|DC]** - Request a dice roll from the app (legacy numeric, rarely needed if you use semantic tags)
    - Format: ROLL[1d20+3|normal|15]
    - dice: Standard notation (1d20+3, 2d6, etc.)
    - type: normal, advantage, or disadvantage
@@ -1384,47 +1849,60 @@ You MUST use these tags in your narrative. The app parses them in real-time to u
    - Example: "Make a Stealth check: ROLL[1d20+2|normal|12]"
    - The app will roll and show you the result
 
-3. **Semantic ROLL tags (preferred when possible)** - Let the app derive bonuses from the active character:
+3. **Semantic ROLL tags (preferred; use these instead of manually computing bonuses):**
+   The app uses the active character sheet (abilities, proficiency, inventory, etc.) to compute bonuses.
+
    - Skill checks:
      - Format: ROLL[skill|skill_name|DC]
-     - Example: "ROLL[skill|perception|15]" → uses the character's Perception bonus vs DC 15.
+     - Example: "ROLL[skill|perception|15]" → Perception check vs DC 15.
    - Saving throws:
      - Format: ROLL[save|ability|DC]
-     - ability: str, dex, con, int, wis, cha (or full names)
-     - Example: "ROLL[save|dex|14]" → Dex save vs DC 14.
+       - ability: str, dex, con, int, wis, cha (or full names)
+       - Example: "ROLL[save|dex|14]" → Dex saving throw vs DC 14.
    - Attacks:
      - Format: ROLL[attack|weapon_or_attack_name|targetAC]
-     - Example: "ROLL[attack|longsword|13]" → uses the character's longsword attack vs AC 13.
+       - Example: "ROLL[attack|longsword|13]" → use the character's longsword attack vs AC 13.
    - Advantage/Disadvantage (optional 4th part):
-     - You MAY append "|advantage" or "|disadvantage" for skill/save/attack:
+     - Append "|advantage" or "|disadvantage":
        - ROLL[skill|stealth|15|advantage]
        - ROLL[save|wisdom|14|disadvantage]
        - ROLL[attack|longbow|15|advantage]
-   - If semantic info cannot be resolved, the app falls back safely and still rolls.
 
-3. **COMBAT_START[description]** - Begin combat encounter
+   The app will:
+   - Roll locally using 5e-accurate bonuses.
+   - For skills/saves: include DC and success/failure in the system message.
+   - For attacks: roll to hit vs AC, compute hit/miss, and roll damage if appropriate.
+   - Attach metadata with rollId/timestamp/source for roll history.
+
+4. **COMBAT_START[description]** - Begin combat encounter
+   - Use when combat begins.
+   - The app will:
+     - Mark combat active and set round to 1.
+     - Roll initiative LOCALLY for the player (Dex-based) and optionally for obvious foes.
+     - Sort initiative and track turn order.
+   - You may still describe "Roll initiative" in prose, but do NOT roll yourself; rely on COMBAT_START and/or explicit initiative ROLL tags if needed.
    - Format: COMBAT_START[Two goblins leap from the shadows!]
    - Use when enemies attack or player initiates combat
    - Example: "COMBAT_START[A dire wolf growls and attacks!]"
 
-4. **COMBAT_END[outcome]** - End combat
+5. **COMBAT_END[outcome]** - End combat
    - Format: COMBAT_END[Victory! The goblins flee.]
-   - Use when combat concludes
-   - Example: "COMBAT_END[Defeated! The wolf collapses.]"
+   - Use when combat concludes.
+   - The app will clear initiative/turn tracking.
 
-5. **DAMAGE[target|amount]** - Apply damage
+6. **DAMAGE[target|amount]** - Apply damage
    - Format: DAMAGE[player|5]
    - target: "player" (lowercase)
    - amount: number only
    - Example: "The goblin's arrow hits! DAMAGE[player|4]"
 
-6. **HEAL[target|amount]** - Apply healing
+7. **HEAL[target|amount]** - Apply healing
    - Format: HEAL[player|8]
    - target: "player" (lowercase)
    - amount: number only
    - Example: "You drink the potion. HEAL[player|10]"
 
-7. **ACTION[action_text]** - Suggest contextual actions
+8. **ACTION[action_text]** - Suggest contextual actions
    - Format: ACTION[Search the room]
    - Provide 3-5 contextual action suggestions
    - Actions should be specific to the current situation
@@ -1436,8 +1914,9 @@ You MUST use these tags in your narrative. The app parses them in real-time to u
 - Use **bold** for emphasis: **important text**
 - Use *italic* for thoughts: *I wonder what's inside*
 - Use \`code\` for game terms: \`Sneak Attack\`
-- Keep narratives 2-4 paragraphs
-- Always include tags in your narrative text, not on separate lines
+- Keep narratives 2-4 paragraphs.
+- Always include tags inline in your narrative text, not isolated on their own lines.
+- Never invent dice outcomes; always request them via ROLL[...] tags and then react to the app's displayed results on subsequent turns.
 
 **Example Response:**
 "You push open the creaking door and step into the LOCATION[Abandoned Chapel]. Dust motes dance in shafts of moonlight streaming through broken windows. In the center of the room, you spot a **glowing artifact** resting on an altar.
@@ -1461,6 +1940,32 @@ function escapeHtml(text) {
   const div = document.createElement("div")
   div.textContent = text
   return div.innerHTML
+}
+
+function updateRollHistory(game) {
+  const rollHistoryContainer = document.getElementById("roll-history-container")
+  if (!rollHistoryContainer) return
+  rollHistoryContainer.innerHTML = renderRollHistory(game.messages || [])
+}
+
+function setupRollHistoryToggle() {
+  const toggle = document.getElementById("roll-history-toggle")
+  const container = document.getElementById("roll-history-container")
+  if (!toggle || !container) return
+
+  toggle.addEventListener("click", (e) => {
+    e.preventDefault()
+    const visible = toggle.getAttribute("data-visible") === "1"
+    if (visible) {
+      container.style.display = "none"
+      toggle.textContent = "Show Roll History"
+      toggle.setAttribute("data-visible", "0")
+    } else {
+      container.style.display = "block"
+      toggle.textContent = "Hide Roll History"
+      toggle.setAttribute("data-visible", "1")
+    }
+  })
 }
 
 function updateInputContainer(game) {
@@ -1507,6 +2012,13 @@ function updateInputContainer(game) {
     })
   }
 
+  // Ensure roll history stays updated when suggested actions / input change
+  const data = loadData()
+  const gameRef = data.games.find((g) => g.id === currentGameId)
+  if (gameRef) {
+    updateRollHistory(gameRef)
+  }
+
   document.querySelectorAll(".action-bubble").forEach((bubble) => {
     bubble.addEventListener("click", (e) => {
       e.preventDefault()
@@ -1519,4 +2031,6 @@ function updateInputContainer(game) {
       }
     })
   })
+
+  setupRollHistoryToggle()
 }

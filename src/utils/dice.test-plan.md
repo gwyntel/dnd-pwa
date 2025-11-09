@@ -6,6 +6,11 @@ backward compatibility, and predictable behavior for the D&D PWA dice engine.
 It now covers:
 - Phase 1 core dice engine (parseNotation, roll, wrappers, crit metadata).
 - Phase 2 character-aware semantics (dice5e.js, semantic ROLL tags in game.js).
+- Phase 3 combat integration & provenance:
+  - Initiative handling on COMBAT_START.
+  - Semantic attack/save/skill flows with standardized metadata.
+  - Dice Tray integration.
+  - Roll history and provenance (rollId, timestamp, source).
 
 ## Core Goals
 
@@ -43,6 +48,26 @@ Phase 2 (src/utils/dice5e.js and game.js):
 - rollSavingThrow(character, abilityKey, options?)
 - rollAttack(character, attackIdOrWeaponKey, options?)
 - Semantic ROLL tag handling in processGameCommandsRealtime (game.js)
+
+Phase 3 (src/views/game.js):
+
+- COMBAT_START / COMBAT_END handling with initiative state:
+  - game.combat.active, round, initiative[], currentTurnIndex.
+- Initiative rolls:
+  - Player initiative from Dex mod via buildDiceProfile on COMBAT_START.
+  - Optional NPC initiative (best-effort from COMBAT_START description).
+- Semantic combat flows:
+  - ROLL[attack|...|AC] → rollAttack + standardized metadata/messages.
+  - ROLL[save|...|DC] → rollSavingThrow + standardized metadata/messages.
+  - ROLL[skill|...|DC] → rollSkillCheck + standardized metadata/messages.
+- Dice Tray:
+  - Generic dice + adv/disadvantage.
+  - Character-aware quick actions (skills, saves, attacks).
+- Roll history:
+  - Derived from messages with metadata.diceRoll (last 20).
+  - Shows label, total, rollId, timestamp, source.
+- Provenance invariants:
+  - createRollMetadata used for all app-generated rolls (tray, tags, combat).
 
 ---
 
@@ -375,25 +400,88 @@ Expected:
 
 - Behaves exactly as before using rollDice / rollAdvantage / rollDisadvantage.
 - Both in streaming (processGameCommandsRealtime) and fallback (processGameCommands via parseRollRequests).
+- Metadata:
+  - metadata.diceRoll present.
+  - metadata.type === "roll".
+  - metadata.dc and metadata.success populated when DC provided.
 
 ---
 
-## 14. UI / Metadata Integration
+## 14. Initiative & Combat Integration (Phase 3)
+
+1) COMBAT_START streaming behavior
+
+- Given assistant text contains:
+  - "COMBAT_START[Wolves leap from the brush!]"
+- Expected:
+  - processGameCommandsRealtime:
+    - Sets game.combat.active === true.
+    - Sets game.combat.round === 1.
+    - Rolls initiative for player:
+      - Uses buildDiceProfile(character).abilities.dex as Dex mod.
+      - Uses rollDice("1d20+DexMod").
+      - Pushes entry into game.combat.initiative:
+        - { id:"init_player", name, type:"player", roll, total, rollId, timestamp, sourceType:"initiative" }
+    - Optionally creates NPC entries (non-fatal if parsing fails).
+    - Sorts initiative descending by total.
+    - Sets game.combat.currentTurnIndex === 0.
+    - Emits system messages:
+      - "⚔️ Initiative (You): ..." with metadata:
+        - { type:"initiative", actorType:"player", diceRoll, rollId, timestamp, sourceType:"initiative" }
+      - "⚔️ Initiative (Enemy): ..." for NPCs with similar metadata.
+      - "⚔️ Combat has begun! ..." with metadata.combatEvent === "start".
+  - In fallback processGameCommands:
+    - If initiative not set, rolls player initiative once using same Dex-based logic.
+
+2) COMBAT_END streaming behavior
+
+- Given assistant text contains:
+  - "COMBAT_END[Victory!]"
+- Expected:
+  - processGameCommandsRealtime:
+    - Sets game.combat.active === false.
+    - Sets game.combat.round === 0.
+    - Clears game.combat.initiative and resets currentTurnIndex to 0.
+    - Adds system message:
+      - id suffix "_combat_end"
+      - metadata.combatEvent === "end".
+  - Fallback path in processGameCommands mirrors this if streaming path missed it.
+
+3) Stability
+
+- Multiple COMBAT_START/END tags:
+  - processedTags ensures each tag only handled once.
+  - No duplicate initiative rolls for the same tag.
+  - No crash if character or profile missing; initiative gracefully omitted.
+
+## 15. UI / Metadata Integration
 
 - renderSingleMessage:
   - When msg.metadata.diceRoll is:
     - Simple roll: formatRoll(diceRoll) renders correctly.
-    - Semantic skill/save (SemanticRollResult): formatRoll still valid (same shape).
+    - Semantic skill/save (SemanticRollResult): formatRoll still valid.
     - Attack object { attack, toHit, damage }:
-      - Primary messaging already in msg.content.
-      - Safe: formatRoll on this composite is not strictly required; metadata is available for future UI.
+      - Content string already includes hit/miss + damage.
+  - When msg.metadata.rollId/timestamp present:
+    - Renders provenance line ("id: ... • timestamp").
+
+- renderRollHistory:
+  - Only includes messages where metadata.diceRoll exists.
+  - Uses last 20 such messages.
+  - Label logic:
+    - type:"attack" → "Attack [name] vs AC X ✓/✗"
+    - type:"save"   → "Save [KEY] DC X ✓/✗"
+    - type:"skill"  → "Skill [name] DC X ✓/✗"
+    - type:"initiative" → "Roll" or "Attack" currently; ensure no crash and values present.
+    - type:"roll" (legacy) → generic "Roll".
+  - Metadata expectations for each entry:
+    - rollId, timestamp present for all app-generated dice events (Dice Tray, semantic/legacy ROLL, initiative).
+    - source/sourceType present where applicable (e.g. "dice-tray", "skill", "attack", "initiative").
 
 Regression checks:
 
-- Existing numeric ROLL flows:
-  - No change in content shape or semantics.
-- New semantic tags:
-  - Only additive; no impact if the LLM never uses them.
+- Existing numeric ROLL and narrative flows remain valid.
+- New Phase 3 messages (initiative, semantic rolls) render cleanly and are purely additive.
 
 ---
 
@@ -401,4 +489,5 @@ By validating these behaviors, we ensure:
 
 - Phase 1: core dice engine is robust and stable.
 - Phase 2: character-aware semantics (profile + helpers + tags) work correctly.
+- Phase 3: combat integration (initiative, semantic attacks/saves, Dice Tray, history, provenance) is deterministic and trustworthy.
 - Backward compatibility: all existing numeric ROLL and game flows remain unchanged while new features are purely additive.

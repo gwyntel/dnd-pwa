@@ -1,8 +1,11 @@
 name = "dnd-pwa"
 compatibility_date = "2025-11-09"
 
+main = "worker.js"
+
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 
 [[routes]]
 pattern = "dnd.gwyn.tel"

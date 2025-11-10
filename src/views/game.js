@@ -1579,12 +1579,37 @@ async function processGameCommands(game, character, text) {
           diceRoll: result,
           dc: request.dc,
           success: request.dc ? result.total >= request.dc : null,
+          fromAutoRoll: true,
           ...meta,
         },
       }
 
       game.messages.push(rollMessage)
-      await sendRollResultToAI(game, result, request)
+
+      // Trigger a follow-up narration from the LLM based on this roll result.
+      // This ensures rolls requested via tags are reflected in the story without extra user input.
+      try {
+        const followupPrompt =
+          `System: The player roll result is ${formatRoll(result)}` +
+          (request.dc
+            ? ` vs DC ${request.dc}, which is a ${result.total >= request.dc ? "SUCCESS" : "FAILURE"}.`
+            : ".") +
+          " Narrate the outcome and continue the scene in-character. Do not ask for another roll unless needed."
+
+        const narrationUserMessage = {
+          id: `msg_${Date.now()}_roll_followup_user`,
+          role: "user",
+          content: followupPrompt,
+          timestamp: new Date().toISOString(),
+          hidden: true,
+        }
+
+        game.messages.push(narrationUserMessage)
+        // sendMessage will append an assistant message, using the updated messages array as context.
+        await sendMessage(game, followupPrompt, data)
+      } catch (e) {
+        console.warn("[v0] Failed to trigger roll narration follow-up:", e)
+      }
     }
   }
 

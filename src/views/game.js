@@ -1586,11 +1586,10 @@ async function processGameCommands(game, character, text) {
       }
 
       game.messages.push(rollMessage)
+      appendMessage(rollMessage)
 
-      // Build a structured continuation prompt that matches the DM system style:
-      // - Uses the true roll result
-      // - Asks the DM to narrate outcome
-      // - Requires 3-5 ACTION[...] suggestions
+      // Build a structured continuation prompt that matches the DM system style
+      // and trigger a dedicated follow-up completion to narrate the outcome.
       try {
         const resultText =
           `The player roll result is ${formatRoll(result)}` +
@@ -1611,8 +1610,38 @@ async function processGameCommands(game, character, text) {
           hidden: true,
         }
 
+        // Push the steering message into history so the next call sees it
         game.messages.push(narrationUserMessage)
-        await sendMessage(game, followupPrompt, data)
+
+        // Fire a separate, non-streaming continuation call.
+        // This ensures a new assistant message is generated after the roll,
+        // even though the original sendMessage call already completed.
+        const apiMessages = game.messages.filter((m) => !!m.content)
+        const response = await sendChatCompletion(apiMessages, game.narrativeModel)
+
+        let assistantContent = ""
+        for await (const chunk of parseStreamingResponse(response)) {
+          const delta = chunk.choices?.[0]?.delta?.content
+          if (delta) {
+            assistantContent += delta
+          }
+        }
+
+        if (assistantContent && assistantContent.trim()) {
+          const followId = `msg_${Date.now()}_roll_followup_assistant`
+          const followMsg = {
+            id: followId,
+            role: "assistant",
+            content: assistantContent,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+          }
+          game.messages.push(followMsg)
+          appendMessage(followMsg)
+
+          // Process any tags emitted in the continuation so state stays in sync
+          await processGameCommandsRealtime(game, character, assistantContent, new Set())
+        }
       } catch (e) {
         console.warn("[v0] Failed to trigger roll narration follow-up:", e)
       }

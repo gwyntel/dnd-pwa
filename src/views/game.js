@@ -291,7 +291,7 @@ export async function renderGame(state = {}) {
             ${
               game.suggestedActions && game.suggestedActions.length > 0
                 ? `
-              <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+              <div class="suggested-actions">
                 ${game.suggestedActions
                   .map(
                     (action) => `
@@ -1640,7 +1640,7 @@ function updateInputContainer(game) {
     ${
       game.suggestedActions && game.suggestedActions.length > 0
         ? `
-      <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      <div class="suggested-actions">
         ${game.suggestedActions
           .map(
             (action) => `

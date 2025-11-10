@@ -6,11 +6,10 @@
 import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
-import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
+import { rollDice, rollAdvantage, rollDisadvantage, formatRoll } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
 import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
-import { buildRollContinuationPrompt } from "../views/prompts/game-roll-continuation-prompt.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -729,6 +728,7 @@ async function sendMessage(game, userText, data) {
         if (newMessages.length > 0) {
           newMessages.forEach((msg) => {
             gameRef.messages.push(msg)
+            // Hidden follow-up summary messages (for semantic rolls) should not render, others should.
             appendMessage(msg)
           })
         }
@@ -781,6 +781,7 @@ async function sendMessage(game, userText, data) {
 }
 
 async function processGameCommandsRealtime(game, character, text, processedTags) {
+  const followupMessages = []
   // Process tags as they stream in, but only once per tag
   const newMessages = []
   let needsUIUpdate = false
@@ -1072,7 +1073,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // ROLL (numeric + semantic)
+  // ROLL (semantic only: skill/save/attack)
   const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g)
   for (const match of rollMatches) {
     const tagKey = `roll_${match[0]}`
@@ -1081,7 +1082,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     const parts = match[1].split("|").map((p) => p.trim())
     const kind = (parts[0] || "").toLowerCase()
 
-    console.debug("[dice][ROLL] Parsed tag", {
+    console.debug("[dice][ROLL] Parsed semantic tag", {
       raw: match[0],
       parts,
       kind,
@@ -1089,7 +1090,6 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       hasCharacter: !!character,
     })
 
-    // Shared helpers
     const parseDC = (raw) => {
       if (!raw) return null
       const m = raw.toString().toLowerCase().match(/(\d+)/)
@@ -1103,155 +1103,160 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       }
     }
 
-    // Semantic: ROLL[skill|...], ROLL[save|...], ROLL[attack|...]
-    if ((kind === "skill" || kind === "save" || kind === "attack") && diceProfile && character) {
-      // Semantic handling for skill/save/attack rolls
-      // If this fails, we will log and fall back to numeric handling.
-      const key = parts[1] || ""
-      const third = parts[2] || ""
-      const adv = parseAdv(parts[3])
+    if (!diceProfile || !character) {
+      console.warn("[dice][ROLL] Semantic ROLL tag ignored: missing character or dice profile", {
+        raw: match[0],
+      })
+      processedTags.add(tagKey)
+      continue
+    }
 
-      try {
-        if (kind === "skill") {
-          console.debug("[dice][ROLL] Handling semantic skill roll", { key, dc: parseDC(third), adv, raw: match[0] })
-          const dc = parseDC(third)
-          const result = rollSkillCheck(character, key, { dc, ...adv })
-          const meta = createRollMetadata({ sourceType: "skill" })
-          newMessages.push({
-            id: `msg_${meta.rollId}_roll_skill`,
-            role: "system",
-            content:
-              `🎲 Skill (${key || "check"}): ` +
-              `${formatRoll(result)}` +
-              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
-            timestamp: meta.timestamp,
-            hidden: false,
-            metadata: {
-              diceRoll: result,
-              type: "skill",
-              key,
-              dc,
-              success: result.success,
-              ...meta,
-            },
-          })
-        } else if (kind === "save") {
-          const dc = parseDC(third)
-          console.debug("[dice][ROLL] Handling semantic save roll", { key, dc, adv, raw: match[0] })
-          const result = rollSavingThrow(character, key, { dc, ...adv })
-          const meta = createRollMetadata({ sourceType: "save" })
-          newMessages.push({
-            id: `msg_${meta.rollId}_roll_save`,
-            role: "system",
-            content:
-              `🎲 Save (${(key || "").toUpperCase() || "save"}): ` +
-              `${formatRoll(result)}` +
-              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
-            timestamp: meta.timestamp,
-            hidden: false,
-            metadata: {
-              diceRoll: result,
-              type: "save",
-              key,
-              dc,
-              success: result.success,
-              ...meta,
-            },
-          })
-        } else if (kind === "attack") {
-          const targetAC = parseDC(third)
-          console.debug("[dice][ROLL] Handling semantic attack roll", { key, targetAC, adv, raw: match[0] })
-          const attackResult = rollAttack(character, key, { targetAC, ...adv })
-          const toHit = attackResult.toHit
-          const dmg = attackResult.damage
-          const label = attackResult.attack?.name || key || "Attack"
-          const meta = createRollMetadata({ sourceType: "attack" })
+    const key = parts[1] || ""
+    const third = parts[2] || ""
+    const adv = parseAdv(parts[3])
 
-          const segments = []
-          segments.push(
-            `🎲 Attack (${label}): ${formatRoll(toHit)}` +
-              (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}` : ""),
-          )
-          if (dmg) {
-            segments.push(`💥 Damage: ${formatRoll(dmg)}`)
-          }
+    if (kind === "skill") {
+      const dc = parseDC(third)
+      const result = rollSkillCheck(character, key, { dc, ...adv })
+      const meta = createRollMetadata({ sourceType: "skill" })
 
-          newMessages.push({
-            id: `msg_${meta.rollId}_roll_attack`,
-            role: "system",
-            content: segments.join(" "),
-            timestamp: meta.timestamp,
-            hidden: false,
-            metadata: {
-              diceRoll: {
-                attack: attackResult.attack,
-                toHit,
-                damage: dmg,
-              },
-              type: "attack",
-              key,
-              targetAC,
-              success: toHit.success,
-              ...meta,
-            },
-          })
-        }
+      const label = `Skill (${key || "check"})`
+      const summary =
+        `${label}: ${formatRoll(result)}` +
+        (dc != null ? ` vs DC ${dc} - ${result.success ? "SUCCESS" : "FAILURE"}` : "")
 
-        processedTags.add(tagKey)
-        continue // semantic handled, skip numeric fallback
-      } catch (e) {
-        console.warn("[dice][ROLL] Semantic ROLL tag failed, skipping legacy fallback for semantic tag", {
-          raw: match[0],
-          parts,
-          kind,
-          error: e?.message || String(e),
-        })
-        // Prevent invalid legacy calls like rollDice("skill")
-        processedTags.add(tagKey)
-        continue
+      const rollMsg = {
+        id: `msg_${meta.rollId}_roll_skill`,
+        role: "system",
+        content:
+          `🎲 ${label}: ${formatRoll(result)}` +
+          (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
+        timestamp: meta.timestamp,
+        hidden: false,
+        metadata: {
+          diceRoll: result,
+          type: "skill",
+          key,
+          dc,
+          success: result.success,
+          ...meta,
+        },
       }
-    }
 
-    // Legacy numeric: ROLL[1d20+5|type|DC]
-    const request = {
-      notation: parts[0],
-      type: parts[1] || "normal",
-      dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
-    }
+      const followUserMsg = {
+        id: `msg_${Date.now()}_roll_followup_user_skill`,
+        role: "user",
+        content: `System: ${summary}. Continue the narration based on this result. You may now describe consequences and suggest next actions.`,
+        timestamp: new Date().toISOString(),
+        hidden: true,
+      }
 
-    console.debug("[dice][ROLL] Using legacy numeric ROLL handling", {
-      raw: match[0],
-      parts,
-      request,
-    })
+      newMessages.push(rollMsg)
+      followupMessages.push(followUserMsg)
+      processedTags.add(tagKey)
+    } else if (kind === "save") {
+      const dc = parseDC(third)
+      const result = rollSavingThrow(character, key, { dc, ...adv })
+      const meta = createRollMetadata({ sourceType: "save" })
 
-    let result
-    if (request.type === "advantage") {
-      result = rollAdvantage(request.notation)
-    } else if (request.type === "disadvantage") {
-      result = rollDisadvantage(request.notation)
+      const label = `Save (${(key || "").toUpperCase() || "save"})`
+      const summary =
+        `${label}: ${formatRoll(result)}` +
+        (dc != null ? ` vs DC ${dc} - ${result.success ? "SUCCESS" : "FAILURE"}` : "")
+
+      const rollMsg = {
+        id: `msg_${meta.rollId}_roll_save`,
+        role: "system",
+        content:
+          `🎲 ${label}: ${formatRoll(result)}` +
+          (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
+        timestamp: meta.timestamp,
+        hidden: false,
+        metadata: {
+          diceRoll: result,
+          type: "save",
+          key,
+          dc,
+          success: result.success,
+          ...meta,
+        },
+      }
+
+      const followUserMsg = {
+        id: `msg_${Date.now()}_roll_followup_user_save`,
+        role: "user",
+        content: `System: ${summary}. Continue the narration based on this result. You may now describe consequences and suggest next actions.`,
+        timestamp: new Date().toISOString(),
+        hidden: true,
+      }
+
+      newMessages.push(rollMsg)
+      followupMessages.push(followUserMsg)
+      processedTags.add(tagKey)
+    } else if (kind === "attack") {
+      const targetAC = parseDC(third)
+      const attackResult = rollAttack(character, key, { targetAC, ...adv })
+      const toHit = attackResult.toHit
+      const dmg = attackResult.damage
+      const label = attackResult.attack?.name || key || "Attack"
+      const meta = createRollMetadata({ sourceType: "attack" })
+
+      const segments = []
+      segments.push(
+        `🎲 Attack (${label}): ${formatRoll(toHit)}` +
+          (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}` : ""),
+      )
+      if (dmg) {
+        segments.push(`💥 Damage: ${formatRoll(dmg)}`)
+      }
+
+      const rollMsg = {
+        id: `msg_${meta.rollId}_roll_attack`,
+        role: "system",
+        content: segments.join(" "),
+        timestamp: meta.timestamp,
+        hidden: false,
+        metadata: {
+          diceRoll: {
+            attack: attackResult.attack,
+            toHit,
+            damage: dmg,
+          },
+          type: "attack",
+          key,
+          targetAC,
+          success: toHit.success,
+          ...meta,
+        },
+      }
+
+      const summaryParts = []
+      summaryParts.push(
+        `Attack (${label}): ${formatRoll(toHit)}` +
+          (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "SUCCESS" : "FAILURE"}` : ""),
+      )
+      if (dmg) {
+        summaryParts.push(`Damage: ${formatRoll(dmg)}`)
+      }
+
+      const followUserMsg = {
+        id: `msg_${Date.now()}_roll_followup_user_attack`,
+        role: "user",
+        content: `System: ${summaryParts.join(" ")}. Continue the narration based on this result. You may now describe consequences and suggest next actions.`,
+        timestamp: new Date().toISOString(),
+        hidden: true,
+      }
+
+      newMessages.push(rollMsg)
+      followupMessages.push(followUserMsg)
+      processedTags.add(tagKey)
     } else {
-      result = rollDice(request.notation)
+      console.warn("[dice][ROLL] Unsupported ROLL kind (semantic-only mode). Ignoring.", {
+        raw: match[0],
+        kind,
+      })
+      processedTags.add(tagKey)
     }
-
-    const meta = createRollMetadata({ sourceType: "legacy" })
-    newMessages.push({
-      id: `msg_${meta.rollId}_roll_legacy`,
-      role: "system",
-      content:
-        formatRoll(result) +
-        (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
-      timestamp: meta.timestamp,
-      hidden: false,
-      metadata: {
-        diceRoll: result,
-        type: "roll",
-        dc: request.dc,
-        success: request.dc ? result.total >= request.dc : null,
-        ...meta,
-      },
-    })
-    processedTags.add(tagKey)
   }
 
   // INVENTORY_ADD[item|qty]
@@ -1414,13 +1419,19 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     updateInputContainer(game)
   }
 
+  // Attach any follow-up hidden user messages for semantic roll summaries
+  if (followupMessages.length > 0) {
+    newMessages.push(...followupMessages)
+  }
+
   return newMessages
 }
 
 async function processGameCommands(game, character, text) {
   const data = loadData()
 
-  // This is a fallback - most processing should happen in real-time
+  // This is a fallback - most processing should happen in real-time.
+  // Legacy numeric ROLL handling has been removed; only semantic ROLL tags are supported.
   // Parse location updates
   const locationMatch = text.match(/LOCATION\[([^\]]+)\]/)
   if (locationMatch) {
@@ -1511,7 +1522,6 @@ async function processGameCommands(game, character, text) {
       const oldHP = game.currentHP
       game.currentHP = Math.max(0, game.currentHP - amount)
 
-      // Add system message
       game.messages.push({
         id: `msg_${Date.now()}_damage`,
         role: "system",
@@ -1534,7 +1544,6 @@ async function processGameCommands(game, character, text) {
       game.currentHP = Math.min(character.maxHP, game.currentHP + amount)
       const actualHealing = game.currentHP - oldHP
 
-      // Add system message
       game.messages.push({
         id: `msg_${Date.now()}_heal`,
         role: "system",
@@ -1546,103 +1555,9 @@ async function processGameCommands(game, character, text) {
     }
   }
 
-  // Process roll requests - legacy numeric ROLL[...] only.
-  // Semantic ROLL tags are handled in processGameCommandsRealtime during streaming.
-  // Legacy numeric:
-  // Ignore semantic-style tags (skill/save/attack) here; they are handled in processGameCommandsRealtime.
-  const rollRequests = parseRollRequests(text).filter((request) => {
-    const head = (request.notation || "").toLowerCase().trim()
-    return head !== "skill" && head !== "save" && head !== "attack"
-  })
-
-  if (rollRequests.length > 0) {
-    for (const request of rollRequests) {
-      let result
-
-      if (request.type === "advantage") {
-        result = rollAdvantage(request.notation)
-      } else if (request.type === "disadvantage") {
-        result = rollDisadvantage(request.notation)
-      } else {
-        result = rollDice(request.notation)
-      }
-
-      const meta = createRollMetadata({ sourceType: "legacy-fallback" })
-      const rollMessage = {
-        id: `msg_${meta.rollId}_roll_fallback`,
-        role: "system",
-        content:
-          formatRoll(result) +
-          (request.dc ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "✓ Success!" : "✗ Failure"}` : ""),
-        timestamp: new Date().toISOString(),
-        hidden: false,
-        metadata: {
-          diceRoll: result,
-          dc: request.dc,
-          success: request.dc ? result.total >= request.dc : null,
-          fromAutoRoll: true,
-          ...meta,
-        },
-      }
-
-      game.messages.push(rollMessage)
-      appendMessage(rollMessage)
-
-      // Send a simple follow-up user message so the DM can continue narration based on this real roll.
-      try {
-        const summary =
-          `${formatRoll(result)}` +
-          (request.dc
-            ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "SUCCESS" : "FAILURE"}`
-            : "")
-        const followupUser = {
-          id: `msg_${Date.now()}_roll_followup_user`,
-          role: "user",
-          content: `System: ${summary}. Continue the narration based on this result. You may now describe consequences and suggest next actions.`,
-          timestamp: new Date().toISOString(),
-          hidden: true,
-        }
-        game.messages.push(followupUser)
-
-        const apiMessages = game.messages.filter((m) => !!m.content)
-        const response = await sendChatCompletion(apiMessages, game.narrativeModel)
-
-        let assistantContent = ""
-        for await (const chunk of parseStreamingResponse(response)) {
-          const delta = chunk.choices?.[0]?.delta?.content
-          if (delta) {
-            assistantContent += delta
-          }
-        }
-
-        if (assistantContent && assistantContent.trim()) {
-          const followMsg = {
-            id: `msg_${Date.now()}_roll_followup_assistant`,
-            role: "assistant",
-            content: assistantContent,
-            timestamp: new Date().toISOString(),
-            hidden: false,
-          }
-          game.messages.push(followMsg)
-          appendMessage(followMsg)
-          await processGameCommandsRealtime(game, character, assistantContent, new Set())
-        }
-      } catch (e) {
-        console.warn("[v0] Failed to trigger roll narration follow-up:", e)
-      }
-    }
-  }
-
   saveData(data)
 }
 
-async function sendRollResultToAI(game, rollResult, request) {
-  // Build a message with the roll result for AI context
-  const resultText = `[Roll Result: ${rollResult.notation} = ${rollResult.total}${request.dc ? `, DC ${request.dc} - ${rollResult.total >= request.dc ? "SUCCESS" : "FAILURE"}` : ""}]`
-
-  // This will be sent in the next message context automatically
-  // The AI will see the roll result and continue the narrative
-}
 
 function buildSystemPrompt(character, game) {
   const data = loadData()

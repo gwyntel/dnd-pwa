@@ -4,7 +4,7 @@
  */
 
 import "./style.css"
-import { initRouter, registerRoute } from "./router.js"
+import { initRouter, registerRoute, navigateTo } from "./router.js"
 import { renderHome } from "./views/home.js"
 import { renderSettings } from "./views/settings.js"
 import { renderModels } from "./views/models.js"
@@ -12,14 +12,8 @@ import { renderCharacters, renderCharacterCreator } from "./views/characters.js"
 import { renderCharacterTemplatesView } from "./views/characterTemplatesView.js"
 import { renderGameList, renderGame } from "./views/game.js"
 import { renderWorlds } from "./views/worlds.js"
-import {
-  startAuth,
-  handleAuthCallback,
-  setApiKey,
-  isAuthenticated,
-  autoLogin,
-  getDefaultModelFromEnv,
-} from "./utils/auth.js"
+import { startAuth, handleAuthCallback, setApiKey, isAuthenticated, autoLogin } from "./utils/auth.js"
+import { getDefaultModelFromEnv } from "./utils/model-utils.js"
 import { loadData, saveData } from "./utils/storage.js"
 
 /**
@@ -37,7 +31,7 @@ function init() {
   // Set default model from environment variable if not already set
   const envDefaultModel = getDefaultModelFromEnv()
   if (envDefaultModel && !data.settings.defaultNarrativeModel) {
-    console.log("Setting default model from environment variable:", envDefaultModel)
+    console.log("[v0] Setting default model from environment variable:", envDefaultModel)
     data.settings.defaultNarrativeModel = envDefaultModel
     saveData(data)
   }
@@ -121,7 +115,7 @@ async function handleAuthCallbackRoute() {
   const app = document.getElementById("app")
 
   app.innerHTML = `
-    <div class="container text-center" style="padding-top: 4rem;">
+    <div class="container text-center" >
       <div class="spinner"></div>
       <p class="mt-3">Completing authentication...</p>
     </div>
@@ -130,7 +124,7 @@ async function handleAuthCallbackRoute() {
   try {
     await handleAuthCallback()
     app.innerHTML = `
-      <div class="container text-center" style="padding-top: 4rem;">
+      <div class="container text-center">
         <h1>✓ Authentication Successful</h1>
         <p class="text-secondary mb-3">Redirecting to home...</p>
       </div>
@@ -142,7 +136,7 @@ async function handleAuthCallbackRoute() {
   } catch (error) {
     console.error("Auth callback error:", error)
     app.innerHTML = `
-      <div class="container text-center" style="padding-top: 4rem;">
+      <div class="container text-center">
         <h1>Authentication Failed</h1>
         <p class="text-secondary mb-3">${error.message}</p>
         <a href="/" class="btn">Return Home</a>
@@ -168,13 +162,15 @@ function applyTheme(theme) {
  * Handle new character route - shows creation options
  */
 function handleNewCharacter(state) {
+  const data = loadData()
+  if (!data.settings.defaultNarrativeModel) {
+    console.log("[v0] No default model set, redirecting to model selector")
+    navigateTo("/models")
+    return
+  }
+
   renderCharacterCreator(state)
 }
-
-/**
- * Legacy routes for from-scratch / random are now folded into unified creator.
- * They can be reintroduced here if old links must be supported.
- */
 
 // Start the app when DOM is ready
 if (document.readyState === "loading") {

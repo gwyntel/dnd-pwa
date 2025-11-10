@@ -8,7 +8,8 @@ import { navigateTo } from "../router.js"
 import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
 import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
-import { CHARACTER_LLM_SYSTEM_PROMPT } from "./characterPrompts.js"
+import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
+import { validateHitDice } from "../utils/character-validation.js"
 
 export function renderCharacters() {
   const app = document.getElementById("app")
@@ -27,13 +28,13 @@ export function renderCharacters() {
     </nav>
     
     <div class="container">
-      <!-- Added gap and proper flex properties to prevent title/button overlap -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 2rem; gap: 1rem; flex-wrap: wrap;">
-        <h1 style="margin: 0;">Your Characters</h1>
+      <div class="page-header">
+        <h1 class="page-title">Your Characters</h1>
         <button id="new-character-btn" class="btn">+ New Character</button>
       </div>
       
       ${data.characters.length === 0 ? renderEmptyState() : renderCharacterList(data.characters)}
+      ${data.characters.length > 0 ? renderTemplatesCta() : ""}
     </div>
   `
 
@@ -64,12 +65,28 @@ export function renderCharacters() {
 
 function renderEmptyState() {
   return `
-    <div class="card text-center" style="padding: 3rem;">
+    <div class="card text-center card-padded-xl">
       <h2>No Characters Yet</h2>
       <p class="text-secondary mb-3">Create your first character to begin your adventure!</p>
-      <div class="flex gap-2 justify-center" style="flex-wrap: wrap;">
+      <div class="flex gap-2 justify-center flex-wrap">
         <a href="/characters/new" id="from-scratch-link" class="btn">Create with AI or From Scratch</a>
         <a href="/characters/templates" id="template-link" class="btn-secondary">Browse Templates</a>
+      </div>
+    </div>
+  `
+}
+
+function renderTemplatesCta() {
+  return `
+    <div class="card mt-3">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 class="mt-0 mb-1">Start from a Template</h2>
+          <p class="text-secondary text-sm mb-0">
+            Quickly roll a new hero using beginner-friendly presets, even if you already have characters.
+          </p>
+        </div>
+        <a href="/characters/templates" class="btn-secondary">Browse Templates</a>
       </div>
     </div>
   `
@@ -81,15 +98,20 @@ function renderCharacterList(characters) {
       ${characters
         .map(
           (char) => `
-        <div class="card character-card" data-character-id="${char.id}" style="cursor: pointer; position: relative;">
-          <button class="delete-btn" data-character-id="${char.id}" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem; background: var(--error-color); border-radius: 6px; border: none; color: white; cursor: pointer;">✕</button>
+        <div class="card character-card card-clickable" data-character-id="${char.id}">
+          <button class="btn-icon delete-btn" data-character-id="${char.id}" title="Delete">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
           <h3>${escapeHtml(char.name)}</h3>
           <p class="text-secondary">Level ${char.level} ${char.race} ${char.class}</p>
-          <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+          <div class="flex gap-2 mt-2 flex-wrap">
             <span class="badge">HP: ${char.maxHP}</span>
             <span class="badge">AC: ${char.armorClass}</span>
           </div>
-          <div class="mt-2" style="font-size: 0.875rem;">
+          <div class="mt-2 text-sm">
             <div class="flex justify-between">
               <span>STR: ${char.stats.strength}</span>
               <span>DEX: ${char.stats.dexterity}</span>
@@ -101,7 +123,11 @@ function renderCharacterList(characters) {
               <span>CHA: ${char.stats.charisma}</span>
             </div>
           </div>
-          ${char.fromTemplate ? `<p class="text-secondary mt-2" style="font-size: 0.75rem;">From template: ${char.fromTemplate}</p>` : ""}
+          ${
+            char.fromTemplate
+              ? `<p class="text-secondary mt-2 text-xs">From template: ${char.fromTemplate}</p>`
+              : ""
+          }
         </div>
       `,
         )
@@ -164,36 +190,37 @@ export function renderCharacterCreator(state = {}) {
   }
 
   // Initialize form data
-  const formData = character || initialTemplate || {
-    name: "",
-    race: "Human",
-    class: "Fighter",
-    level: 1,
-    stats: {
-      strength: 10,
-      dexterity: 10,
-      constitution: 10,
-      intelligence: 10,
-      wisdom: 10,
-      charisma: 10,
-    },
-    maxHP: 10,
-    armorClass: 10,
-    proficiencyBonus: 2,
-    speed: 30,
-    hitDice: "1d10",
-    savingThrows: [],
-    skills: [],
-    proficiencies: {
-      armor: [],
-      weapons: [],
-      tools: [],
-    },
-    features: [],
-    spells: [],
-    inventory: [],
-    backstory: "",
-  }
+  const formData = character ||
+    initialTemplate || {
+      name: "",
+      race: "Human",
+      class: "Fighter",
+      level: 1,
+      stats: {
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 10,
+      },
+      maxHP: 10,
+      armorClass: 10,
+      proficiencyBonus: 2,
+      speed: 30,
+      hitDice: "1d10",
+      savingThrows: [],
+      skills: [],
+      proficiencies: {
+        armor: [],
+        weapons: [],
+        tools: [],
+      },
+      features: [],
+      spells: [],
+      inventory: [],
+      backstory: "",
+    }
 
   const creationMode = state.creationMode || null
 
@@ -210,32 +237,32 @@ export function renderCharacterCreator(state = {}) {
     </nav>
     
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1.5rem;">
-        <h1>${isEdit ? "Edit Character" : "Create Character"}</h1>
+      <div class="page-header" style="margin-top: 1.5rem;">
+        <h1 class="page-title">${isEdit ? "Edit Character" : "Create Character"}</h1>
         <a href="/characters" class="btn-secondary">Cancel</a>
       </div>
 
       ${
         !isEdit
           ? `
-        <div class="card" style="margin-bottom: 1.5rem;">
-          <h2 style="margin-top: 0;">Create with AI or From Scratch</h2>
-          <p class="text-secondary" style="font-size: 0.9rem; margin-bottom: 0.75rem;">
+        <div class="card mb-3">
+          <h2 class="mt-0">Create with AI or From Scratch</h2>
+          <p class="text-secondary text-sm mb-2">
             Describe your character or leave blank for a random hero. Edit everything before saving.
           </p>
-          <label for="ai-random-prompt" style="display:block; margin-bottom:0.35rem; font-weight:500;">
+          <label for="ai-random-prompt" class="form-label">
             Describe your character idea (optional)
           </label>
           <textarea
             id="ai-random-prompt"
             rows="3"
+            class="mb-1"
             placeholder="e.g., A brave Human Fighter who protects others; level 1, simple and durable."
-            style="width:100%; margin-bottom:0.5rem;"
           ></textarea>
           <button id="ai-random-generate-btn" class="btn" type="button">
             🎲 Generate Character with AI
           </button>
-          <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">
+          <p class="text-secondary text-xs mt-1">
             Leave the box empty for a fully random character.
           </p>
         </div>
@@ -248,23 +275,35 @@ export function renderCharacterCreator(state = {}) {
       <div class="card">
         <form id="character-form">
           <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Character Name *</label>
+            <label class="form-label">Character Name *</label>
             <input type="text" id="char-name" value="${escapeHtml(formData.name)}" required placeholder="Enter character name">
           </div>
           
           <div class="grid grid-2 mb-3">
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Race *</label>
+              <label class="form-label">Race *</label>
               <select id="char-race">
-                ${["Human", "Elf", "Dwarf", "Halfling", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling", "Custom"]
+                ${[
+                  "Human",
+                  "Elf",
+                  "Dwarf",
+                  "Halfling",
+                  "Dragonborn",
+                  "Gnome",
+                  "Half-Elf",
+                  "Half-Orc",
+                  "Tiefling",
+                  "Custom",
+                ]
                   .map((race) => `<option value="${race}" ${formData.race === race ? "selected" : ""}>${race}</option>`)
                   .join("")}
               </select>
               <input
                 type="text"
                 id="char-race-custom"
+                class="mt-1"
                 placeholder="Enter custom race"
-                style="margin-top: 0.35rem; width: 100%; display: ${
+                style="display: ${
                   formData.race &&
                   ![
                     "Human",
@@ -299,7 +338,7 @@ export function renderCharacterCreator(state = {}) {
               >
             </div>
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Class *</label>
+              <label class="form-label">Class *</label>
               <select id="char-class">
                 ${[
                   "Fighter",
@@ -322,8 +361,9 @@ export function renderCharacterCreator(state = {}) {
               <input
                 type="text"
                 id="char-class-custom"
+                class="mt-1"
                 placeholder="Enter custom class"
-                style="margin-top: 0.35rem; width: 100%; display: ${
+                style="display: ${
                   formData.class &&
                   ![
                     "Fighter",
@@ -366,19 +406,21 @@ export function renderCharacterCreator(state = {}) {
           </div>
           
           <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Level</label>
+            <label class="form-label">Level</label>
             <input type="number" id="char-level" value="${formData.level}" min="1" max="20">
           </div>
           
           <h3 class="mb-2">Ability Scores</h3>
-          <p class="text-secondary mb-2" style="font-size: 0.875rem;">Standard range: 8-18. Higher is better.</p>
+          <p class="text-secondary mb-2 text-sm">Standard range: 8-18. Higher is better.</p>
           <div class="grid grid-2 mb-3">
             ${Object.entries(formData.stats)
               .map(
                 ([stat, value]) => `
               <div>
-                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; text-transform: uppercase;">${stat.substring(0, 3)}: ${value}</label>
-                <input type="range" id="stat-${stat}" min="3" max="20" value="${value}" style="width: 100%;">
+                <label class="form-label" style="text-transform: uppercase;">${stat
+                  .substring(0, 3)
+                  .toUpperCase()}: ${value}</label>
+                <input type="range" id="stat-${stat}" min="3" max="20" value="${value}">
               </div>
             `,
               )
@@ -387,48 +429,61 @@ export function renderCharacterCreator(state = {}) {
           
           <div class="grid grid-2 mb-3">
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Max HP *</label>
+              <label class="form-label">Max HP *</label>
               <input type="number" id="char-hp" value="${formData.maxHP}" min="1" required>
             </div>
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Armor Class (AC) *</label>
+              <label class="form-label">Armor Class (AC) *</label>
               <input type="number" id="char-ac" value="${formData.armorClass}" min="1" required>
             </div>
           </div>
           
           <div class="grid grid-2 mb-3">
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Speed (ft)</label>
+              <label class="form-label">Speed (ft)</label>
               <input type="number" id="char-speed" value="${formData.speed}" min="0">
             </div>
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Hit Dice</label>
-              <select id="char-hitdice">
-                ${["1d4", "1d6", "1d8", "1d10", "1d12", "2d4", "2d6", "2d8", "2d10", "2d12"]
-                  .map(
-                    (dice) => `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
-                  )
-                  .join("")}
+              <label class="form-label">Hit Dice</label>
+              <select id="char-hitdice" title="Select your character's hit die (e.g., 1d8 for a Fighter, 1d6 for a Wizard)">
+                <optgroup label="Standard Options">
+                  ${["1d4", "1d6", "1d8", "1d10", "1d12"]
+                    .map(
+                      (dice) =>
+                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+                    )
+                    .join("")}
+                </optgroup>
+                <optgroup label="Multiple Dice">
+                  ${["2d4", "2d6", "2d8", "2d10", "2d12"]
+                    .map(
+                      (dice) =>
+                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+                    )
+                    .join("")}
+                </optgroup>
               </select>
+              <small id="hitdice-validation" class="text-secondary text-xs mt-1" style="display: block;"></small>
+            </div>
+          </div>
+          
+          <div class="grid grid-2 mb-3">
+            <div>
+              <label class="form-label">Skills (comma-separated)</label>
+              <input type="text" id="char-skills" value="${formData.skills.join(", ")}" placeholder="e.g., Athletics, Stealth, Perception">
+            </div>
+            <div>
+              <label class="form-label">Features & Traits (comma-separated)</label>
+              <input type="text" id="char-features" value="${formData.features.join(", ")}" placeholder="e.g., Second Wind, Sneak Attack">
             </div>
           </div>
           
           <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Skills (comma-separated)</label>
-            <input type="text" id="char-skills" value="${formData.skills.join(", ")}" placeholder="e.g., Athletics, Stealth, Perception">
-          </div>
-          
-          <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Features & Traits (comma-separated)</label>
-            <input type="text" id="char-features" value="${formData.features.join(", ")}" placeholder="e.g., Second Wind, Sneak Attack">
-          </div>
-          
-          <div class="mb-3">
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Backstory (optional)</label>
+            <label class="form-label">Backstory (optional)</label>
             <textarea id="char-backstory" placeholder="Tell us about your character's history...">${escapeHtml(formData.backstory || "")}</textarea>
           </div>
           
-          <button type="submit" class="btn" style="width: 100%;">${isEdit ? "Save Changes" : "Create Character"}</button>
+          <button type="submit" class="btn btn-block">${isEdit ? "Save Changes" : "Create Character"}</button>
         </form>
       </div>
     </div>
@@ -446,7 +501,7 @@ export function renderCharacterCreator(state = {}) {
   // Toggle custom race/class inputs when "Custom" or a non-standard value is selected
   const raceSelect = document.getElementById("char-race")
   const raceCustomInput = document.getElementById("char-race-custom")
-  const standardRaces = ["Human","Elf","Dwarf","Halfling","Dragonborn","Gnome","Half-Elf","Half-Orc","Tiefling"]
+  const standardRaces = ["Human", "Elf", "Dwarf", "Halfling", "Dragonborn", "Gnome", "Half-Elf", "Half-Orc", "Tiefling"]
 
   const updateRaceCustomVisibility = () => {
     const value = raceSelect.value
@@ -520,10 +575,31 @@ export function renderCharacterCreator(state = {}) {
       })
     }
   }
+
+  const hitDiceSelect = document.getElementById("char-hitdice")
+  if (hitDiceSelect) {
+    const validateAndShowFeedback = () => {
+      const value = hitDiceSelect.value
+      const validated = validateHitDice(value)
+      const validationMsg = document.getElementById("hitdice-validation")
+
+      if (validated !== value) {
+        validationMsg.textContent = `⚠️ Invalid format "${value}" - using "${validated}" instead`
+        validationMsg.style.color = "var(--warning-color, #ff9800)"
+        hitDiceSelect.value = validated
+      } else {
+        validationMsg.textContent = "✓ Valid hit die"
+        validationMsg.style.color = "var(--success-color, #4caf50)"
+      }
+    }
+
+    hitDiceSelect.addEventListener("change", validateAndShowFeedback)
+    validateAndShowFeedback()
+  }
 }
 
 async function generateCharacterWithLLM(userPrompt = "") {
-  const systemPrompt = CHARACTER_LLM_SYSTEM_PROMPT
+  const systemPrompt = IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT
   const data = loadData()
   const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
 
@@ -634,9 +710,7 @@ async function generateCharacterWithLLM(userPrompt = "") {
       console.warn("[AI Character] Response was not valid JSON, using fallback normalization if possible.", {
         fullResponse,
       })
-      throw new Error(
-        "AI response was not valid JSON. Try again or choose a model that supports structured outputs.",
-      )
+      throw new Error("AI response was not valid JSON. Try again or choose a model that supports structured outputs.")
     }
 
     const parsed = normalizeJsonCharacter(raw)
@@ -700,17 +774,11 @@ function saveCharacter(existingId = null) {
 
   const selectedRace = document.getElementById("char-race").value
   const customRace = (document.getElementById("char-race-custom")?.value || "").trim()
-  const finalRace =
-    selectedRace === "Custom"
-      ? customRace || "Custom"
-      : selectedRace
+  const finalRace = selectedRace === "Custom" ? customRace || "Custom" : selectedRace
 
   const selectedClass = document.getElementById("char-class").value
   const customClass = (document.getElementById("char-class-custom")?.value || "").trim()
-  const finalClass =
-    selectedClass === "Custom"
-      ? customClass || "Custom"
-      : selectedClass
+  const finalClass = selectedClass === "Custom" ? customClass || "Custom" : selectedClass
 
   const character = {
     id: existingId || `char_${Date.now()}`,
@@ -795,51 +863,51 @@ function renderCreationOptions() {
   // Deprecated in this view: templates are now displayed on a dedicated Templates page.
   return ""
 
-  return `
-    <div class="mb-3">
-      <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <h2 style="margin:0;">Suggested Beginner Templates</h2>
-        <span class="text-secondary" style="font-size: 0.8rem;">
-          Pick a ready-to-play archetype, then tweak anything you like.
-        </span>
-      </div>
-      <div class="grid grid-3">
-        ${templates
-          .map(
-            (t) => `
-          <div class="card template-card" data-template-id="${t.id}" style="cursor:pointer; display:flex; flex-direction:column; justify-content:space-between;">
-            <div>
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                <h3 style="margin:0;">${t.icon} ${escapeHtml(t.name)}</h3>
-                <span class="badge" style="font-size:0.7rem; text-transform:capitalize;">${escapeHtml(
-                  t.difficulty,
-                )}</span>
-              </div>
-              <p class="text-secondary" style="margin:0.25rem 0 0.35rem 0; font-size:0.8rem;">
-                Level ${t.level} ${escapeHtml(t.race)} ${escapeHtml(t.class)} • ${escapeHtml(t.role)}
-              </p>
-              <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.8rem;">
-                ${escapeHtml(t.tagline)}
-              </p>
-              <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.75rem;">
-                Best for: ${t.bestFor.map((b) => escapeHtml(b)).join(" • ")}
-              </p>
-              <div style="display:flex; gap:0.35rem; flex-wrap:wrap; font-size:0.75rem; margin-bottom:0.35rem;">
-                <span class="badge">HP ${t.maxHP}</span>
-                <span class="badge">AC ${t.armorClass}</span>
-                <span class="badge">STR ${t.stats.strength}</span>
-                <span class="badge">DEX ${t.stats.dexterity}</span>
-                <span class="badge">CON ${t.stats.constitution}</span>
-              </div>
-            </div>
-            <button class="btn" style="margin-top:0.5rem; width:100%;">Use This Character</button>
-          </div>
-        `,
-          )
-          .join("")}
-      </div>
-    </div>
-  `
+  // return `
+  //   <div class="mb-3">
+  //     <div style="display:flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+  //       <h2 style="margin:0;">Suggested Beginner Templates</h2>
+  //       <span class="text-secondary" style="font-size: 0.8rem;">
+  //         Pick a ready-to-play archetype, then tweak anything you like.
+  //       </span>
+  //     </div>
+  //     <div class="grid grid-3">
+  //       ${templates
+  //         .map(
+  //           (t) => `
+  //         <div class="card template-card" data-template-id="${t.id}" style="cursor:pointer; display:flex; flex-direction:column; justify-content:space-between;">
+  //           <div>
+  //             <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+  //               <h3 style="margin:0;">${t.icon} ${escapeHtml(t.name)}</h3>
+  //               <span class="badge" style="font-size:0.7rem; text-transform:capitalize;">${escapeHtml(
+  //                 t.difficulty,
+  //               )}</span>
+  //             </div>
+  //             <p class="text-secondary" style="margin:0.25rem 0 0.35rem 0; font-size:0.8rem;">
+  //               Level ${t.level} ${escapeHtml(t.race)} ${escapeHtml(t.class)} • ${escapeHtml(t.role)}
+  //             </p>
+  //             <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.8rem;">
+  //               ${escapeHtml(t.tagline)}
+  //             </p>
+  //             <p class="text-secondary" style="margin:0 0 0.35rem 0; font-size:0.75rem;">
+  //               Best for: ${t.bestFor.map((b) => escapeHtml(b)).join(" • ")}
+  //             </p>
+  //             <div style="display:flex; gap:0.35rem; flex-wrap:wrap; font-size:0.75rem; margin-bottom:0.35rem;">
+  //               <span class="badge">HP ${t.maxHP}</span>
+  //               <span class="badge">AC ${t.armorClass}</span>
+  //               <span class="badge">STR ${t.stats.strength}</span>
+  //               <span class="badge">DEX ${t.stats.dexterity}</span>
+  //               <span class="badge">CON ${t.stats.constitution}</span>
+  //             </div>
+  //           </div>
+  //           <button class="btn" style="margin-top:0.5rem; width:100%;">Use This Character</button>
+  //         </div>
+  //       `,
+  //         )
+  //         .join("")}
+  //     </div>
+  //   </div>
+  // `
 }
 
 async function handleGenerateRandomCharacterFlow() {
@@ -865,19 +933,18 @@ async function handleGenerateRandomCharacterFlow() {
   if (!promptContainer) {
     promptContainer = document.createElement("div")
     promptContainer.id = "ai-random-prompt-container"
-    promptContainer.className = "card"
-    promptContainer.style.marginBottom = "1rem"
+    promptContainer.className = "card mb-3"
     promptContainer.innerHTML = `
-      <label style="display:block; margin-bottom:0.35rem; font-weight:500;">
+      <label class="form-label">
         Describe your character idea (optional)
       </label>
       <textarea id="ai-random-prompt"
         rows="3"
-        placeholder="e.g., A Tiefling rogue who escaped a cult and now hunts demons for coin; level 5, edgy but kind-hearted."
-        style="width:100%; margin-bottom:0.5rem;"></textarea>
-      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        class="mb-1"
+        placeholder="e.g., A Tiefling rogue who escaped a cult and now hunts demons for coin; level 5, edgy but kind-hearted."></textarea>
+      <div class="flex gap-1 flex-wrap">
         <button id="ai-random-generate-btn" class="btn">🎲 Generate Character with AI</button>
-        <span class="text-secondary" style="font-size:0.8rem;">
+        <span class="text-secondary text-xs">
           The AI will fill in this form with a complete character sheet. You can edit before saving.
         </span>
       </div>
@@ -916,35 +983,34 @@ function normalizeJsonCharacter(raw) {
     name: String(raw.name || "").trim(),
     race: String(raw.race || "").trim(),
     class: String(raw.class || "").trim(),
-    level: Number.isFinite(raw.level) ? raw.level : parseInt(raw.level, 10),
+    level: Number.isFinite(raw.level) ? raw.level : Number.parseInt(raw.level, 10),
   }
 
   // Normalize different incoming field names and shapes into our expected schema.
   const statsIn =
     // Preferred strict schema: object with named fields
     (raw.stats && !Array.isArray(raw.stats) && raw.stats) ||
-    raw.abilityScores ||
-    raw.abilities ||
-    // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
-    (Array.isArray(raw.stats) && {
-      strength: raw.stats[0],
-      dexterity: raw.stats[1],
-      constitution: raw.stats[2],
-      intelligence: raw.stats[3],
-      wisdom: raw.stats[4],
-      charisma: raw.stats[5],
-    }) ||
-    {
-      strength: raw.strength,
-      dexterity: raw.dexterity,
-      constitution: raw.constitution,
-      intelligence: raw.intelligence,
-      wisdom: raw.wisdom,
-      charisma: raw.charisma,
-    }
+      raw.abilityScores ||
+      raw.abilities ||
+      // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
+      (Array.isArray(raw.stats) && {
+        strength: raw.stats[0],
+        dexterity: raw.stats[1],
+        constitution: raw.stats[2],
+        intelligence: raw.stats[3],
+        wisdom: raw.stats[4],
+        charisma: raw.stats[5],
+      }) || {
+        strength: raw.strength,
+        dexterity: raw.dexterity,
+        constitution: raw.constitution,
+        intelligence: raw.intelligence,
+        wisdom: raw.wisdom,
+        charisma: raw.charisma,
+      }
 
   const num = (v, fallback) => {
-    const n = typeof v === "number" ? v : parseInt(v, 10)
+    const n = typeof v === "number" ? v : Number.parseInt(v, 10)
     return Number.isFinite(n) ? n : fallback
   }
 
@@ -962,9 +1028,7 @@ function normalizeJsonCharacter(raw) {
   const armorClass = num(raw.armorClass ?? raw.ac ?? combat.armor_class, 10)
   const speed = num(raw.speed ?? combat.speed, 30)
   const hitDice =
-    typeof (raw.hitDice || combat.hit_dice) === "string"
-      ? (raw.hitDice || combat.hit_dice).trim()
-      : "1d10"
+    typeof (raw.hitDice || combat.hit_dice) === "string" ? (raw.hitDice || combat.hit_dice).trim() : "1d10"
 
   const csvToArray = (val) =>
     String(val || "")
@@ -1049,7 +1113,17 @@ async function generateRandomCharacterWithPrompt() {
     document.getElementById("char-name").value = character.name
 
     // Handle race: if it matches a standard option, select it; otherwise choose Custom and prefill custom field
-    const standardRaces = ["Human","Elf","Dwarf","Halfling","Dragonborn","Gnome","Half-Elf","Half-Orc","Tiefling"]
+    const standardRaces = [
+      "Human",
+      "Elf",
+      "Dwarf",
+      "Halfling",
+      "Dragonborn",
+      "Gnome",
+      "Half-Elf",
+      "Half-Orc",
+      "Tiefling",
+    ]
     const raceSelect = document.getElementById("char-race")
     const raceCustomInput = document.getElementById("char-race-custom")
     if (standardRaces.includes(character.race)) {

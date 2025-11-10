@@ -250,14 +250,14 @@ Use this prompt to ground scenes, NPCs, quests, and descriptions so that new pla
     </nav>
     
     <div class="container">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: 1.5rem;">
-        <h1>Worlds</h1>
+      <div class="page-header">
+        <h1 class="page-title">Worlds</h1>
         <button id="create-world-btn" class="btn">+ New World</button>
       </div>
       
       <div id="world-form-container"></div>
       
-      <div class="worlds-grid">
+      <div class="grid grid-2">
         ${data.worlds.map((world) => renderWorldCard(world, data.games)).join("")}
       </div>
     </div>
@@ -315,14 +315,20 @@ function renderWorldCard(world, games) {
   const gamesUsingWorld = games.filter((g) => g.worldId === world.id).length
 
   return `
-    <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-        <div style="flex: 1;">
+    <div class="card card-clickable">
+      <div class="flex justify-between items-start mb-1">
+        <div class="flex-1">
           <h3>${world.name} ${world.isDefault ? '<span class="badge">Default</span>' : ""}</h3>
-          <p class="text-secondary" style="font-size: 0.875rem;">${world.briefDescription}</p>
-          ${gamesUsingWorld > 0 ? `<p class="text-secondary" style="font-size: 0.75rem; margin-top: 0.5rem;">Used in ${gamesUsingWorld} game${gamesUsingWorld > 1 ? "s" : ""}</p>` : ""}
+          <p class="text-secondary text-sm">${world.briefDescription}</p>
+          ${
+            gamesUsingWorld > 0
+              ? `<p class="text-secondary text-xs mt-1">Used in ${gamesUsingWorld} game${
+                  gamesUsingWorld > 1 ? "s" : ""
+                }</p>`
+              : ""
+          }
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div class="flex gap-1">
           <button class="btn-icon edit-world-btn" data-world-id="${world.id}" title="Edit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -344,9 +350,9 @@ function renderWorldCard(world, games) {
         </div>
       </div>
       
-      <div style="background: var(--card-bg-secondary); padding: 1rem; border-radius: 0.5rem; margin-top: 1rem;">
-        <strong style="font-size: 0.875rem;">System Prompt:</strong>
-        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${world.systemPrompt}</p>
+      <div class="mt-1 system-prompt-box">
+        <strong class="text-sm">System Prompt:</strong>
+        <p class="text-secondary text-sm system-prompt-content">${world.systemPrompt}</p>
       </div>
     </div>
   `
@@ -356,28 +362,28 @@ function renderWorldCreationOptions() {
   const container = document.getElementById("world-form-container")
 
   container.innerHTML = `
-    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
+    <div class="card card-accent mb-3">
       <h2>Create New World</h2>
       <p class="text-secondary mb-3">Choose how you'd like to create your world:</p>
       
-      <div style="display: grid; gap: 1rem;">
-        <button id="option-template" class="btn" style="text-align: left; padding: 1rem;">
+      <div class="grid grid-3 gap-3">
+        <button id="option-template" class="btn text-left card-padded-md">
           <strong>📚 Use a Template</strong><br>
-          <span style="font-size: 0.875rem; font-weight: normal;">Start with a pre-made setting (Classic Fantasy, Urban Noir, etc.)</span>
+          <span class="text-sm">Start with a pre-made setting (Classic Fantasy, Urban Noir, etc.)</span>
         </button>
         
-        <button id="option-ai" class="btn-secondary" style="text-align: left; padding: 1rem;">
+        <button id="option-ai" class="btn-secondary text-left card-padded-md">
           <strong>✨ Generate with AI</strong><br>
-          <span style="font-size: 0.875rem; font-weight: normal;">Describe your world idea and let AI create the details</span>
+          <span class="text-sm">Describe your world idea and let AI create the details</span>
         </button>
         
-        <button id="option-custom" class="btn-secondary" style="text-align: left; padding: 1rem;">
+        <button id="option-custom" class="btn-secondary text-left card-padded-md">
           <strong>✏️ Custom (Manual Entry)</strong><br>
-          <span style="font-size: 0.875rem; font-weight: normal;">Build your world from scratch with full control</span>
+          <span class="text-sm">Build your world from scratch with full control</span>
         </button>
       </div>
       
-      <button id="cancel-options-btn" class="btn-secondary mt-3" style="width: 100%;">Cancel</button>
+      <button id="cancel-options-btn" class="btn-secondary mt-3 btn-block">Cancel</button>
     </div>
   `
 
@@ -396,23 +402,20 @@ function renderTemplateSelection() {
   const container = document.getElementById("world-form-container")
 
   container.innerHTML = `
-    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <div class="card card-accent mb-3">
+      <div class="page-header mb-2">
         <h2>Choose a Template</h2>
         <button id="back-to-options" class="btn-secondary">← Back</button>
       </div>
       
-      <div style="display: grid; gap: 1rem;">
+      <div class="grid gap-2">
         ${WORLD_TEMPLATES.map(
           (template) => `
-          <div class="card" style="cursor: pointer; border: 2px solid var(--border); transition: border-color 0.2s;" 
-               data-template-id="${template.id}"
-               onmouseover="this.style.borderColor='var(--primary)'"
-               onmouseout="this.style.borderColor='var(--border)'">
+          <div class="card template-card" data-template-id="${template.id}">
             <h3>${template.name}</h3>
-            <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 0.5rem;">${template.briefDescription}</p>
-            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">${template.fullDescription}</p>
-            <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-secondary);">
+            <p class="text-secondary text-sm mb-1">${template.briefDescription}</p>
+            <p class="text-sm mb-1">${template.fullDescription}</p>
+            <div class="flex gap-2 text-xs text-secondary">
               <span>Magic: ${template.magicLevel}</span>
               <span>Tech: ${template.techLevel}</span>
               <span>Tone: ${template.tone}</span>
@@ -441,34 +444,34 @@ function renderAIGenerator() {
   const container = document.getElementById("world-form-container")
 
   container.innerHTML = `
-    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <div class="card card-primary mb-3">
+      <div class="flex justify-between items-center mb-2">
         <h2>Generate World with AI</h2>
         <button id="back-to-options" class="btn-secondary">← Back</button>
       </div>
       
       <form id="ai-generation-form">
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Describe your world idea *</label>
+          <label class="form-label">Describe your world idea *</label>
           <textarea 
             id="world-idea" 
             required 
             rows="4"
             placeholder="e.g., A steampunk city built on the back of a giant turtle&#10;Post-apocalyptic wasteland where magic returned after nuclear war&#10;Underwater kingdom of merfolk and sea monsters"
           ></textarea>
-          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+          <p class="text-secondary mt-1 text-sm">
             Be as creative as you want! The AI will generate a complete world setting based on your description.
           </p>
         </div>
         
-        <div style="display: flex; gap: 0.5rem;">
+        <div class="flex gap-1">
           <button type="submit" class="btn">Generate World</button>
           <button type="button" id="cancel-ai-btn" class="btn-secondary">Cancel</button>
         </div>
       </form>
       
-      <div id="generation-status" style="margin-top: 1rem; display: none;">
-        <p class="text-secondary">✨ Generating your world...</p>
+      <div id="generation-status" class="mt-1 hidden">
+        <p class="text-secondary text-sm">✨ Generating your world...</p>
       </div>
     </div>
   `
@@ -652,23 +655,23 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
   else if (isAIGenerated) headerText = "Review AI Generated World"
 
   container.innerHTML = `
-    <div class="card" style="margin-bottom: 2rem; border: 2px solid var(--primary);">
+    <div class="card card-accent mb-3">
       <h2>${headerText}</h2>
       ${isAIGenerated ? '<p class="text-secondary mb-3">Review and edit the generated world before saving.</p>' : ""}
       
       <form id="world-form">
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">World Name *</label>
+          <label class="form-label">World Name *</label>
           <input type="text" id="world-name" required placeholder="e.g., Forgotten Realms" value="${formData.name}">
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Brief Description *</label>
+          <label class="form-label">Brief Description *</label>
           <input type="text" id="world-description" required placeholder="One sentence summary" value="${formData.briefDescription}">
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Full Description (Optional)</label>
+          <label class="form-label">Full Description (Optional)</label>
           <textarea 
             id="world-full-description" 
             rows="3"
@@ -676,9 +679,9 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
           >${formData.fullDescription || ""}</textarea>
         </div>
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 1rem;">
           <div>
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Magic Level</label>
+            <label class="form-label">Magic Level</label>
             <select id="world-magic-level">
               <option value="none" ${formData.magicLevel === "none" ? "selected" : ""}>None</option>
               <option value="low" ${formData.magicLevel === "low" ? "selected" : ""}>Low</option>
@@ -688,7 +691,7 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
           </div>
           
           <div>
-            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tech Level</label>
+            <label class="form-label">Tech Level</label>
             <select id="world-tech-level">
               <option value="primitive" ${formData.techLevel === "primitive" ? "selected" : ""}>Primitive</option>
               <option value="medieval" ${formData.techLevel === "medieval" ? "selected" : ""}>Medieval</option>
@@ -702,17 +705,17 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Tone (Optional)</label>
+          <label class="form-label">Tone (Optional)</label>
           <input type="text" id="world-tone" placeholder="e.g., Dark and gritty, Lighthearted adventure" value="${formData.tone || ""}">
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Starting Location (Optional)</label>
+          <label class="form-label">Starting Location (Optional)</label>
           <input type="text" id="world-starting-location" placeholder="e.g., The bustling port city of Meridian" value="${formData.startingLocation || ""}">
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">System Prompt *</label>
+          <label class="form-label">System Prompt *</label>
           <textarea 
             id="world-system-prompt" 
             required 
@@ -720,12 +723,12 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
             placeholder="Describe the world's lore, rules, tone, magic system, technology level, major factions, etc. This will guide the AI DM during adventures in this world."
             style="resize: vertical;"
           >${formData.systemPrompt}</textarea>
-          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+          <p class="text-secondary mt-1 text-sm">
             This is the most important field - it sets the context for all adventures in this world.
           </p>
         </div>
         
-        <div style="display: flex; gap: 0.5rem;">
+        <div class="flex gap-1">
           <button type="submit" class="btn">${isEditing ? "Update World" : "Create World"}</button>
           <button type="button" id="cancel-world-btn" class="btn-secondary">Cancel</button>
         </div>

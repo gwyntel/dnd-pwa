@@ -11,7 +11,11 @@ const DEFAULT_DATA = {
   version: SCHEMA_VERSION,
   lastModified: new Date().toISOString(),
   settings: {
-    defaultNarrativeModel: null,
+    defaultNarrativeModel:
+      (typeof import.meta !== "undefined" &&
+        import.meta.env &&
+        (import.meta.env.VITE_DEFAULT_NARRATIVE_MODEL || import.meta.env.DEFAULT_NARRATIVE_MODEL)) ||
+      null,
     theme: "auto",
     autoSave: true,
     diceAnimation: true,

@@ -6,6 +6,7 @@
 import { fetchModels } from "../utils/openrouter.js"
 import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
+import { isNitroModel } from "../utils/model-utils.js"
 
 let allModels = []
 let filteredModels = []
@@ -32,7 +33,7 @@ export async function renderModels() {
     
     <div class="container">
       <h1>Select Model</h1>
-      <div class="text-center" style="padding: 3rem 0;">
+      <div class="text-center card-padded-xl">
         <div class="spinner"></div>
         <p class="text-secondary mt-3">Loading models...</p>
       </div>
@@ -101,8 +102,8 @@ function renderModelSelector(data) {
     </nav>
     
     <div class="container">
-      <div class="flex justify-between align-center mb-3">
-        <h1>Select Model</h1>
+      <div class="page-header">
+        <h1 class="page-title">Select Model</h1>
         <a href="/settings" class="btn-secondary">Back</a>
       </div>
       
@@ -113,17 +114,16 @@ function renderModelSelector(data) {
             id="search-input" 
             placeholder="Search models..." 
             value="${searchQuery}"
-            style="width: 100%;"
           >
         </div>
         
-        <div class="flex gap-2 mb-2" style="flex-wrap: wrap;">
-          <select id="provider-filter" style="flex: 1; min-width: 150px;">
+        <div class="flex gap-2 mb-2 flex-wrap">
+          <select id="provider-filter" class="provider-filter">
             <option value="all">All Providers</option>
             ${providers.map((p) => `<option value="${p}" ${currentFilter === p ? "selected" : ""}>${p}</option>`).join("")}
           </select>
           
-          <select id="sort-select" style="flex: 1; min-width: 150px;">
+          <select id="sort-select" class="sort-select">
             <option value="name" ${currentSort === "name" ? "selected" : ""}>Sort by Name</option>
             <option value="price-low" ${currentSort === "price-low" ? "selected" : ""}>Price: Low to High</option>
             <option value="price-high" ${currentSort === "price-high" ? "selected" : ""}>Price: High to Low</option>
@@ -131,10 +131,10 @@ function renderModelSelector(data) {
           </select>
         </div>
         
-        <p class="text-secondary" style="font-size: 0.9rem;">
+        <p class="text-secondary text-sm">
           Showing ${filteredModels.length} of ${allModels.length} models
           <br>
-          <span style="font-size: 0.8rem; opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>
+          <span class="text-xs" style="opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>
         </p>
       </div>
       
@@ -217,8 +217,7 @@ function renderModelsList(currentModel) {
       const promptPrice = Number.parseFloat(model.pricing.prompt) * 1000000 // Convert to per-million
       const completionPrice = Number.parseFloat(model.pricing.completion) * 1000000
       const supportsStructured =
-        Array.isArray(model.supportedParameters) &&
-        model.supportedParameters.includes("structured_outputs")
+        Array.isArray(model.supportedParameters) && model.supportedParameters.includes("structured_outputs")
 
       return `
       <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
@@ -232,6 +231,7 @@ function renderModelsList(currentModel) {
             <span class="detail-label">Features:</span>
             <span class="detail-value">
               ${supportsStructured ? "✅ Structured Outputs" : "—"}
+              ${isNitroModel(model.id) ? " ⚡ Nitro" : ""}
             </span>
           </div>
           <div class="model-detail">
@@ -295,9 +295,12 @@ function updateModelsList(currentModel) {
   })
 
   // Update count
-  const countText = document.querySelector(".text-secondary")
-  if (countText) {
-    countText.innerHTML = `Showing ${filteredModels.length} of ${allModels.length} models<br><span style="font-size: 0.8rem; opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>`
+  const card = document.querySelector(".card.mb-3")
+  if (card) {
+    const info = card.querySelector(".text-secondary")
+    if (info) {
+      info.innerHTML = `Showing ${filteredModels.length} of ${allModels.length} models<br><span class="text-xs" style="opacity: 0.8;">Tap and hold a model to view it on OpenRouter</span>`
+    }
   }
 }
 
@@ -351,11 +354,17 @@ function selectModel(modelId) {
   data.settings.defaultNarrativeModel = modelId
   saveData(data)
 
-  // Show success message and navigate back
   showMessage("Model selected successfully!", "success")
 
+  const redirectTarget = sessionStorage.getItem("redirectAfterModelSelect")
+  sessionStorage.removeItem("redirectAfterModelSelect")
+
   setTimeout(() => {
-    navigateTo("/settings")
+    if (redirectTarget) {
+      navigateTo(redirectTarget)
+    } else {
+      navigateTo("/settings")
+    }
   }, 1000)
 }
 
@@ -368,7 +377,7 @@ function showMessage(text, type) {
   message.className = `message message-${type}`
   message.textContent = text
   message.style.cssText =
-    "position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem; border-radius: 8px; background: var(--primary-color); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
+    "position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem; border-radius: 8px; background: var(--accent-color); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
   document.body.appendChild(message)
 
   setTimeout(() => {

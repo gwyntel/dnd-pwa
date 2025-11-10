@@ -39,7 +39,7 @@
   --shadow-strong: rgba(0, 0, 0, 0.5);
 }
 
-/* Added warm theme with golden/brown color scheme */
+/* Warm theme with golden/brown color scheme */
 [data-theme="warm"] {
   --bg-primary: #fdf6e3;
   --bg-secondary: #eee8d5;
@@ -57,7 +57,7 @@
   --shadow-strong: rgba(92, 74, 58, 0.2);
 }
 
-/* Added cool theme with blue/teal color scheme */
+/* Cool theme with blue/teal color scheme */
 [data-theme="cool"] {
   --bg-primary: #e8f4f8;
   --bg-secondary: #d6ebf2;
@@ -75,7 +75,7 @@
   --shadow-strong: rgba(30, 58, 74, 0.2);
 }
 
-/* Added forest theme with green/nature color scheme */
+/* Forest theme with green/nature color scheme */
 [data-theme="forest"] {
   --bg-primary: #f0f4ed;
   --bg-secondary: #e2ead8;
@@ -93,7 +93,7 @@
   --shadow-strong: rgba(44, 62, 47, 0.2);
 }
 
-/* Added midnight theme with dark blue color scheme */
+/* Midnight theme with dark blue color scheme */
 [data-theme="midnight"] {
   --bg-primary: #0f1419;
   --bg-secondary: #1a2332;
@@ -214,6 +214,8 @@ button:hover,
   background-color: var(--accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px var(--shadow);
+  /* Ensure text color is always white for readability on hover */
+  color: white;
 }
 
 button:active,
@@ -457,6 +459,14 @@ nav a:hover {
   margin-bottom: 2rem;
 }
 
+/* Simple text size helpers */
+.text-sm {
+  font-size: 0.875rem;
+}
+.text-xs {
+  font-size: 0.75rem;
+}
+
 .flex {
   display: flex;
 }
@@ -465,16 +475,21 @@ nav a:hover {
   flex-direction: column;
 }
 
-.items-center {
-  align-items: center;
-}
-
+.items-center,
 .align-center {
   align-items: center;
 }
 
 .justify-between {
   justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
 }
 
 .gap-1 {
@@ -485,6 +500,84 @@ nav a:hover {
 }
 .gap-3 {
   gap: 1.5rem;
+}
+
+/* Page/layout helpers */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  margin: 0;
+}
+
+.card-center {
+  max-width: 500px;
+  margin: 2rem auto;
+}
+
+.card-padded-xl {
+  padding: 3rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.card-clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.card-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  gap: 0.5rem;
+}
+
+.meta-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.delete-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 /* Responsive */
@@ -649,14 +742,26 @@ a,
   margin: 0 auto;
 }
 
+/* Sidebar */
 .game-sidebar {
   overflow-y: auto;
 }
 
+/* Main column: ensure flex column and scrolling work correctly */
 .game-main {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Card that wraps header/messages/input in game main */
+.game-main-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Game header in main column */
 .game-header {
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
@@ -664,19 +769,39 @@ a,
 }
 
 .game-header h2 {
-  margin-bottom: 0.25rem;
+  margin: 0 0 0.25rem 0;
 }
 
-/* Messages Container */
+/* Chat messages area:
+ * - flex:1 so it fills remaining card height
+ * - overflow-y:auto so it scrolls
+ * - no extra margin/inline styles from JS
+ */
 .messages-container {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding: 1rem;
   margin-bottom: 1rem;
   background-color: var(--bg-primary);
   border-radius: 8px;
-  min-height: 400px;
+  min-height: 0; /* critical for proper flexbox scrolling on desktop */
 }
+
+/* Rolls column */
+.game-rolls {
+  overflow-y: auto;
+}
+
+.rolls-title {
+  margin-top: 0;
+}
+
+.roll-history-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* (replaced by improved game layout / messages styles above) */
 
 .message {
   margin-bottom: 1rem;
@@ -758,7 +883,7 @@ a,
   font-weight: 600;
 }
 
-/* Added error message styling for API errors */
+/* Error message styling for API errors */
 .message-system[data-msg-id*="_error"] {
   background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
   border-left: 3px solid #d63031;
@@ -805,6 +930,69 @@ a,
 .input-container {
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
+}
+
+/* Chat input + send button */
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-input {
+  flex: 1 1 auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Shared form label / card padding helpers */
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.card-padded-lg {
+  padding: 3rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* Form check (settings/preferences) */
+.form-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.form-check input[type="checkbox"] {
+  margin-top: 0.2rem;
+}
+
+.form-check-label {
+  display: block;
+  line-height: 1.4;
+}
+
+.character-subtitle {
+  margin: 0.25rem 0 1rem 0;
+}
+
+.key-stats {
+  padding: 0.75rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.progress-bar-lg {
+  height: 24px;
 }
 
 /* Dice Tray */
@@ -919,6 +1107,8 @@ a,
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--shadow-strong);
   background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent-color) 100%);
+  /* Ensure text is readable on hover */
+  color: white;
 }
 
 .action-bubble:active {
@@ -998,23 +1188,27 @@ a,
 
 /* Badge */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 0.25rem 0.75rem;
   background-color: var(--bg-tertiary);
   border-radius: 12px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
+  gap: 0.25rem;
 }
 
-/* Template Cards */
+/* Template Cards (used across Templates, Worlds, etc.) */
 .template-card {
   transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
 }
 
 .template-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--shadow-strong);
-  border: 2px solid var(--accent-color);
+  border-color: var(--accent-color);
 }
 
 /* Responsive Game Layout */

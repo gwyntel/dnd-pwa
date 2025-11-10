@@ -29,9 +29,8 @@ export function renderHome() {
     </nav>
     
     <div class="container">
-      <!-- Added gap and proper flex properties to prevent title/button overlap -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 2rem; gap: 1rem; flex-wrap: wrap;">
-        <h1 style="margin: 0;">Your Adventures</h1>
+      <div class="page-header">
+        <h1 class="page-title">Your Adventures</h1>
         <button id="new-game-btn" class="btn">+ New Game</button>
       </div>
       
@@ -65,11 +64,11 @@ export function renderHome() {
 
 function renderAuthPrompt() {
   return `
-    <div class="container text-center" style="padding-top: 4rem;">
+    <div class="container text-center mt-4">
       <h1>Welcome to D&D PWA</h1>
       <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
       
-      <div class="card" style="max-width: 500px; margin: 2rem auto;">
+      <div class="card card-center">
         <h2>Get Started</h2>
         <p>To begin your adventure, you'll need to authenticate with OpenRouter.</p>
         
@@ -78,13 +77,13 @@ function renderAuthPrompt() {
         </div>
         
         <div class="mt-3">
-          <p class="text-secondary" style="font-size: 0.875rem;">Or enter your API key directly:</p>
+          <p class="text-secondary text-sm">Or enter your API key directly:</p>
           <input type="password" id="api-key-input" placeholder="sk-or-..." class="mt-2">
           <button id="api-key-btn" class="btn-secondary mt-2">Use API Key</button>
         </div>
       </div>
       
-      <div class="mt-4 text-secondary" style="font-size: 0.875rem;">
+      <div class="mt-4 text-secondary text-sm">
         <p>New to D&D? No problem! This app is beginner-friendly.</p>
         <p>The AI will guide you through the rules as you play.</p>
       </div>
@@ -94,7 +93,7 @@ function renderAuthPrompt() {
 
 function renderEmptyState() {
   return `
-    <div class="card text-center" style="padding: 3rem;">
+    <div class="card text-center card-padded-xl">
       <h2>No Adventures Yet</h2>
       <p class="text-secondary mb-3">Create your first character and start a new game!</p>
       <div class="flex gap-2 justify-center">
@@ -127,22 +126,27 @@ function renderGameList(games, characters) {
           else timeAgo = `${diffDays}d ago`
 
           return `
-          <div class="card game-card" data-game-id="${game.id}" style="cursor: pointer; position: relative;">
-            <button class="delete-btn" data-game-id="${game.id}" style="position: absolute; top: 1rem; right: 1rem; padding: 0.5rem; background: var(--error-color); border-radius: 6px; border: none; color: white; cursor: pointer;">✕</button>
+          <div class="card game-card card-clickable" data-game-id="${game.id}">
+            <button class="btn-icon delete-btn" data-game-id="${game.id}" title="Delete">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
             <h3>${game.title}</h3>
             <p class="text-secondary">${character?.name || "Unknown"} - Level ${character?.level || 1} ${character?.class || ""}</p>
-            <div class="flex justify-between items-center mt-2">
-              <span class="text-secondary" style="font-size: 0.875rem;">
+            <div class="card-meta-row">
+              <span class="meta-label">
                 HP: ${game.currentHP}/${character?.maxHP || 0}
               </span>
-              <span class="text-secondary" style="font-size: 0.875rem;">
+              <span class="meta-label">
                 ${timeAgo}
               </span>
             </div>
             ${
               game.currentLocation
                 ? `
-              <p class="text-secondary mt-2" style="font-size: 0.875rem;">
+              <p class="text-secondary mt-2 text-sm">
                 📍 ${game.currentLocation}
               </p>
             `

@@ -35,7 +35,7 @@ All data is stored under a single key in localStorage:
 
 Top-level structure:
 
-```ts
+\`\`\`ts
 interface DndPwaDataV1 {
   version: "1.0.0"
   lastModified: string // ISO timestamp
@@ -45,13 +45,13 @@ interface DndPwaDataV1 {
   characters: Character[]
   games: Game[]
 }
-```
+\`\`\`
 
 ### 2.1 Settings
 
 Implemented in `src/utils/storage.js`:
 
-```ts
+\`\`\`ts
 interface Settings {
   defaultNarrativeModel: string | null
   theme: "light" | "dark" | "auto"
@@ -60,7 +60,7 @@ interface Settings {
   hasSeenTutorial: boolean
   temperature: number // 0–2, default 1.0
 }
-```
+\`\`\`
 
 Notes:
 
@@ -71,7 +71,7 @@ Notes:
 
 Implemented in `storage.js` and used in `views/worlds.js`, `views/game.js`:
 
-```ts
+\`\`\`ts
 interface World {
   id: string
   name: string
@@ -80,7 +80,7 @@ interface World {
   createdAt: string
   isDefault?: boolean
 }
-```
+\`\`\`
 
 Notes:
 
@@ -92,7 +92,7 @@ Notes:
 
 Used to help users quickly create characters.
 
-```ts
+\`\`\`ts
 interface CharacterTemplate {
   id: string
   name: string
@@ -118,11 +118,11 @@ interface CharacterTemplate {
   inventory: TemplateItem[]
   backstory: string
 }
-```
+\`\`\`
 
 Where:
 
-```ts
+\`\`\`ts
 interface AbilityScores {
   strength: number
   dexterity: number
@@ -145,7 +145,7 @@ interface TemplateItem {
   equipped?: boolean
   damage?: string
 }
-```
+\`\`\`
 
 Notes:
 
@@ -156,7 +156,7 @@ Notes:
 
 Implemented in `views/characters.js` and normalized in `storage.js` via `normalizeCharacter`.
 
-```ts
+\`\`\`ts
 interface Character {
   id: string
   name: string
@@ -196,11 +196,11 @@ interface Character {
   resources?: Resource[] // reserved for future; default []
   spellcasting?: Record<string, unknown> // reserved/minimal; default {}
 }
-```
+\`\`\`
 
 Where:
 
-```ts
+\`\`\`ts
 interface CharacterSpell {
   name: string
   level: number
@@ -221,7 +221,7 @@ interface Resource {
   // max: number
   // current: number
 }
-```
+\`\`\`
 
 Notes:
 
@@ -232,7 +232,7 @@ Notes:
 
 Implemented in `views/game.js`. Tracks a single-character adventure instance.
 
-```ts
+\`\`\`ts
 interface Game {
   id: string
   title: string
@@ -265,11 +265,11 @@ interface Game {
   // v1.0: currency is implied via tags, stored directly on game object if present
   // currency?: { gp: number }
 }
-```
+\`\`\`
 
 Where:
 
-```ts
+\`\`\`ts
 interface GameItem {
   item: string
   quantity: number
@@ -297,7 +297,7 @@ interface GameMessage {
     isError?: boolean
   }
 }
-```
+\`\`\`
 
 Notes:
 

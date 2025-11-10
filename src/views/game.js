@@ -1588,34 +1588,22 @@ async function processGameCommands(game, character, text) {
       game.messages.push(rollMessage)
       appendMessage(rollMessage)
 
-      // Build a structured continuation prompt that matches the DM system style
-      // and trigger a dedicated follow-up completion to narrate the outcome.
+      // Send a simple follow-up user message so the DM can continue narration based on this real roll.
       try {
-        const resultText =
-          `The player roll result is ${formatRoll(result)}` +
+        const summary =
+          `${formatRoll(result)}` +
           (request.dc
-            ? ` vs DC ${request.dc}, which is a ${result.total >= request.dc ? "SUCCESS" : "FAILURE"}.`
-            : ".")
-        const contextHint = request.notation
-          ? `This roll came from an in-game request: ${request.notation}.`
-          : ""
-
-        const followupPrompt = buildRollContinuationPrompt({ resultText, contextHint })
-
-        const narrationUserMessage = {
+            ? ` vs DC ${request.dc} - ${result.total >= request.dc ? "SUCCESS" : "FAILURE"}`
+            : "")
+        const followupUser = {
           id: `msg_${Date.now()}_roll_followup_user`,
           role: "user",
-          content: followupPrompt,
+          content: `System: ${summary}. Continue the narration based on this result. You may now describe consequences and suggest next actions.`,
           timestamp: new Date().toISOString(),
           hidden: true,
         }
+        game.messages.push(followupUser)
 
-        // Push the steering message into history so the next call sees it
-        game.messages.push(narrationUserMessage)
-
-        // Fire a separate, non-streaming continuation call.
-        // This ensures a new assistant message is generated after the roll,
-        // even though the original sendMessage call already completed.
         const apiMessages = game.messages.filter((m) => !!m.content)
         const response = await sendChatCompletion(apiMessages, game.narrativeModel)
 
@@ -1628,9 +1616,8 @@ async function processGameCommands(game, character, text) {
         }
 
         if (assistantContent && assistantContent.trim()) {
-          const followId = `msg_${Date.now()}_roll_followup_assistant`
           const followMsg = {
-            id: followId,
+            id: `msg_${Date.now()}_roll_followup_assistant`,
             role: "assistant",
             content: assistantContent,
             timestamp: new Date().toISOString(),
@@ -1638,8 +1625,6 @@ async function processGameCommands(game, character, text) {
           }
           game.messages.push(followMsg)
           appendMessage(followMsg)
-
-          // Process any tags emitted in the continuation so state stays in sync
           await processGameCommandsRealtime(game, character, assistantContent, new Set())
         }
       } catch (e) {

@@ -210,6 +210,54 @@ export async function renderGame(state = {}) {
     </nav>
     
     <div class="game-container">
+      <div class="game-main">
+        <div class="card game-main-card">
+          <!-- Enhanced game header with location icon -->
+          <div class="game-header">
+            <h2>${game.title}</h2>
+            <p class="text-secondary text-sm">
+              ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
+            </p>
+          </div>
+
+          <div id="messages-container" class="messages-container">
+            ${renderMessages(game.messages)}
+          </div>
+          
+          <div class="input-container">
+            ${
+              game.suggestedActions && game.suggestedActions.length > 0
+                ? `
+              <div class="suggested-actions">
+                ${game.suggestedActions
+                  .map(
+                    (action) => `
+                  <button class="action-bubble" data-action="${escapeHtml(action)}">
+                    ${escapeHtml(action)}
+                  </button>
+                `,
+                  )
+                  .join("")}
+              </div>
+            `
+                : ""
+            }
+            <form id="chat-form" class="chat-form">
+              <input 
+                type="text" 
+                id="player-input" 
+                class="chat-input"
+                placeholder="What do you do?"
+                ${isStreaming ? "disabled" : ""}
+              >
+              <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
+                ${isStreaming ? "Sending..." : "Send"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <div class="game-sidebar">
         <div class="card">
           <h3>${character.name}</h3>
@@ -283,57 +331,77 @@ export async function renderGame(state = {}) {
           }
         </div>
       </div>
-      
-      <div class="game-main">
-        <div class="card game-main-card">
-          <!-- Enhanced game header with location icon -->
-          <div class="game-header">
-            <h2>${game.title}</h2>
-            <p class="text-secondary text-sm">
-              ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
-            </p>
-          </div>
 
-          <div id="messages-container" class="messages-container">
-            ${renderMessages(game.messages)}
+      <!-- Character + Rolls below chat for fullscreen chat-first layout -->
+      <div class="game-below-chat">
+        <div class="card">
+          <h3>${character.name}</h3>
+          <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
+          
+          <div class="stat-bar mt-2">
+            <div class="flex justify-between mb-1">
+              <span style="font-weight: 500;">HP</span>
+              <span>${game.currentHP}/${character.maxHP}</span>
+            </div>
+            <div class="progress-bar progress-bar-lg">
+              <div
+                class="progress-fill"
+                style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${
+                  game.currentHP > character.maxHP * 0.5
+                    ? "var(--success-color, #4caf50)"
+                    : game.currentHP > character.maxHP * 0.25
+                    ? "var(--warning-color, #ff9800)"
+                    : "var(--error-color, #f44336)"
+                };"
+              ></div>
+            </div>
           </div>
           
-          <div class="input-container">
-            ${
-              game.suggestedActions && game.suggestedActions.length > 0
-                ? `
-              <div class="suggested-actions">
-                ${game.suggestedActions
-                  .map(
-                    (action) => `
-                  <button class="action-bubble" data-action="${escapeHtml(action)}">
-                    ${escapeHtml(action)}
-                  </button>
-                `,
-                  )
-                  .join("")}
-              </div>
-            `
-                : ""
-            }
-            <form id="chat-form" class="chat-form">
-              <input 
-                type="text" 
-                id="player-input" 
-                class="chat-input"
-                placeholder="What do you do?"
-                ${isStreaming ? "disabled" : ""}
-              >
-              <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
-                ${isStreaming ? "Sending..." : "Send"}
-              </button>
-            </form>
+          <div class="flex justify-between mb-3 key-stats">
+            <div><strong>AC</strong><br>${character.armorClass}</div>
+            <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
+            <div><strong>SPD</strong><br>${character.speed}ft</div>
           </div>
-        </div>
-      </div>
+          
+          <div class="stats-grid mt-3">
+            <div class="stat-item">
+              <span class="stat-label">STR</span>
+              <span class="stat-value">${character.stats.strength}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">DEX</span>
+              <span class="stat-value">${character.stats.dexterity}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">CON</span>
+              <span class="stat-value">${character.stats.constitution}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">INT</span>
+              <span class="stat-value">${character.stats.intelligence}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">WIS</span>
+              <span class="stat-value">${character.stats.wisdom}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">CHA</span>
+              <span class="stat-value">${character.stats.charisma}</span>
+            </div>
+          </div>
 
-      <!-- Enhanced roll history panel -->
-      <div class="game-rolls">
+          ${
+            game.combat.active
+              ? `
+            <div class="combat-indicator mt-2">
+              <strong>⚔️ IN COMBAT</strong>
+              <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">Round ${game.combat.round}</p>
+            </div>
+          `
+              : ""
+          }
+        </div>
+
         <div class="card">
           <h3 class="rolls-title">Recent Rolls</h3>
           <div id="roll-history-container" class="roll-history-container">

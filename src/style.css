@@ -731,25 +731,18 @@ a,
   transition-timing-function: ease;
 }
 
-/* Game Layout */
+/* Game Layout - chat fullscreen, panels stacked below */
 .game-container {
-  display: grid;
-  grid-template-columns: 300px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  height: calc(100vh - 60px);
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 900px;
+  margin: 0 auto 2rem;
 }
 
-/* Sidebar */
-.game-sidebar {
-  overflow-y: auto;
-}
-
-/* Main column: ensure flex column and scrolling work correctly */
+/* Main chat column */
 .game-main {
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -758,7 +751,7 @@ a,
 .game-main-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  max-height: calc(100vh - 120px);
 }
 
 /* Game header in main column */
@@ -787,11 +780,14 @@ a,
   min-height: 0; /* critical for proper flexbox scrolling on desktop */
 }
 
-/* Rolls column */
-.game-rolls {
-  overflow-y: auto;
+/* Below-chat layout container (character + rolls stacked) */
+.game-below-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
+/* Rolls title */
 .rolls-title {
   margin-top: 0;
 }

@@ -29,16 +29,10 @@ Use these rules for your follow-up response:
    - If damage or healing should occur, emit DAMAGE[...] or HEAL[...] tags.
    - If combat starts or ends, use COMBAT_START[...] or COMBAT_END[...].
    - If the outcome reveals or changes location, use LOCATION[...].
-   - If new contextual choices arise, emit ACTION[...] tags.
 
-4. Provide strong follow-up actions:
-   - Always include 3–5 ACTION[...] tags tailored to the new situation.
-   - These should be specific, interesting next moves the player could take.
-   - Example patterns:
-     - ACTION[Press the advantage and attack again]
-     - ACTION[Take cover behind the fallen pillar]
-     - ACTION[Question the surviving bandit]
-     - ACTION[Investigate the strange rune circle more closely]
+4. Do NOT emit ACTION[...] tags in this follow-up:
+   - The app may call you again or already has another turn planned.
+   - Focus this response purely on narrating the consequences of the roll.
 
 5. Maintain turn structure with future rolls:
    - If you need another roll, emit the appropriate ROLL[...] tag(s) and END your message.

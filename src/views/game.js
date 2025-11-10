@@ -81,7 +81,7 @@ function renderGameCreator(data) {
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">World Setting *</label>
+          <label class="form-label">World Setting *</label>
           <select id="game-world" required>
             ${data.worlds
               .map(
@@ -218,11 +218,20 @@ export async function renderGame(state = {}) {
           <!-- Enhanced HP display with colored bar -->
           <div class="stat-bar mt-2">
             <div class="flex justify-between mb-1">
-              <span class="font-semibold">HP</span>
+              <span style="font-weight: 500;">HP</span>
               <span>${game.currentHP}/${character.maxHP}</span>
             </div>
             <div class="progress-bar progress-bar-lg">
-              <div class="progress-fill" style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${game.currentHP > character.maxHP * 0.5 ? "var(--success-color, #4caf50)" : game.currentHP > character.maxHP * 0.25 ? "var(--warning-color, #ff9800)" : "var(--error-color, #f44336)"};"></div>
+              <div
+                class="progress-fill"
+                style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${
+                  game.currentHP > character.maxHP * 0.5
+                    ? "var(--success-color, #4caf50)"
+                    : game.currentHP > character.maxHP * 0.25
+                    ? "var(--warning-color, #ff9800)"
+                    : "var(--error-color, #f44336)"
+                };"
+              ></div>
             </div>
           </div>
           
@@ -265,7 +274,7 @@ export async function renderGame(state = {}) {
             game.combat.active
               ? `
             <!-- Enhanced combat indicator -->
-            <div class="combat-indicator">
+            <div class="combat-indicator mt-2">
               <strong>⚔️ IN COMBAT</strong>
               <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">Round ${game.combat.round}</p>
             </div>
@@ -277,9 +286,10 @@ export async function renderGame(state = {}) {
       
       <div class="game-main">
         <div class="card game-main-card">
+          <!-- Enhanced game header with location icon -->
           <div class="game-header">
             <h2>${game.title}</h2>
-            <p class="text-secondary game-location">
+            <p class="text-secondary text-sm">
               ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
             </p>
           </div>
@@ -296,7 +306,7 @@ export async function renderGame(state = {}) {
                 ${game.suggestedActions
                   .map(
                     (action) => `
-                  <button class="action-bubble" data-action="${escapeHtml(action)}" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background-color: var(--muted); cursor: pointer; font-size: 0.875rem; transition: all 0.2s; white-space: nowrap;">
+                  <button class="action-bubble" data-action="${escapeHtml(action)}">
                     ${escapeHtml(action)}
                   </button>
                 `,
@@ -310,8 +320,8 @@ export async function renderGame(state = {}) {
               <input 
                 type="text" 
                 id="player-input" 
-                placeholder="What do you do?" 
                 class="chat-input"
+                placeholder="What do you do?"
                 ${isStreaming ? "disabled" : ""}
               >
               <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
@@ -521,7 +531,7 @@ function renderRollHistory(messages) {
 
 function renderMessages(messages) {
   if (messages.length === 0) {
-    return '<div class="text-center text-secondary" style="padding: 2rem;">Starting your adventure...</div>'
+    return '<div class="text-center text-secondary card-padded-lg">Starting your adventure...</div>'
   }
   return messages.map(renderSingleMessage).join("")
 }
@@ -1645,7 +1655,7 @@ function updateInputContainer(game) {
         ${game.suggestedActions
           .map(
             (action) => `
-          <button class="action-bubble" data-action="${escapeHtml(action)}" style="padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background-color: var(--muted); cursor: pointer; font-size: 0.875rem; transition: all 0.2s; white-space: nowrap;">
+          <button class="action-bubble" data-action="${escapeHtml(action)}">
             ${escapeHtml(action)}
           </button>
         `,
@@ -1659,8 +1669,8 @@ function updateInputContainer(game) {
       <input 
         type="text" 
         id="player-input" 
-        placeholder="What do you do?" 
         class="chat-input"
+        placeholder="What do you do?"
         ${isStreaming ? "disabled" : ""}
       >
       <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>

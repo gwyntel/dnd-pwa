@@ -459,6 +459,14 @@ nav a:hover {
   margin-bottom: 2rem;
 }
 
+/* Simple text size helpers */
+.text-sm {
+  font-size: 0.875rem;
+}
+.text-xs {
+  font-size: 0.75rem;
+}
+
 .flex {
   display: flex;
 }
@@ -467,16 +475,21 @@ nav a:hover {
   flex-direction: column;
 }
 
-.items-center {
-  align-items: center;
-}
-
+.items-center,
 .align-center {
   align-items: center;
 }
 
 .justify-between {
   justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
 }
 
 .gap-1 {
@@ -487,6 +500,84 @@ nav a:hover {
 }
 .gap-3 {
   gap: 1.5rem;
+}
+
+/* Page/layout helpers */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  margin: 0;
+}
+
+.card-center {
+  max-width: 500px;
+  margin: 2rem auto;
+}
+
+.card-padded-xl {
+  padding: 3rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.card-clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.card-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  gap: 0.5rem;
+}
+
+.meta-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.delete-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 /* Responsive */

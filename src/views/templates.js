@@ -24,8 +24,8 @@ export function renderTemplates() {
     </nav>
     
     <div class="container">
-      <div class="flex justify-between align-center mb-3">
-        <h1>Character Templates</h1>
+      <div class="page-header">
+        <h1 class="page-title">Character Templates</h1>
         <a href="/characters" class="btn-secondary">Back</a>
       </div>
       
@@ -44,7 +44,7 @@ export function renderTemplates() {
 
 function renderNoTemplates() {
   return `
-    <div class="card text-center" style="padding: 3rem;">
+    <div class="card text-center card-padded-xl">
       <h2>No Templates Available</h2>
       <p class="text-secondary mb-3">There are no character templates available yet.</p>
       <a href="/characters/new/from-scratch" class="btn">Create from Scratch</a>
@@ -58,15 +58,15 @@ function renderTemplateList(templates) {
       ${templates
         .map(
           (template) => `
-        <div class="card template-card" data-template-id="${template.id}" style="cursor: pointer;">
+        <div class="card template-card card-clickable" data-template-id="${template.id}">
           <h3>${escapeHtml(template.name)}</h3>
           <p class="text-secondary mb-2">${escapeHtml(template.description)}</p>
-          <div class="flex gap-2 mt-2" style="flex-wrap: wrap;">
+          <div class="flex gap-2 mt-2 flex-wrap">
             <span class="badge">Level ${template.level}</span>
             <span class="badge">${template.class}</span>
             <span class="badge">${template.race}</span>
           </div>
-          <div class="mt-3" style="font-size: 0.875rem;">
+          <div class="mt-3 text-sm">
             <div class="flex justify-between">
               <span>STR: ${template.stats.strength}</span>
               <span>DEX: ${template.stats.dexterity}</span>
@@ -78,7 +78,7 @@ function renderTemplateList(templates) {
               <span>CHA: ${template.stats.charisma}</span>
             </div>
           </div>
-          <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--info-color);">Click to use this template →</p>
+          <p class="text-secondary text-sm mt-1">Click to use this template →</p>
         </div>
       `,
         )

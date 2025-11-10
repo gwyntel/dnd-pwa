@@ -24,7 +24,9 @@ export function renderSettings() {
     </nav>
     
     <div class="container">
-      <h1>Settings</h1>
+      <div class="page-header">
+        <h1 class="page-title">Settings</h1>
+      </div>
       
       <div class="card mb-3">
         <h2>Theme</h2>
@@ -51,30 +53,31 @@ export function renderSettings() {
       <div class="card mb-3">
         <h2>Temperature</h2>
         <p class="text-secondary mb-2">Control randomness of AI responses (0 = focused, 2 = creative)</p>
-        <div style="display: flex; align-items: center; gap: 1rem;">
+        <div class="flex align-center gap-2">
           <input 
             type="range" 
             id="temperature-slider" 
             min="0" 
             max="2" 
             step="0.1" 
-            value="${data.settings.temperature || 1.0}" 
-            style="flex: 1;"
+            value="${data.settings.temperature || 1.0}"
           >
-          <span id="temperature-value" style="min-width: 3rem; font-weight: 500;">${(data.settings.temperature || 1.0).toFixed(1)}</span>
+          <span id="temperature-value" class="text-sm" style="min-width: 3rem; font-weight: 500;">${(
+            data.settings.temperature || 1.0
+          ).toFixed(1)}</span>
         </div>
       </div>
       
       <div class="card mb-3">
         <h2>Preferences</h2>
         <div class="mb-2">
-          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <label class="flex align-center gap-1" style="cursor: pointer;">
             <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
             <span>Auto-save game state</span>
           </label>
         </div>
         <div class="mb-2">
-          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <label class="flex align-center gap-1" style="cursor: pointer;">
             <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
             <span>Dice roll animations</span>
           </label>
@@ -91,7 +94,7 @@ export function renderSettings() {
         <div class="flex gap-2">
           <button id="export-btn" class="btn-secondary">Export Data</button>
           <button id="import-btn" class="btn-secondary">Import Data</button>
-          <input type="file" id="import-file" accept=".json" style="display: none;">
+          <input type="file" id="import-file" accept=".json" class="hidden">
         </div>
       </div>
       

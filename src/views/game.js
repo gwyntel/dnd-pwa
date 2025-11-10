@@ -10,6 +10,7 @@ import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequest
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
 import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
+import { buildRollContinuationPrompt } from "../views/prompts/game-roll-continuation-prompt.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -1586,15 +1587,21 @@ async function processGameCommands(game, character, text) {
 
       game.messages.push(rollMessage)
 
-      // Trigger a follow-up narration from the LLM based on this roll result.
-      // This ensures rolls requested via tags are reflected in the story without extra user input.
+      // Build a structured continuation prompt that matches the DM system style:
+      // - Uses the true roll result
+      // - Asks the DM to narrate outcome
+      // - Requires 3-5 ACTION[...] suggestions
       try {
-        const followupPrompt =
-          `System: The player roll result is ${formatRoll(result)}` +
+        const resultText =
+          `The player roll result is ${formatRoll(result)}` +
           (request.dc
             ? ` vs DC ${request.dc}, which is a ${result.total >= request.dc ? "SUCCESS" : "FAILURE"}.`
-            : ".") +
-          " Narrate the outcome and continue the scene in-character. Do not ask for another roll unless needed."
+            : ".")
+        const contextHint = request.notation
+          ? `This roll came from an in-game request: ${request.notation}.`
+          : ""
+
+        const followupPrompt = buildRollContinuationPrompt({ resultText, contextHint })
 
         const narrationUserMessage = {
           id: `msg_${Date.now()}_roll_followup_user`,
@@ -1605,7 +1612,6 @@ async function processGameCommands(game, character, text) {
         }
 
         game.messages.push(narrationUserMessage)
-        // sendMessage will append an assistant message, using the updated messages array as context.
         await sendMessage(game, followupPrompt, data)
       } catch (e) {
         console.warn("[v0] Failed to trigger roll narration follow-up:", e)

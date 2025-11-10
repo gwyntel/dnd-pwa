@@ -34,6 +34,7 @@ export function renderCharacters() {
       </div>
       
       ${data.characters.length === 0 ? renderEmptyState() : renderCharacterList(data.characters)}
+      ${data.characters.length > 0 ? renderTemplatesCta() : ""}
     </div>
   `
 
@@ -70,6 +71,22 @@ function renderEmptyState() {
       <div class="flex gap-2 justify-center flex-wrap">
         <a href="/characters/new" id="from-scratch-link" class="btn">Create with AI or From Scratch</a>
         <a href="/characters/templates" id="template-link" class="btn-secondary">Browse Templates</a>
+      </div>
+    </div>
+  `
+}
+
+function renderTemplatesCta() {
+  return `
+    <div class="card mt-3">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <div>
+          <h2 class="mt-0 mb-1">Start from a Template</h2>
+          <p class="text-secondary text-sm mb-0">
+            Quickly roll a new hero using beginner-friendly presets, even if you already have characters.
+          </p>
+        </div>
+        <a href="/characters/templates" class="btn-secondary">Browse Templates</a>
       </div>
     </div>
   `

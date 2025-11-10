@@ -963,6 +963,23 @@ a,
   width: 100%;
 }
 
+/* Form check (settings/preferences) */
+.form-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.form-check input[type="checkbox"] {
+  margin-top: 0.2rem;
+}
+
+.form-check-label {
+  display: block;
+  line-height: 1.4;
+}
+
 .character-subtitle {
   margin: 0.25rem 0 1rem 0;
 }
@@ -1171,23 +1188,27 @@ a,
 
 /* Badge */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   padding: 0.25rem 0.75rem;
   background-color: var(--bg-tertiary);
   border-radius: 12px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
+  gap: 0.25rem;
 }
 
-/* Template Cards */
+/* Template Cards (used across Templates, Worlds, etc.) */
 .template-card {
   transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
 }
 
 .template-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px var(--shadow-strong);
-  border: 2px solid var(--accent-color);
+  border-color: var(--accent-color);
 }
 
 /* Responsive Game Layout */

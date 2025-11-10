@@ -115,7 +115,7 @@ async function handleAuthCallbackRoute() {
   const app = document.getElementById("app")
 
   app.innerHTML = `
-    <div class="container text-center" style="padding-top: 4rem;">
+    <div class="container text-center" >
       <div class="spinner"></div>
       <p class="mt-3">Completing authentication...</p>
     </div>
@@ -124,7 +124,7 @@ async function handleAuthCallbackRoute() {
   try {
     await handleAuthCallback()
     app.innerHTML = `
-      <div class="container text-center" style="padding-top: 4rem;">
+      <div class="container text-center">
         <h1>✓ Authentication Successful</h1>
         <p class="text-secondary mb-3">Redirecting to home...</p>
       </div>
@@ -136,7 +136,7 @@ async function handleAuthCallbackRoute() {
   } catch (error) {
     console.error("Auth callback error:", error)
     app.innerHTML = `
-      <div class="container text-center" style="padding-top: 4rem;">
+      <div class="container text-center">
         <h1>Authentication Failed</h1>
         <p class="text-secondary mb-3">${error.message}</p>
         <a href="/" class="btn">Return Home</a>

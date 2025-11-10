@@ -71,15 +71,15 @@ export function renderSettings() {
       <div class="card mb-3">
         <h2>Preferences</h2>
         <div class="mb-2">
-          <label class="flex align-center gap-1" style="cursor: pointer;">
+          <label class="form-check">
             <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
-            <span>Auto-save game state</span>
+            <span class="form-check-label">Auto-save game state</span>
           </label>
         </div>
         <div class="mb-2">
-          <label class="flex align-center gap-1" style="cursor: pointer;">
+          <label class="form-check">
             <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
-            <span>Dice roll animations</span>
+            <span class="form-check-label">Dice roll animations</span>
           </label>
         </div>
       </div>

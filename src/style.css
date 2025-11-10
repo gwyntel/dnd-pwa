@@ -658,9 +658,9 @@ a,
 
 /* Main column: ensure flex column and scrolling work correctly */
 .game-main {
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
 /* Card that wraps header/messages/input in game main */

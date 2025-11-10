@@ -651,14 +651,26 @@ a,
   margin: 0 auto;
 }
 
+/* Sidebar */
 .game-sidebar {
   overflow-y: auto;
 }
 
+/* Main column: ensure flex column and scrolling work correctly */
 .game-main {
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
+/* Card that wraps header/messages/input in game main */
+.game-main-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Game header in main column */
 .game-header {
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border-color);
@@ -666,19 +678,39 @@ a,
 }
 
 .game-header h2 {
-  margin-bottom: 0.25rem;
+  margin: 0 0 0.25rem 0;
 }
 
-/* Messages Container */
+/* Chat messages area:
+ * - flex:1 so it fills remaining card height
+ * - overflow-y:auto so it scrolls
+ * - no extra margin/inline styles from JS
+ */
 .messages-container {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
   padding: 1rem;
   margin-bottom: 1rem;
   background-color: var(--bg-primary);
   border-radius: 8px;
-  min-height: 400px;
+  min-height: 0; /* critical for proper flexbox scrolling on desktop */
 }
+
+/* Rolls column */
+.game-rolls {
+  overflow-y: auto;
+}
+
+.rolls-title {
+  margin-top: 0;
+}
+
+.roll-history-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* (replaced by improved game layout / messages styles above) */
 
 .message {
   margin-bottom: 1rem;
@@ -807,6 +839,52 @@ a,
 .input-container {
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
+}
+
+/* Chat input + send button */
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chat-input {
+  flex: 1 1 auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Shared form label / card padding helpers */
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.card-padded-lg {
+  padding: 3rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.character-subtitle {
+  margin: 0.25rem 0 1rem 0;
+}
+
+.key-stats {
+  padding: 0.75rem;
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.progress-bar-lg {
+  height: 24px;
 }
 
 /* Dice Tray */

@@ -49,7 +49,7 @@ export function renderGameList() {
 
 function renderNoCharacters() {
   return `
-    <div class="card text-center" style="padding: 3rem;">
+    <div class="card text-center card-padded-lg">
       <h2>No Characters Available</h2>
       <p class="text-secondary mb-3">You need to create a character before starting a game.</p>
       <a href="/characters/new" class="btn">Create Character</a>
@@ -62,12 +62,12 @@ function renderGameCreator(data) {
     <div class="card">
       <form id="game-form">
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Game Title *</label>
+          <label class="form-label">Game Title *</label>
           <input type="text" id="game-title" required placeholder="Enter adventure title">
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Select Character *</label>
+          <label class="form-label">Select Character *</label>
           <select id="game-character" required>
             <option value="">Choose a character...</option>
             ${data.characters
@@ -93,22 +93,22 @@ function renderGameCreator(data) {
               )
               .join("")}
           </select>
-          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+          <p class="text-secondary mt-1 text-sm">
             <a href="/worlds">Manage worlds</a>
           </p>
         </div>
         
         <div class="mb-3">
-          <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Narrative Model</label>
+          <label class="form-label">Narrative Model</label>
           <select id="game-model">
             <option value="">Use default (${data.settings.defaultNarrativeModel || "not set"})</option>
           </select>
-          <p class="text-secondary mt-1" style="font-size: 0.875rem;">
+          <p class="text-secondary mt-1 text-sm">
             <a href="/models">Change default model</a>
           </p>
         </div>
         
-        <button type="submit" class="btn" style="width: 100%;">Start Adventure</button>
+        <button type="submit" class="btn btn-block">Start Adventure</button>
       </form>
     </div>
   `
@@ -213,51 +213,51 @@ export async function renderGame(state = {}) {
       <div class="game-sidebar">
         <div class="card">
           <h3>${character.name}</h3>
-          <p class="text-secondary" style="margin: 0.25rem 0 1rem 0;">Level ${character.level} ${character.race} ${character.class}</p>
+          <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
           
           <!-- Enhanced HP display with colored bar -->
-          <div class="stat-bar mt-2" style="margin-bottom: 1rem;">
+          <div class="stat-bar mt-2">
             <div class="flex justify-between mb-1">
-              <span style="font-weight: 500;">HP</span>
+              <span class="font-semibold">HP</span>
               <span>${game.currentHP}/${character.maxHP}</span>
             </div>
-            <div class="progress-bar" style="height: 24px; border-radius: 4px; background-color: var(--muted); overflow: hidden;">
-              <div class="progress-fill" style="width: ${(game.currentHP / character.maxHP) * 100}%; height: 100%; background-color: ${game.currentHP > character.maxHP * 0.5 ? "var(--success-color, #4caf50)" : game.currentHP > character.maxHP * 0.25 ? "var(--warning-color, #ff9800)" : "var(--error-color, #f44336)"}; transition: width 0.3s ease;"></div>
+            <div class="progress-bar progress-bar-lg">
+              <div class="progress-fill" style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${game.currentHP > character.maxHP * 0.5 ? "var(--success-color, #4caf50)" : game.currentHP > character.maxHP * 0.25 ? "var(--warning-color, #ff9800)" : "var(--error-color, #f44336)"};"></div>
             </div>
           </div>
           
           <!-- Improved AC and key stats display -->
-          <div class="flex justify-between mb-3" style="padding: 0.75rem; background-color: var(--muted); border-radius: 6px; font-size: 0.875rem;">
+          <div class="flex justify-between mb-3 key-stats">
             <div><strong>AC</strong><br>${character.armorClass}</div>
             <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
             <div><strong>SPD</strong><br>${character.speed}ft</div>
           </div>
           
           <!-- Better organized ability scores grid -->
-          <div class="stats-grid mt-3" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">STR</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.strength}</span>
+          <div class="stats-grid mt-3">
+            <div class="stat-item">
+              <span class="stat-label">STR</span>
+              <span class="stat-value">${character.stats.strength}</span>
             </div>
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">DEX</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.dexterity}</span>
+            <div class="stat-item">
+              <span class="stat-label">DEX</span>
+              <span class="stat-value">${character.stats.dexterity}</span>
             </div>
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">CON</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.constitution}</span>
+            <div class="stat-item">
+              <span class="stat-label">CON</span>
+              <span class="stat-value">${character.stats.constitution}</span>
             </div>
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">INT</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.intelligence}</span>
+            <div class="stat-item">
+              <span class="stat-label">INT</span>
+              <span class="stat-value">${character.stats.intelligence}</span>
             </div>
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">WIS</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.wisdom}</span>
+            <div class="stat-item">
+              <span class="stat-label">WIS</span>
+              <span class="stat-value">${character.stats.wisdom}</span>
             </div>
-            <div class="stat-item" style="text-align: center; padding: 0.5rem; background-color: var(--muted); border-radius: 6px;">
-              <span class="stat-label" style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.25rem;">CHA</span>
-              <span class="stat-value" style="display: block; font-size: 1.125rem; font-weight: bold;">${character.stats.charisma}</span>
+            <div class="stat-item">
+              <span class="stat-label">CHA</span>
+              <span class="stat-value">${character.stats.charisma}</span>
             </div>
           </div>
           
@@ -265,7 +265,7 @@ export async function renderGame(state = {}) {
             game.combat.active
               ? `
             <!-- Enhanced combat indicator -->
-            <div class="combat-indicator" style="margin-top: 1rem; padding: 0.75rem; background-color: var(--destructive); color: white; border-radius: 6px; text-align: center;">
+            <div class="combat-indicator">
               <strong>⚔️ IN COMBAT</strong>
               <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">Round ${game.combat.round}</p>
             </div>
@@ -276,14 +276,15 @@ export async function renderGame(state = {}) {
       </div>
       
       <div class="game-main">
-        <div class="card" style="height: 100%; display: flex; flex-direction: column;">
-          <!-- Enhanced game header with location icon -->
-          <div class="game-header" style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-            <h2 style="margin: 0 0 0.5rem 0;">${game.title}</h2>
-            <p class="text-secondary" style="margin: 0; font-size: 0.9rem;">${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong></p>
+        <div class="card game-main-card">
+          <div class="game-header">
+            <h2>${game.title}</h2>
+            <p class="text-secondary game-location">
+              ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
+            </p>
           </div>
 
-          <div id="messages-container" class="messages-container" style="flex: 1; overflow-y: auto; margin-bottom: 1rem; padding: 0.5rem 0;">
+          <div id="messages-container" class="messages-container">
             ${renderMessages(game.messages)}
           </div>
           
@@ -291,7 +292,7 @@ export async function renderGame(state = {}) {
             ${
               game.suggestedActions && game.suggestedActions.length > 0
                 ? `
-              <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+              <div class="suggested-actions">
                 ${game.suggestedActions
                   .map(
                     (action) => `
@@ -305,12 +306,12 @@ export async function renderGame(state = {}) {
             `
                 : ""
             }
-            <form id="chat-form" style="display: flex; gap: 0.5rem;">
+            <form id="chat-form" class="chat-form">
               <input 
                 type="text" 
                 id="player-input" 
                 placeholder="What do you do?" 
-                style="flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem;"
+                class="chat-input"
                 ${isStreaming ? "disabled" : ""}
               >
               <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>
@@ -324,8 +325,8 @@ export async function renderGame(state = {}) {
       <!-- Enhanced roll history panel -->
       <div class="game-rolls">
         <div class="card">
-          <h3 style="margin-top: 0;">Recent Rolls</h3>
-          <div id="roll-history-container" class="roll-history-container" style="max-height: 400px; overflow-y: auto;">
+          <h3 class="rolls-title">Recent Rolls</h3>
+          <div id="roll-history-container" class="roll-history-container">
             ${renderRollHistory(game.messages)}
           </div>
         </div>
@@ -1640,7 +1641,7 @@ function updateInputContainer(game) {
     ${
       game.suggestedActions && game.suggestedActions.length > 0
         ? `
-      <div class="suggested-actions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+      <div class="suggested-actions">
         ${game.suggestedActions
           .map(
             (action) => `
@@ -1654,12 +1655,12 @@ function updateInputContainer(game) {
     `
         : ""
     }
-    <form id="chat-form" style="display: flex; gap: 0.5rem;">
+    <form id="chat-form" class="chat-form">
       <input 
         type="text" 
         id="player-input" 
         placeholder="What do you do?" 
-        style="flex: 1; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem;"
+        class="chat-input"
         ${isStreaming ? "disabled" : ""}
       >
       <button type="submit" class="btn" ${isStreaming ? "disabled" : ""}>

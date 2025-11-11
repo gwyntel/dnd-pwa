@@ -1129,16 +1129,16 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       continue
     }
 
+    const key = parts[1] || ""
+    const third = parts[2] || ""
+    const adv = parseAdv(parts[3])
+
     console.log("[dice][ROLL] Processing semantic roll tag", {
       kind,
       key,
       tagKey,
       willCreateFollowup: true,
     })
-
-    const key = parts[1] || ""
-    const third = parts[2] || ""
-    const adv = parseAdv(parts[3])
 
     if (kind === "skill") {
       const dc = parseDC(third)

@@ -237,8 +237,10 @@ function renderModelsList(currentModel) {
           <div class="model-detail">
             <span class="detail-label">Features:</span>
             <span class="detail-value">
-              ${supportsStructured ? "✅ Structured Outputs" : "—"}
+              ${supportsStructured ? "✅ Structured Outputs" : ""}
+              ${model.supportsReasoning ? " 🧠 Reasoning" : ""}
               ${isNitroModel(model.id) ? " ⚡ Nitro" : ""}
+              ${!supportsStructured && !model.supportsReasoning && !isNitroModel(model.id) ? "—" : ""}
             </span>
           </div>
           <div class="model-detail">

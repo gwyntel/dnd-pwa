@@ -88,6 +88,63 @@ export function renderSettings() {
         </p>
       </div>
       
+      ${currentModel?.supportsReasoning ? `
+      <div class="card mb-3" id="reasoning-settings">
+        <h2>Reasoning Settings</h2>
+        <p class="text-secondary mb-2">Configure reasoning/thinking tokens for models that support it</p>
+        
+        <div class="mb-2">
+          <label class="form-check">
+            <input type="checkbox" id="reasoning-enabled-check" ${data.settings.reasoning?.enabled ? "checked" : ""}>
+            <span class="form-check-label">Enable Reasoning</span>
+          </label>
+          <p class="text-secondary text-xs mt-1">Allow the model to show its reasoning process</p>
+        </div>
+        
+        <div id="reasoning-options" style="display: ${data.settings.reasoning?.enabled ? "block" : "none"}">
+          <div class="mb-2">
+            <label for="reasoning-mode-select" class="text-sm font-weight-500">Reasoning Mode:</label>
+            <select id="reasoning-mode-select" class="mt-1">
+              <option value="effort" ${!data.settings.reasoning?.mode || data.settings.reasoning?.mode === "effort" ? "selected" : ""}>Effort Level</option>
+              <option value="max_tokens" ${data.settings.reasoning?.mode === "max_tokens" ? "selected" : ""}>Max Tokens</option>
+            </select>
+          </div>
+          
+          <div id="reasoning-effort-container" style="display: ${!data.settings.reasoning?.mode || data.settings.reasoning?.mode === "effort" ? "block" : "none"}">
+            <label for="reasoning-effort-select" class="text-sm font-weight-500">Effort Level:</label>
+            <select id="reasoning-effort-select" class="mt-1">
+              <option value="low" ${data.settings.reasoning?.effort === "low" ? "selected" : ""}>Low (~20% of max tokens)</option>
+              <option value="medium" ${!data.settings.reasoning?.effort || data.settings.reasoning?.effort === "medium" ? "selected" : ""}>Medium (~50% of max tokens)</option>
+              <option value="high" ${data.settings.reasoning?.effort === "high" ? "selected" : ""}>High (~80% of max tokens)</option>
+            </select>
+            <p class="text-secondary text-xs mt-1">Higher effort allows more detailed reasoning but costs more tokens</p>
+          </div>
+          
+          <div id="reasoning-max-tokens-container" style="display: ${data.settings.reasoning?.mode === "max_tokens" ? "block" : "none"}">
+            <label for="reasoning-max-tokens-input" class="text-sm font-weight-500">Max Reasoning Tokens:</label>
+            <input 
+              type="number" 
+              id="reasoning-max-tokens-input" 
+              min="100" 
+              max="32000" 
+              placeholder="2000"
+              value="${data.settings.reasoning?.maxTokens || ""}"
+              class="mt-1"
+            >
+            <p class="text-secondary text-xs mt-1">Specific token limit for reasoning (100-32000)</p>
+          </div>
+          
+          <div class="mb-2 mt-2">
+            <label class="form-check">
+              <input type="checkbox" id="reasoning-exclude-check" ${data.settings.reasoning?.exclude ? "checked" : ""}>
+              <span class="form-check-label">Hide Reasoning from Response</span>
+            </label>
+            <p class="text-secondary text-xs mt-1">Model will still use reasoning internally but won't show it</p>
+          </div>
+        </div>
+      </div>
+      ` : ""}
+      
       <div class="card mb-3">
         <h2>Preferences</h2>
         <div class="mb-2">
@@ -216,6 +273,58 @@ export function renderSettings() {
   document.getElementById("select-model-btn").addEventListener("click", () => {
     navigateTo("/models")
   })
+
+  // Reasoning settings event listeners (only if reasoning settings exist)
+  if (currentModel?.supportsReasoning) {
+    // Initialize reasoning settings if not present
+    if (!data.settings.reasoning) {
+      data.settings.reasoning = {
+        enabled: false,
+        mode: "effort",
+        effort: "medium",
+        maxTokens: null,
+        exclude: false
+      }
+    }
+
+    document.getElementById("reasoning-enabled-check").addEventListener("change", (e) => {
+      data.settings.reasoning.enabled = e.target.checked
+      document.getElementById("reasoning-options").style.display = e.target.checked ? "block" : "none"
+      saveData(data)
+    })
+
+    document.getElementById("reasoning-mode-select").addEventListener("change", (e) => {
+      data.settings.reasoning.mode = e.target.value
+      document.getElementById("reasoning-effort-container").style.display = e.target.value === "effort" ? "block" : "none"
+      document.getElementById("reasoning-max-tokens-container").style.display = e.target.value === "max_tokens" ? "block" : "none"
+      saveData(data)
+    })
+
+    document.getElementById("reasoning-effort-select").addEventListener("change", (e) => {
+      data.settings.reasoning.effort = e.target.value
+      saveData(data)
+    })
+
+    document.getElementById("reasoning-max-tokens-input").addEventListener("change", (e) => {
+      const value = e.target.value.trim()
+      const numValue = value ? Number.parseInt(value, 10) : null
+      
+      if (numValue && (numValue < 100 || numValue > 32000)) {
+        showMessage("Reasoning tokens must be between 100 and 32000", "error")
+        e.target.value = Math.max(100, Math.min(32000, numValue || 2000))
+        data.settings.reasoning.maxTokens = Number.parseInt(e.target.value, 10)
+      } else {
+        data.settings.reasoning.maxTokens = numValue
+      }
+      
+      saveData(data)
+    })
+
+    document.getElementById("reasoning-exclude-check").addEventListener("change", (e) => {
+      data.settings.reasoning.exclude = e.target.checked
+      saveData(data)
+    })
+  }
 }
 
 function applyTheme(theme) {

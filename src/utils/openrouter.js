@@ -228,6 +228,29 @@ export async function sendChatCompletion(messages, model, options = {}) {
     if (options.frequency_penalty) payload.frequency_penalty = options.frequency_penalty
     if (options.presence_penalty) payload.presence_penalty = options.presence_penalty
 
+    // Add reasoning configuration if enabled in settings
+    if (data.settings.reasoning?.enabled) {
+      const reasoning = {}
+      
+      if (data.settings.reasoning.mode === "effort") {
+        // Use effort level (OpenAI-style)
+        reasoning.effort = data.settings.reasoning.effort || "medium"
+      } else if (data.settings.reasoning.mode === "max_tokens" && data.settings.reasoning.maxTokens) {
+        // Use max_tokens (Anthropic-style)
+        reasoning.max_tokens = data.settings.reasoning.maxTokens
+      } else {
+        // Default to enabled with medium effort
+        reasoning.enabled = true
+      }
+      
+      // Add exclude flag if set
+      if (data.settings.reasoning.exclude) {
+        reasoning.exclude = true
+      }
+      
+      payload.reasoning = reasoning
+    }
+
     const response = await makeRequest("/chat/completions", {
       method: "POST",
       body: JSON.stringify(payload),

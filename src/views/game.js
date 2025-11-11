@@ -873,8 +873,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
     let idx = findIndex()
     if (idx === -1 && deltaQty > 0) {
+      // New item - just add it with the specified quantity
       game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
-      idx = findIndex()
+      return { name, oldQty: 0, newQty: deltaQty, equipped: false }
     }
 
     if (idx === -1) {

@@ -162,6 +162,8 @@ async function createGame() {
     createdAt: new Date().toISOString(),
     lastPlayedAt: new Date().toISOString(),
     totalPlayTime: 0,
+    totalCost: 0,
+    totalTokens: 0,
   }
 
   data.games.push(game)
@@ -753,6 +755,11 @@ async function sendMessage(game, userText, data) {
       // Capture usage info from chunk
       if (chunk.usage) {
         currentUsage = extractUsage(chunk)
+        // Update cumulative totals
+        if (!gameRef.totalCost) gameRef.totalCost = 0
+        if (!gameRef.totalTokens) gameRef.totalTokens = 0
+        gameRef.totalCost += currentUsage.cost
+        gameRef.totalTokens += currentUsage.totalTokens
         updateUsageDisplay(gameRef, data)
       }
       
@@ -1667,6 +1674,20 @@ function buildSystemPrompt(character, game) {
 
 function renderUsageStats(game, data) {
   if (!currentUsage) {
+    // Show cumulative stats if available, even without current usage
+    if (game.totalCost > 0 || game.totalTokens > 0) {
+      const totalCostDisplay = game.totalCost > 0 ? `$${game.totalCost.toFixed(4)}` : '$0.0000'
+      return `
+        <div style="display: flex; gap: 1rem; align-items: center; justify-content: flex-end;">
+          <span title="Total tokens used in this game">
+            Total tokens: ${game.totalTokens.toLocaleString()}
+          </span>
+          <span title="Total API cost for this game session">
+            Total cost: ${totalCostDisplay}
+          </span>
+        </div>
+      `
+    }
     return '<span style="opacity: 0.5;">Waiting for response...</span>'
   }
 
@@ -1677,18 +1698,20 @@ function renderUsageStats(game, data) {
   // Calculate context percentage
   const contextPercent = Math.min(100, Math.round((currentUsage.totalTokens / contextLength) * 100))
   
-  // Format cost (convert from credits to dollars if needed)
-  const costDisplay = currentUsage.cost > 0 
-    ? `$${currentUsage.cost.toFixed(4)}`
-    : '$0.0000'
+  // Format costs
+  const currentCostDisplay = currentUsage.cost > 0 ? `$${currentUsage.cost.toFixed(4)}` : '$0.0000'
+  const totalCostDisplay = game.totalCost > 0 ? `$${game.totalCost.toFixed(4)}` : '$0.0000'
   
   return `
-    <div style="display: flex; gap: 1rem; align-items: center; justify-content: flex-end;">
-      <span title="Context window usage">
+    <div style="display: flex; gap: 1rem; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+      <span title="Context window usage for current response">
         Context: ${contextPercent}% (${currentUsage.totalTokens.toLocaleString()}/${contextLength.toLocaleString()} tokens)
       </span>
-      <span title="API cost for this response">
-        Cost: ${costDisplay}
+      <span title="API cost for current response">
+        This: ${currentCostDisplay}
+      </span>
+      <span title="Total API cost for this game session" style="font-weight: 500;">
+        Total: ${totalCostDisplay}
       </span>
     </div>
   `

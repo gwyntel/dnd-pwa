@@ -435,11 +435,69 @@ function renderSingleMessage(msg) {
   const messageHTML = `
     <div class="${className}" data-msg-id="${msg.id}">
       <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
+      ${msg.reasoning ? renderReasoningSection(msg.reasoning, msg.id) : ""}
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
     </div>
   `
   return messageHTML
+}
+
+function renderReasoningSection(reasoning, msgId) {
+  if (!reasoning || !reasoning.trim()) return ""
+  
+  return `
+    <div class="reasoning-section" data-reasoning-for="${msgId}">
+      <button class="reasoning-toggle" onclick="toggleReasoning('${msgId}')">
+        <span class="reasoning-icon">🧠</span>
+        <span class="reasoning-label">Show Reasoning</span>
+      </button>
+      <div class="reasoning-content" style="display: none;">
+        ${parseMarkdown(escapeHtml(reasoning))}
+      </div>
+    </div>
+  `
+}
+
+function updateReasoningDisplay(messageElement, reasoning) {
+  if (!messageElement || !reasoning) return
+  
+  let reasoningSection = messageElement.querySelector('.reasoning-section')
+  
+  if (!reasoningSection) {
+    // Create reasoning section if it doesn't exist
+    const msgId = messageElement.getAttribute('data-msg-id')
+    const contentElement = messageElement.querySelector('.message-content')
+    if (contentElement) {
+      const reasoningHTML = renderReasoningSection(reasoning, msgId)
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = reasoningHTML
+      contentElement.after(tempDiv.firstChild)
+      reasoningSection = messageElement.querySelector('.reasoning-section')
+    }
+  }
+  
+  if (reasoningSection) {
+    const reasoningContent = reasoningSection.querySelector('.reasoning-content')
+    if (reasoningContent) {
+      reasoningContent.innerHTML = parseMarkdown(escapeHtml(reasoning))
+    }
+  }
+}
+
+// Global function for reasoning toggle (called from onclick)
+window.toggleReasoning = function(msgId) {
+  const section = document.querySelector(`[data-reasoning-for="${msgId}"]`)
+  if (!section) return
+  
+  const content = section.querySelector('.reasoning-content')
+  const label = section.querySelector('.reasoning-label')
+  
+  if (!content || !label) return
+  
+  const isHidden = content.style.display === 'none'
+  content.style.display = isHidden ? 'block' : 'none'
+  label.textContent = isHidden ? 'Hide Reasoning' : 'Show Reasoning'
 }
 
 function createRollMetadata(extra = {}) {
@@ -761,6 +819,21 @@ async function sendMessage(game, userText, data) {
         gameRef.totalCost += currentUsage.cost
         gameRef.totalTokens += currentUsage.totalTokens
         updateUsageDisplay(gameRef, data)
+      }
+      
+      // Capture reasoning from chunk
+      const reasoning = chunk.choices?.[0]?.delta?.reasoning
+      if (reasoning) {
+        if (!gameRef.messages[assistantMsgIndex].reasoning) {
+          gameRef.messages[assistantMsgIndex].reasoning = ""
+        }
+        gameRef.messages[assistantMsgIndex].reasoning += reasoning
+        
+        // Update the reasoning display in real-time
+        const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+        if (streamingMsgElement) {
+          updateReasoningDisplay(streamingMsgElement, gameRef.messages[assistantMsgIndex].reasoning)
+        }
       }
       
       const delta = chunk.choices?.[0]?.delta?.content

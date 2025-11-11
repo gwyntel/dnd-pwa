@@ -116,6 +116,13 @@ function renderModelSelector(data) {
             value="${searchQuery}"
           >
         </div>
+
+        <p class="text-secondary text-xs mb-2">
+          Stuck? Check top roleplay models on the 
+          <a href="https://openrouter.ai/rankings?category=roleplay#categories" target="_blank" rel="noopener noreferrer">
+            OpenRouter leaderboard
+          </a>.
+        </p>
         
         <div class="flex gap-2 mb-2 flex-wrap">
           <select id="provider-filter" class="provider-filter">

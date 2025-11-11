@@ -727,7 +727,12 @@ async function sendMessage(game, userText, data) {
 
         const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
         if (newMessages.length > 0) {
-          if (newMessages.some((msg) => msg.hidden && msg.role === "user")) {
+          const hiddenUserMsgs = newMessages.filter((msg) => msg.hidden && msg.role === "user")
+          if (hiddenUserMsgs.length > 0) {
+            console.log("[dice][ROLL] Found hidden user messages, setting hasFollowup=true", {
+              count: hiddenUserMsgs.length,
+              ids: hiddenUserMsgs.map((m) => m.id),
+            })
             hasFollowup = true
           }
           newMessages.forEach((msg) => {
@@ -755,7 +760,11 @@ async function sendMessage(game, userText, data) {
     gameRef.messages[assistantMsgIndex].content = assistantMessage
     saveData(data)
     updateInputContainer(gameRef)
+    
+    console.log("[dice][ROLL] Streaming complete, hasFollowup=", hasFollowup)
+    
     if (hasFollowup) {
+      console.log("[dice][ROLL] Triggering follow-up narration")
       await sendMessage(gameRef, "System: dice roll followup", data)
     }
   } catch (error) {
@@ -1124,6 +1133,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     const third = parts[2] || ""
     const adv = parseAdv(parts[3])
 
+    console.log("[dice][ROLL] Processing semantic roll tag", {
+      kind,
+      key,
+      tagKey,
+      willCreateFollowup: true,
+    })
+
     if (kind === "skill") {
       const dc = parseDC(third)
       const result = rollSkillCheck(character, key, { dc, ...adv })
@@ -1159,6 +1175,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         timestamp: new Date().toISOString(),
         hidden: true,
       }
+
+      console.log("[dice][ROLL] Created skill roll followup", {
+        rollMsgId: rollMsg.id,
+        followupMsgId: followUserMsg.id,
+        hidden: followUserMsg.hidden,
+        role: followUserMsg.role,
+      })
 
       newMessages.push(rollMsg)
       followupMessages.push(followUserMsg)
@@ -1198,6 +1221,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         timestamp: new Date().toISOString(),
         hidden: true,
       }
+
+      console.log("[dice][ROLL] Created save roll followup", {
+        rollMsgId: rollMsg.id,
+        followupMsgId: followUserMsg.id,
+        hidden: followUserMsg.hidden,
+        role: followUserMsg.role,
+      })
 
       newMessages.push(rollMsg)
       followupMessages.push(followUserMsg)
@@ -1255,6 +1285,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         timestamp: new Date().toISOString(),
         hidden: true,
       }
+
+      console.log("[dice][ROLL] Created attack roll followup", {
+        rollMsgId: rollMsg.id,
+        followupMsgId: followUserMsg.id,
+        hidden: followUserMsg.hidden,
+        role: followUserMsg.role,
+      })
 
       newMessages.push(rollMsg)
       followupMessages.push(followUserMsg)
@@ -1430,6 +1467,10 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
   // Attach any follow-up hidden user messages for semantic roll summaries
   if (followupMessages.length > 0) {
+    console.log("[dice][ROLL] Adding followup messages to newMessages", {
+      followupCount: followupMessages.length,
+      followupIds: followupMessages.map((m) => m.id),
+    })
     newMessages.push(...followupMessages)
   }
 

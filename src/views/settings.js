@@ -10,6 +10,10 @@ export function renderSettings() {
   const app = document.getElementById("app")
   const data = loadData()
   const storageInfo = getStorageInfo()
+  
+  // Get current model's max completion tokens
+  const currentModel = (data.models || []).find(m => m.id === data.settings.defaultNarrativeModel)
+  const maxTokensLimit = currentModel?.maxCompletionTokens || 128000
 
   app.innerHTML = `
     <nav>
@@ -66,6 +70,22 @@ export function renderSettings() {
             data.settings.temperature || 1.0
           ).toFixed(1)}</span>
         </div>
+      </div>
+      
+      <div class="card mb-3">
+        <h2>Max Tokens</h2>
+        <p class="text-secondary mb-2">Maximum number of tokens to generate (leave blank for model default)</p>
+        <input 
+          type="number" 
+          id="max-tokens-input" 
+          min="1" 
+          max="${maxTokensLimit}" 
+          placeholder="Model default"
+          value="${data.settings.maxTokens || ""}"
+        >
+        <p class="text-secondary text-xs mt-1">
+          ${currentModel ? `Model limit: ${maxTokensLimit.toLocaleString()} tokens. ` : ""}Higher values allow longer responses but may cost more.
+        </p>
       </div>
       
       <div class="card mb-3">
@@ -128,6 +148,22 @@ export function renderSettings() {
     const value = Number.parseFloat(e.target.value)
     document.getElementById("temperature-value").textContent = value.toFixed(1)
     data.settings.temperature = value
+    saveData(data)
+  })
+
+  document.getElementById("max-tokens-input").addEventListener("change", (e) => {
+    const value = e.target.value.trim()
+    const numValue = value ? Number.parseInt(value, 10) : null
+    
+    // Validate against model's max completion tokens
+    if (numValue && currentModel?.maxCompletionTokens && numValue > currentModel.maxCompletionTokens) {
+      showMessage(`Max tokens limited to ${currentModel.maxCompletionTokens.toLocaleString()} for this model`, "error")
+      e.target.value = currentModel.maxCompletionTokens
+      data.settings.maxTokens = currentModel.maxCompletionTokens
+    } else {
+      data.settings.maxTokens = numValue
+    }
+    
     saveData(data)
   })
 

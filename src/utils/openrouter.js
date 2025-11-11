@@ -113,6 +113,7 @@ export async function fetchModels() {
       id: model.id,
       name: model.name || model.id,
       contextLength: model.context_length,
+      maxCompletionTokens: model.top_provider?.max_completion_tokens || null,
       pricing: {
         prompt: model.pricing?.prompt || 0,
         completion: model.pricing?.completion || 0,
@@ -135,6 +136,7 @@ export async function sendChatCompletion(messages, model, options = {}) {
   try {
     const data = loadData()
     const temperature = options.temperature !== undefined ? options.temperature : data.settings.temperature || 1.0
+    const maxTokens = options.max_tokens !== undefined ? options.max_tokens : data.settings.maxTokens || null
 
     if (!messages || messages.length === 0) {
       throw new Error("Messages array cannot be empty")
@@ -187,6 +189,9 @@ export async function sendChatCompletion(messages, model, options = {}) {
       messages: validMessages,
       stream: true,
       temperature,
+      usage: {
+        include: true,
+      },
     }
 
     // Optional system message support (kept for backwards compatibility)
@@ -218,7 +223,7 @@ export async function sendChatCompletion(messages, model, options = {}) {
     }
 
     // Only add specific supported options if provided
-    if (options.max_tokens) payload.max_tokens = options.max_tokens
+    if (maxTokens) payload.max_tokens = maxTokens
     if (options.top_p) payload.top_p = options.top_p
     if (options.frequency_penalty) payload.frequency_penalty = options.frequency_penalty
     if (options.presence_penalty) payload.presence_penalty = options.presence_penalty
@@ -329,14 +334,23 @@ export function extractUsage(data) {
     promptTokens: usage.prompt_tokens || 0,
     completionTokens: usage.completion_tokens || 0,
     reasoningTokens: usage.completion_tokens_details?.reasoning_tokens || 0,
+    cachedTokens: usage.prompt_tokens_details?.cached_tokens || 0,
     totalTokens: usage.total_tokens || 0,
+    cost: usage.cost || 0,
+    upstreamCost: usage.cost_details?.upstream_inference_cost || 0,
   }
 }
 
 /**
- * Calculate cost based on model pricing and usage
+ * Calculate cost based on model pricing and usage (fallback if API doesn't provide cost)
  */
 export function calculateCost(usage, pricing) {
+  // If usage already has cost from API, use that
+  if (usage.cost && usage.cost > 0) {
+    return usage.cost
+  }
+  
+  // Otherwise calculate from pricing
   const promptCost = (usage.promptTokens / 1000000) * pricing.prompt
   const completionCost = (usage.completionTokens / 1000000) * pricing.completion
   return promptCost + completionCost

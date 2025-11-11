@@ -673,6 +673,7 @@ async function sendMessage(game, userText, data) {
 
   const rawCharacter = data.characters.find((c) => c.id === gameRef.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
+  let hasFollowup = false
 
   try {
     const apiMessages = gameRef.messages
@@ -726,6 +727,9 @@ async function sendMessage(game, userText, data) {
 
         const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
         if (newMessages.length > 0) {
+          if (newMessages.some((msg) => msg.hidden && msg.role === "user")) {
+            hasFollowup = true
+          }
           newMessages.forEach((msg) => {
             gameRef.messages.push(msg)
             // Hidden follow-up summary messages (for semantic rolls) should not render, others should.
@@ -751,6 +755,9 @@ async function sendMessage(game, userText, data) {
     gameRef.messages[assistantMsgIndex].content = assistantMessage
     saveData(data)
     updateInputContainer(gameRef)
+    if (hasFollowup) {
+      await sendMessage(gameRef, "System: dice roll followup", data)
+    }
   } catch (error) {
     console.error("[v0] Error sending message:", error)
     const errorMessage = error.message || "An unknown error occurred"
@@ -766,16 +773,18 @@ async function sendMessage(game, userText, data) {
     appendMessage(errorMsg)
     saveData(data)
   } finally {
-    isStreaming = false
-    const input = document.getElementById("player-input")
-    const submitButton = document.querySelector('#chat-form button[type="submit"]')
-    if (input) {
-      input.disabled = false
-      input.focus()
-    }
-    if (submitButton) {
-      submitButton.disabled = false
-      submitButton.textContent = "Send"
+    if (!hasFollowup) {
+      isStreaming = false
+      const input = document.getElementById("player-input")
+      const submitButton = document.querySelector('#chat-form button[type="submit"]')
+      if (input) {
+        input.disabled = false
+        input.focus()
+      }
+      if (submitButton) {
+        submitButton.disabled = false
+        submitButton.textContent = "Send"
+      }
     }
   }
 }

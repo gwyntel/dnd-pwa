@@ -5,7 +5,7 @@
 
 import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
+import { sendChatCompletion, parseStreamingResponse, extractUsage } from "../utils/openrouter.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
@@ -13,6 +13,7 @@ import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
 
 let currentGameId = null
 let isStreaming = false
+let currentUsage = null
 
 export function renderGameList() {
   const app = document.getElementById("app")
@@ -215,12 +216,17 @@ export async function renderGame(state = {}) {
     <div class="game-container">
       <div class="game-main">
         <div class="card game-main-card">
-          <!-- Enhanced game header with location icon -->
+          <!-- Enhanced game header with location icon and usage stats -->
           <div class="game-header">
-            <h2>${game.title}</h2>
-            <p class="text-secondary text-sm">
-              ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
-            </p>
+            <div>
+              <h2>${game.title}</h2>
+              <p class="text-secondary text-sm">
+                ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
+              </p>
+            </div>
+            <div id="usage-stats" class="usage-stats" style="text-align: right; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+              ${renderUsageStats(game, data)}
+            </div>
           </div>
 
           <div id="messages-container" class="messages-container">
@@ -744,6 +750,12 @@ async function sendMessage(game, userText, data) {
     })
 
     for await (const chunk of parseStreamingResponse(response)) {
+      // Capture usage info from chunk
+      if (chunk.usage) {
+        currentUsage = extractUsage(chunk)
+        updateUsageDisplay(gameRef, data)
+      }
+      
       const delta = chunk.choices?.[0]?.delta?.content
       if (delta) {
         assistantMessage += delta
@@ -1651,6 +1663,42 @@ function buildSystemPrompt(character, game) {
   const data = loadData()
   const world = data.worlds.find((w) => w.id === game.worldId)
   return buildGameDMPrompt(character, game, world)
+}
+
+function renderUsageStats(game, data) {
+  if (!currentUsage) {
+    return '<span style="opacity: 0.5;">Waiting for response...</span>'
+  }
+
+  // Get current model info
+  const currentModel = (data.models || []).find(m => m.id === game.narrativeModel)
+  const contextLength = currentModel?.contextLength || 128000
+  
+  // Calculate context percentage
+  const contextPercent = Math.min(100, Math.round((currentUsage.totalTokens / contextLength) * 100))
+  
+  // Format cost (convert from credits to dollars if needed)
+  const costDisplay = currentUsage.cost > 0 
+    ? `$${currentUsage.cost.toFixed(4)}`
+    : '$0.0000'
+  
+  return `
+    <div style="display: flex; gap: 1rem; align-items: center; justify-content: flex-end;">
+      <span title="Context window usage">
+        Context: ${contextPercent}% (${currentUsage.totalTokens.toLocaleString()}/${contextLength.toLocaleString()} tokens)
+      </span>
+      <span title="API cost for this response">
+        Cost: ${costDisplay}
+      </span>
+    </div>
+  `
+}
+
+function updateUsageDisplay(game, data) {
+  const usageStatsEl = document.getElementById("usage-stats")
+  if (usageStatsEl) {
+    usageStatsEl.innerHTML = renderUsageStats(game, data)
+  }
 }
 
 function escapeHtml(text) {

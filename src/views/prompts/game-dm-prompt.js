@@ -191,13 +191,41 @@ Never:
    - amount: number only
    - Example: "You drink the potion. HEAL[player|10]"
 
-8. **ACTION[action_text]** - Suggest contextual actions
-   - Format: ACTION[Search the room]
-   - Provide 3-5 contextual action suggestions
-   - Actions should be specific to the current situation
-   - Examples: ACTION[Attack the goblin], ACTION[Search for traps], ACTION[Talk to the merchant]
-   - Place all ACTION tags together in your response
-   - These will appear as clickable buttons for the player
+8. **INVENTORY_ADD[item|quantity]** - Add items to player inventory
+   - Format: INVENTORY_ADD[Health Potion|2] or INVENTORY_ADD[Rusty Key]
+   - quantity is optional (defaults to 1)
+   - Use when player finds, buys, or receives items
+   - Example: "You find a INVENTORY_ADD[Torch|3] on the shelf"
+
+9. **INVENTORY_REMOVE[item|quantity]** - Remove/consume items from inventory
+   - Format: INVENTORY_REMOVE[Health Potion|1] or INVENTORY_REMOVE[Torch]
+   - quantity is optional (defaults to 1)
+   - Use when player uses, sells, or loses items
+   - Example: "You drink the potion. INVENTORY_REMOVE[Health Potion]"
+
+10. **INVENTORY_EQUIP[item]** - Mark an item as equipped
+    - Format: INVENTORY_EQUIP[Leather Armor]
+    - Use when player equips weapons, armor, or accessories
+    - Example: "You don the armor. INVENTORY_EQUIP[Leather Armor]"
+
+11. **INVENTORY_UNEQUIP[item]** - Mark an item as unequipped
+    - Format: INVENTORY_UNEQUIP[Leather Armor]
+    - Use when player removes equipped items
+    - Example: "You remove the armor. INVENTORY_UNEQUIP[Leather Armor]"
+
+12. **GOLD_CHANGE[delta]** - Modify player's gold
+    - Format: GOLD_CHANGE[50] for gaining gold or GOLD_CHANGE[-25] for losing gold
+    - Use when player buys, sells, finds, or loses money
+    - Example: "The merchant accepts your offer. GOLD_CHANGE[-30]"
+    - Example: "You find GOLD_CHANGE[100] in the chest!"
+
+13. **ACTION[action_text]** - Suggest contextual actions
+    - Format: ACTION[Search the room]
+    - Provide 3-5 contextual action suggestions
+    - Actions should be specific to the current situation
+    - Examples: ACTION[Attack the goblin], ACTION[Search for traps], ACTION[Talk to the merchant]
+    - Place all ACTION tags together in your response
+    - These will appear as clickable buttons for the player
 
 **Formatting Rules:**
 - Use **bold** for emphasis: **important text**

@@ -118,7 +118,8 @@ export async function fetchModels() {
         prompt: model.pricing?.prompt || 0,
         completion: model.pricing?.completion || 0,
       },
-      supportsReasoning: model.supports_reasoning || false,
+      supportsReasoning: model.supported_parameters?.includes('reasoning') || 
+                        model.supported_parameters?.includes('include_reasoning') || false,
       // OpenRouter models advertise supported parameters; use this to gate structured outputs
       supportedParameters: model.supported_parameters || [],
       provider: model.id.split("/")[0] || "unknown",

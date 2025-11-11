@@ -1499,6 +1499,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
   if (needsUIUpdate) {
     updateInputContainer(game)
+    updateInventoryDisplay(game)
   }
 
   // Attach any follow-up hidden user messages for semantic roll summaries
@@ -1661,6 +1662,35 @@ function updateRollHistory(game) {
   const rollHistoryContainer = document.getElementById("roll-history-container")
   if (!rollHistoryContainer) return
   rollHistoryContainer.innerHTML = renderRollHistory(game.messages || [])
+}
+
+function updateInventoryDisplay(game) {
+  const inventoryCard = document.querySelector(".card h3")
+  if (!inventoryCard) return
+  
+  // Find the inventory card (the one with "Currency & Inventory" heading)
+  const cards = document.querySelectorAll(".game-below-chat .card")
+  let inventoryCardElement = null
+  
+  for (const card of cards) {
+    const heading = card.querySelector("h3")
+    if (heading && heading.textContent.includes("Currency & Inventory")) {
+      inventoryCardElement = card
+      break
+    }
+  }
+  
+  if (!inventoryCardElement) return
+  
+  const gold = game.currency && typeof game.currency.gp === "number" ? game.currency.gp : 0
+  
+  inventoryCardElement.innerHTML = `
+    <h3>💰 Currency & Inventory</h3>
+    <div class="mb-2">
+      <strong>Gold:</strong> ${gold} gp
+    </div>
+    ${renderInventory(game.inventory)}
+  `
 }
 
 function setupRollHistoryToggle() {

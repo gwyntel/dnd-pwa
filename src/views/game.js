@@ -196,6 +196,9 @@ export async function renderGame(state = {}) {
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
 
+  // Get gold value
+  const gold = game.currency && typeof game.currency.gp === "number" ? game.currency.gp : 0
+
   const app = document.getElementById("app")
   app.innerHTML = `
     <nav>
@@ -333,6 +336,14 @@ export async function renderGame(state = {}) {
           <div id="roll-history-container" class="roll-history-container">
             ${renderRollHistory(game.messages)}
           </div>
+        </div>
+
+        <div class="card">
+          <h3>💰 Currency & Inventory</h3>
+          <div class="mb-2">
+            <strong>Gold:</strong> ${gold} gp
+          </div>
+          ${renderInventory(game.inventory)}
         </div>
       </div>
     </div>
@@ -528,6 +539,31 @@ function renderMessages(messages) {
     return '<div class="text-center text-secondary card-padded-lg">Starting your adventure...</div>'
   }
   return messages.map(renderSingleMessage).join("")
+}
+
+function renderInventory(inventory) {
+  if (!Array.isArray(inventory) || inventory.length === 0) {
+    return '<div class="text-secondary" style="font-size: 0.875rem;">No items</div>'
+  }
+
+  return `
+    <div style="max-height: 200px; overflow-y: auto;">
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        ${inventory
+          .map((item) => {
+            const name = item.item || "Unknown"
+            const qty = typeof item.quantity === "number" ? item.quantity : 1
+            const equipped = item.equipped ? " 🛡️" : ""
+            return `
+              <li style="padding: 0.25rem 0; font-size: 0.875rem; border-bottom: 1px solid var(--border-color, #e0e0e0);">
+                <span style="font-weight: 500;">${qty}x</span> ${escapeHtml(name)}${equipped}
+              </li>
+            `
+          })
+          .join("")}
+      </ul>
+    </div>
+  `
 }
 
 function stripTags(text) {

@@ -1736,8 +1736,8 @@ function updateInputContainer(game) {
   }
 
   // Ensure roll history stays updated when suggested actions / input change
-  if (gameRef) {
-    updateRollHistory(gameRef)
+  if (game) {
+    updateRollHistory(game)
   }
 
   document.querySelectorAll(".action-bubble").forEach((bubble) => {

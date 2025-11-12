@@ -1724,11 +1724,18 @@ function renderUsageDisplay(game) {
   const usage = game.cumulativeUsage
   const hasCost = usage.totalCost > 0
 
+  // Get model context length to calculate percentage
+  const data = loadData()
+  const models = data.models || []
+  const currentModel = models.find((m) => m.id === game.narrativeModel)
+  const contextLength = currentModel?.contextLength || 128000 // Default fallback
+  const contextPercent = ((usage.totalTokens / contextLength) * 100).toFixed(1)
+
   return `
     <div class="usage-stats">
       <div class="usage-stat">
         <span class="usage-stat-label">Context</span>
-        <span class="usage-stat-value">${usage.totalTokens.toLocaleString()}</span>
+        <span class="usage-stat-value">${contextPercent}%</span>
       </div>
       ${
         hasCost

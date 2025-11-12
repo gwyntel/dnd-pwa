@@ -46,10 +46,9 @@ export function renderSettings() {
       <div class="card mb-3">
         <h2>Default Model</h2>
         <p class="text-secondary mb-2">Choose your default narrative model</p>
-        <button id="select-model-btn" class="btn-secondary">
+        <button id="select-model-btn" class="btn-secondary" style="width: 100%;">
           ${data.settings.defaultNarrativeModel || "Select Model"}
         </button>
-        <p id="model-reasoning-support" class="text-xs text-secondary mt-1"></p>
       </div>
       
       <div class="card mb-3" id="reasoning-settings-card" style="display: none;">
@@ -229,22 +228,17 @@ export function renderSettings() {
 }
 
 async function initializeReasoningSettings(data) {
-  const infoEl = document.getElementById("model-reasoning-support")
   const cardEl = document.getElementById("reasoning-settings-card")
-  if (!infoEl || !cardEl) return
+  if (!cardEl) return
 
   const selectedId = data.settings.defaultNarrativeModel
 
   console.log("[Reasoning] Initializing reasoning settings for model:", selectedId)
 
   if (!selectedId) {
-    infoEl.textContent = "No model selected."
     cardEl.style.display = "none"
     return
   }
-
-  // Show loading state
-  infoEl.textContent = "Checking model capabilities..."
 
   // First, try to find the model in cached data.models
   let model = null
@@ -264,7 +258,6 @@ async function initializeReasoningSettings(data) {
   if (!model) {
     try {
       console.log("[Reasoning] Fetching fresh model list from OpenRouter...")
-      infoEl.textContent = "Loading model information..."
       
       // Fetch models to get the latest metadata
       const fetchedModels = await fetchModels()
@@ -282,7 +275,6 @@ async function initializeReasoningSettings(data) {
       }
     } catch (error) {
       console.error("[Reasoning] Error fetching models for reasoning check:", error)
-      infoEl.textContent = "Unable to load model metadata. Please try again later."
       cardEl.style.display = "none"
       return
     }
@@ -290,7 +282,6 @@ async function initializeReasoningSettings(data) {
 
   if (!model) {
     console.log("[Reasoning] Model not found in OpenRouter API")
-    infoEl.textContent = "Selected model not found in OpenRouter API."
     cardEl.style.display = "none"
     return
   }
@@ -299,13 +290,9 @@ async function initializeReasoningSettings(data) {
 
   if (model.supportsReasoning) {
     console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
-    infoEl.textContent = "✅ This model supports reasoning tokens."
-    infoEl.style.color = "var(--success-color, #10b981)"
     cardEl.style.display = "block"
   } else {
     console.log("[Reasoning] ❌ Model does not support reasoning tokens - hiding settings card")
-    infoEl.textContent = "This model does not advertise reasoning token support."
-    infoEl.style.color = ""
     cardEl.style.display = "none"
   }
 

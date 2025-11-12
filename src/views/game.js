@@ -720,7 +720,17 @@ async function sendMessage(game, userText, data) {
       throw new Error("Messages array cannot be empty - check the openrouter docs for chat completions please")
     }
 
-    const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel)
+    // Pass reasoning options to API if configured
+    const reasoningOptions = {}
+    if (data.settings.reasoning) {
+      reasoningOptions.reasoningEnabled = data.settings.reasoning.enabled
+      reasoningOptions.reasoningEffort = data.settings.reasoning.effort
+      reasoningOptions.reasoningSummary = data.settings.reasoning.summary
+      // TODO: Could check if model supports reasoning from fetchModels() data
+      // For now, let openrouter.js handle it conservatively
+    }
+
+    const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
 
     let assistantMessage = ""
     let reasoningBuffer = ""

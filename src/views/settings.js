@@ -83,6 +83,15 @@ export function renderSettings() {
             <option value="detailed">Detailed</option>
           </select>
         </div>
+
+        <div class="mb-2">
+          <label class="form-check">
+            <input type="checkbox" id="reasoning-display-check">
+            <span class="form-check-label">
+              Show 🧠 reasoning panel above the game input when available
+            </span>
+          </label>
+        </div>
         
         <p class="text-xs text-secondary">
           These options are only applied when the selected model supports reasoning tokens via OpenRouter.
@@ -303,12 +312,14 @@ async function initializeReasoningSettings(data) {
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
   const summarySelect = document.getElementById("reasoning-summary-select")
+  const displayCheck = document.getElementById("reasoning-display-check")
 
-  if (!enabledCheck || !effortSelect || !summarySelect) return
+  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
 
   enabledCheck.checked = !!rs.enabled
   effortSelect.value = rs.effort || ""
   summarySelect.value = rs.summary || ""
+  displayCheck.checked = !!rs.displayPanel
 }
 
 function setupReasoningSettingsHandlers(data) {
@@ -318,12 +329,14 @@ function setupReasoningSettingsHandlers(data) {
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
   const summarySelect = document.getElementById("reasoning-summary-select")
+  const displayCheck = document.getElementById("reasoning-display-check")
 
-  if (!enabledCheck || !effortSelect || !summarySelect) return
+  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
 
   const persist = () => {
     const reasoning = {
-      enabled: enabledCheck.checked
+      enabled: enabledCheck.checked,
+      displayPanel: displayCheck.checked,
     }
 
     // Only include effort/summary if enabled and values are set
@@ -343,6 +356,7 @@ function setupReasoningSettingsHandlers(data) {
   enabledCheck.addEventListener("change", persist)
   effortSelect.addEventListener("change", persist)
   summarySelect.addEventListener("change", persist)
+  displayCheck.addEventListener("change", persist)
 }
 
 function applyTheme(theme) {

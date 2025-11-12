@@ -928,6 +928,71 @@ a,
   border-top: 1px solid var(--border-color);
 }
 
+/* Reasoning panel above chat input */
+.reasoning-panel {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.reasoning-panel-hidden {
+  opacity: 0.75;
+}
+
+.reasoning-details {
+  width: 100%;
+}
+
+.reasoning-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  list-style: none;
+}
+
+.reasoning-summary::marker {
+  content: "";
+}
+
+.reasoning-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reasoning-tokens {
+  font-size: 0.75rem;
+  color: var(--accent-color);
+}
+
+.reasoning-tokens-muted {
+  color: var(--text-tertiary);
+}
+
+.reasoning-body {
+  margin-top: 0.35rem;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  padding-right: 0.25rem;
+}
+
+.reasoning-empty {
+  font-style: italic;
+}
+
+/* Ensure reasoning text reads well in dark theme */
+[data-theme="dark"] .reasoning-panel {
+  background-color: var(--bg-tertiary);
+}
+
 /* Chat input + send button */
 .chat-form {
   display: flex;
@@ -963,17 +1028,21 @@ a,
 .form-check {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 0.5rem;
   cursor: pointer;
 }
 
 .form-check input[type="checkbox"] {
   margin-top: 0.2rem;
+  order: 2;
 }
 
 .form-check-label {
   display: block;
   line-height: 1.4;
+  flex: 1;
+  order: 1;
 }
 
 .character-subtitle {

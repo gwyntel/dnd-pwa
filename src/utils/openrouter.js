@@ -109,20 +109,23 @@ export async function fetchModels() {
     const data = await response.json()
 
     // Transform model data for easier use
-    return data.data.map((model) => ({
-      id: model.id,
-      name: model.name || model.id,
-      contextLength: model.context_length,
-      pricing: {
-        prompt: model.pricing?.prompt || 0,
-        completion: model.pricing?.completion || 0,
-      },
-      // Whether this model advertises support for the unified `reasoning` API
-      supportsReasoning: model.supports_reasoning || false,
-      // OpenRouter models advertise supported parameters; use this to gate structured outputs and other features
-      supportedParameters: model.supported_parameters || [],
-      provider: model.id.split("/")[0] || "unknown",
-    }))
+    return data.data.map((model) => {
+      const supportedParameters = model.supported_parameters || []
+      return {
+        id: model.id,
+        name: model.name || model.id,
+        contextLength: model.context_length,
+        pricing: {
+          prompt: model.pricing?.prompt || 0,
+          completion: model.pricing?.completion || 0,
+        },
+        // Check if model supports reasoning by looking for "reasoning" in supported_parameters array
+        supportsReasoning: supportedParameters.includes("reasoning"),
+        // OpenRouter models advertise supported parameters; use this to gate structured outputs and other features
+        supportedParameters: supportedParameters,
+        provider: model.id.split("/")[0] || "unknown",
+      }
+    })
   } catch (error) {
     console.error("Error fetching models:", error)
     throw error

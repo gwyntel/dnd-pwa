@@ -768,7 +768,7 @@ async function sendMessage(game, userText, data) {
       }
     }
 
-    await processGameCommands(gameRef, character, assistantMessage)
+    await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
     // Attach final reasoning metadata (if any)
@@ -1459,7 +1459,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   return newMessages
 }
 
-async function processGameCommands(game, character, text) {
+async function processGameCommands(game, character, text, processedTags = new Set()) {
   const data = loadData()
 
   // This is a fallback - most processing should happen in real-time
@@ -1590,11 +1590,15 @@ async function processGameCommands(game, character, text) {
 
   // Process roll requests - legacy numeric ROLL[...] only.
   // Semantic ROLL tags are handled in processGameCommandsRealtime during streaming.
-  // Legacy numeric:
-  // Ignore semantic-style tags (skill/save/attack) here; they are handled in processGameCommandsRealtime.
+  // Skip any rolls that were already processed during streaming (tracked in processedTags).
   const rollRequests = parseRollRequests(text).filter((request) => {
     const head = (request.notation || "").toLowerCase().trim()
-    return head !== "skill" && head !== "save" && head !== "attack"
+    // Filter out semantic tags AND already-processed tags
+    if (head === "skill" || head === "save" || head === "attack") return false
+    
+    // Check if this roll was already processed during streaming
+    const tagKey = `roll_${request.fullMatch}`
+    return !processedTags.has(tagKey)
   })
 
   if (rollRequests.length > 0) {

@@ -777,14 +777,6 @@ async function sendMessage(game, userText, data) {
           messagesContainer.scrollTop = messagesContainer.scrollHeight
         }
 
-        // Update reasoning panel live while streaming
-        if (reasoningPanelEnabled && lastReasoningText) {
-          updateReasoningPanel({
-            reasoning: lastReasoningText,
-            tokens: lastReasoningTokens,
-          })
-        }
-
         const gameHeader = document.querySelector(".game-header p")
         if (gameHeader) {
           gameHeader.textContent = `${getLocationIcon(gameRef.currentLocation)} ${gameRef.currentLocation}`
@@ -808,17 +800,6 @@ async function sendMessage(game, userText, data) {
 
     saveData(data)
     updateInputContainer(gameRef)
-
-    // Final reasoning panel update after stream completes
-    if (reasoningPanelEnabled && lastReasoningText) {
-      updateReasoningPanel({
-        reasoning: lastReasoningText,
-        tokens: lastReasoningTokens,
-      })
-    } else {
-      // Clear panel when no reasoning is present or disabled
-      updateReasoningPanel(null)
-    }
   } catch (error) {
     console.error("[v0] Error sending message:", error)
     const errorMessage = error.message || "An unknown error occurred"
@@ -1714,44 +1695,7 @@ function updateInputContainer(game) {
   const inputContainer = document.querySelector(".input-container")
   if (!inputContainer) return
 
-  const data = loadData()
-  const gameRef = data.games.find((g) => g.id === currentGameId)
-  const reasoningPanelEnabled = !!data.settings?.reasoning?.displayPanel
-  const latestAssistantWithReasoning =
-    gameRef &&
-    [...gameRef.messages]
-      .reverse()
-      .find((m) => m.role === "assistant" && m.metadata && m.metadata.reasoning)
-
-  const reasoning = latestAssistantWithReasoning?.metadata?.reasoning || ""
-  const reasoningTokens = latestAssistantWithReasoning?.metadata?.reasoningTokens || 0
-
   inputContainer.innerHTML = `
-    ${
-      reasoningPanelEnabled
-        ? `
-      <div id="reasoning-panel-root" class="reasoning-panel ${reasoning ? "" : "reasoning-panel-hidden"}">
-        <details class="reasoning-details" ${reasoning ? "" : "open"}>
-          <summary class="reasoning-summary">
-            🧠 Reasoning
-            ${
-              reasoningTokens
-                ? `<span class="reasoning-tokens">(${reasoningTokens} tokens)</span>`
-                : `<span class="reasoning-tokens reasoning-tokens-muted">(collapsed)</span>`
-            }
-          </summary>
-          <div class="reasoning-body">
-            ${
-              reasoning
-                ? escapeHtml(reasoning).replace(/\n/g, "<br>")
-                : '<span class="reasoning-empty text-secondary">No reasoning available for the latest response.</span>'
-            }
-          </div>
-        </details>
-      </div>
-    `
-        : ""
-    }
     ${
       game.suggestedActions && game.suggestedActions.length > 0
         ? `
@@ -1810,52 +1754,6 @@ function updateInputContainer(game) {
   })
 
   setupRollHistoryToggle()
-}
-
-/**
- * Update the reasoning display panel above the input.
- * Pass null/undefined to hide/clear the panel.
- */
-function updateReasoningPanel(payload) {
-  const root = document.querySelector(".input-container")
-  if (!root) return
-
-  const panel = root.querySelector("#reasoning-panel-root")
-  if (!panel) return
-
-  if (!payload || !payload.reasoning) {
-    panel.classList.add("reasoning-panel-hidden")
-    const body = panel.querySelector(".reasoning-body")
-    const tokensEl = panel.querySelector(".reasoning-tokens")
-    if (body) {
-      body.innerHTML =
-        '<span class="reasoning-empty text-secondary">No reasoning available for the latest response.</span>'
-    }
-    if (tokensEl) {
-      tokensEl.textContent = "(collapsed)"
-      tokensEl.classList.add("reasoning-tokens-muted")
-    }
-    return
-  }
-
-  panel.classList.remove("reasoning-panel-hidden")
-
-  const body = panel.querySelector(".reasoning-body")
-  const tokensEl = panel.querySelector(".reasoning-tokens")
-
-  if (body) {
-    body.innerHTML = escapeHtml(payload.reasoning).replace(/\n/g, "<br>")
-  }
-
-  if (tokensEl) {
-    if (payload.tokens && payload.tokens > 0) {
-      tokensEl.textContent = `(${payload.tokens} tokens)`
-      tokensEl.classList.remove("reasoning-tokens-muted")
-    } else {
-      tokensEl.textContent = "(reasoning)"
-      tokensEl.classList.add("reasoning-tokens-muted")
-    }
-  }
 }
 
 // Renamed function to avoid redeclaration

@@ -1028,21 +1028,20 @@ a,
 .form-check {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 1rem;
   cursor: pointer;
+  padding: 0.5rem 0;
 }
 
 .form-check input[type="checkbox"] {
   margin-top: 0.2rem;
-  order: 2;
+ flex-shrink: 0;
 }
 
 .form-check-label {
   display: block;
-  line-height: 1.4;
+  line-height: 1.5;
   flex: 1;
-  order: 1;
 }
 
 .character-subtitle {

@@ -413,8 +413,34 @@ function renderSingleMessage(msg) {
     return ""
   }
 
+  // Check if this message has reasoning content
+  const hasReasoning = msg.role === "assistant" && msg.metadata?.reasoning
+  const reasoning = hasReasoning ? msg.metadata.reasoning : ""
+  const reasoningTokens = msg.metadata?.reasoningTokens || 0
+
   const messageHTML = `
     <div class="${className}" data-msg-id="${msg.id}">
+      ${
+        hasReasoning
+          ? `
+      <div class="message-reasoning">
+        <details class="reasoning-details">
+          <summary class="reasoning-summary">
+            🧠 Reasoning
+            ${
+              reasoningTokens
+                ? `<span class="reasoning-tokens">(${reasoningTokens} tokens)</span>`
+                : ""
+            }
+          </summary>
+          <div class="reasoning-body">
+            ${escapeHtml(reasoning).replace(/\n/g, "<br>")}
+          </div>
+        </details>
+      </div>
+      `
+          : ""
+      }
       <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}

@@ -59,8 +59,8 @@ export function renderSettings() {
         
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="reasoning-enabled-check">
             <span class="form-check-label">Enable reasoning</span>
+            <input type="checkbox" id="reasoning-enabled-check">
           </label>
         </div>
         
@@ -86,10 +86,10 @@ export function renderSettings() {
 
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="reasoning-display-check">
             <span class="form-check-label">
               Show 🧠 reasoning panel above the game input when available
             </span>
+            <input type="checkbox" id="reasoning-display-check">
           </label>
         </div>
         
@@ -120,14 +120,14 @@ export function renderSettings() {
         <h2>Preferences</h2>
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
             <span class="form-check-label">Auto-save game state</span>
+            <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
           </label>
         </div>
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
             <span class="form-check-label">Dice roll animations</span>
+            <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
           </label>
         </div>
       </div>

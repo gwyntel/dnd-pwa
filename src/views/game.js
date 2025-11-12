@@ -212,12 +212,17 @@ export async function renderGame(state = {}) {
     <div class="game-container">
       <div class="game-main">
         <div class="card game-main-card">
-          <!-- Enhanced game header with location icon -->
+          <!-- Enhanced game header with location icon and usage -->
           <div class="game-header">
-            <h2>${game.title}</h2>
-            <p class="text-secondary text-sm">
-              ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
-            </p>
+            <div class="game-header-left">
+              <h2>${game.title}</h2>
+              <p class="text-secondary text-sm">
+                ${getLocationIcon(game.currentLocation)} <strong>${game.currentLocation}</strong>
+              </p>
+            </div>
+            <div id="usage-display" class="usage-display">
+              ${renderUsageDisplay(game)}
+            </div>
           </div>
 
           <div id="messages-container" class="messages-container">
@@ -418,11 +423,6 @@ function renderSingleMessage(msg) {
   const reasoning = hasReasoning ? msg.metadata.reasoning : ""
   const reasoningTokens = msg.metadata?.reasoningTokens || 0
 
-  // Check if this message has usage data
-  const hasUsage = msg.role === "assistant" && msg.metadata?.usage
-  const usage = hasUsage ? msg.metadata.usage : null
-  const cost = msg.metadata?.cost
-
   const messageHTML = `
     <div class="${className}" data-msg-id="${msg.id}">
       ${
@@ -449,26 +449,6 @@ function renderSingleMessage(msg) {
       <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
-      ${
-        hasUsage
-          ? `
-      <div class="message-usage">
-        <span class="usage-label">Tokens:</span>
-        <span class="usage-value">${usage.promptTokens} prompt</span>
-        <span class="usage-separator">•</span>
-        <span class="usage-value">${usage.completionTokens} completion</span>
-        ${
-          usage.reasoningTokens > 0
-            ? `<span class="usage-separator">•</span><span class="usage-value">${usage.reasoningTokens} reasoning</span>`
-            : ""
-        }
-        <span class="usage-separator">•</span>
-        <span class="usage-value">${usage.totalTokens} total</span>
-        ${cost ? `<span class="usage-separator">•</span><span class="usage-cost">$${cost.toFixed(6)}</span>` : ""}
-      </div>
-      `
-          : ""
-      }
     </div>
   `
   return messageHTML
@@ -725,6 +705,17 @@ async function sendMessage(game, userText, data) {
   const rawCharacter = data.characters.find((c) => c.id === gameRef.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
 
+  // Initialize cumulative usage if not present
+  if (!gameRef.cumulativeUsage) {
+    gameRef.cumulativeUsage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 0,
+      totalCost: 0,
+    }
+  }
+
   // Reasoning panel configuration
   const reasoningPanelEnabled = !!data.settings?.reasoning?.displayPanel
   let lastReasoningText = ""
@@ -830,7 +821,7 @@ async function sendMessage(game, userText, data) {
     await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
-    // Attach final reasoning and usage metadata (if any)
+    // Attach final reasoning metadata (if any)
     const metadata = gameRef.messages[assistantMsgIndex].metadata || {}
     
     if (lastReasoningText) {
@@ -838,21 +829,30 @@ async function sendMessage(game, userText, data) {
       metadata.reasoningTokens = lastReasoningTokens || undefined
     }
 
+    if (Object.keys(metadata).length > 0) {
+      gameRef.messages[assistantMsgIndex].metadata = metadata
+    }
+
+    // Update cumulative usage if we have usage data
     if (lastUsageData) {
       const usage = extractUsage({ usage: lastUsageData })
-      metadata.usage = usage
+      
+      // Add to cumulative totals
+      gameRef.cumulativeUsage.promptTokens += usage.promptTokens
+      gameRef.cumulativeUsage.completionTokens += usage.completionTokens
+      gameRef.cumulativeUsage.reasoningTokens += usage.reasoningTokens
+      gameRef.cumulativeUsage.totalTokens += usage.totalTokens
 
-      // Calculate cost if we have model pricing
+      // Calculate and add cost
       const models = data.models || []
       const currentModel = models.find((m) => m.id === gameRef.narrativeModel)
       if (currentModel && currentModel.pricing) {
         const cost = calculateCost(usage, currentModel.pricing)
-        metadata.cost = cost
+        gameRef.cumulativeUsage.totalCost += cost
       }
-    }
 
-    if (Object.keys(metadata).length > 0) {
-      gameRef.messages[assistantMsgIndex].metadata = metadata
+      // Update the usage display in the header
+      updateUsageDisplay(gameRef)
     }
 
     saveData(data)
@@ -1714,6 +1714,41 @@ function buildSystemPrompt(character, game) {
   const data = loadData()
   const world = data.worlds.find((w) => w.id === game.worldId)
   return buildGameDMPrompt(character, game, world)
+}
+
+function renderUsageDisplay(game) {
+  if (!game.cumulativeUsage || game.cumulativeUsage.totalTokens === 0) {
+    return ""
+  }
+
+  const usage = game.cumulativeUsage
+  const hasCost = usage.totalCost > 0
+
+  return `
+    <div class="usage-stats">
+      <div class="usage-stat">
+        <span class="usage-stat-label">Context</span>
+        <span class="usage-stat-value">${usage.totalTokens.toLocaleString()}</span>
+      </div>
+      ${
+        hasCost
+          ? `
+      <div class="usage-stat usage-cost-stat">
+        <span class="usage-stat-label">Cost</span>
+        <span class="usage-stat-value">$${usage.totalCost.toFixed(4)}</span>
+      </div>
+      `
+          : ""
+      }
+    </div>
+  `
+}
+
+function updateUsageDisplay(game) {
+  const usageDisplay = document.getElementById("usage-display")
+  if (usageDisplay) {
+    usageDisplay.innerHTML = renderUsageDisplay(game)
+  }
 }
 
 function escapeHtml(text) {

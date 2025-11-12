@@ -109,21 +109,23 @@ export async function fetchModels() {
     const data = await response.json()
 
     // Transform model data for easier use
-    return data.data.map((model) => ({
-      id: model.id,
-      name: model.name || model.id,
-      contextLength: model.context_length,
-      maxCompletionTokens: model.top_provider?.max_completion_tokens || null,
-      pricing: {
-        prompt: model.pricing?.prompt || 0,
-        completion: model.pricing?.completion || 0,
-      },
-      supportsReasoning: model.supported_parameters?.includes('reasoning') || 
-                        model.supported_parameters?.includes('include_reasoning') || false,
-      // OpenRouter models advertise supported parameters; use this to gate structured outputs
-      supportedParameters: model.supported_parameters || [],
-      provider: model.id.split("/")[0] || "unknown",
-    }))
+    return data.data.map((model) => {
+      const supportedParameters = model.supported_parameters || []
+      return {
+        id: model.id,
+        name: model.name || model.id,
+        contextLength: model.context_length,
+        pricing: {
+          prompt: model.pricing?.prompt || 0,
+          completion: model.pricing?.completion || 0,
+        },
+        // Check if model supports reasoning by looking for "reasoning" in supported_parameters array
+        supportsReasoning: supportedParameters.includes("reasoning"),
+        // OpenRouter models advertise supported parameters; use this to gate structured outputs and other features
+        supportedParameters: supportedParameters,
+        provider: model.id.split("/")[0] || "unknown",
+      }
+    })
   } catch (error) {
     console.error("Error fetching models:", error)
     throw error
@@ -137,7 +139,6 @@ export async function sendChatCompletion(messages, model, options = {}) {
   try {
     const data = loadData()
     const temperature = options.temperature !== undefined ? options.temperature : data.settings.temperature || 1.0
-    const maxTokens = options.max_tokens !== undefined ? options.max_tokens : data.settings.maxTokens || null
 
     if (!messages || messages.length === 0) {
       throw new Error("Messages array cannot be empty")
@@ -190,9 +191,62 @@ export async function sendChatCompletion(messages, model, options = {}) {
       messages: validMessages,
       stream: true,
       temperature,
-      usage: {
-        include: true,
-      },
+    }
+
+    // Unified reasoning token controls per OpenRouter API spec.
+    // IMPORTANT:
+    // - Only attach `reasoning` for models that advertise supports_reasoning (supportsReasoning),
+    //   or when the caller explicitly passes a reasoning object and has validated support.
+    // - This avoids sending unsupported reasoning parameters to models like some DeepSeek/OSS models.
+    const attachReasoning = (() => {
+      // Explicit override: if caller passes `options.reasoning`, assume they know the model supports it.
+      if (options.reasoning) return true
+
+      // If caller provides alias options, try to gate using known model metadata when available.
+      if (
+        options.reasoningEffort !== undefined ||
+        options.reasoningSummary !== undefined ||
+        options.reasoningEnabled !== undefined
+      ) {
+        // If options.modelSupportsReasoning is provided by caller, respect it.
+        if (typeof options.modelSupportsReasoning === "boolean") {
+          return options.modelSupportsReasoning
+        }
+
+        // Otherwise, be conservative: do NOT auto-attach for unknown models.
+        // Callers should pass `modelSupportsReasoning` based on fetchModels() metadata.
+        return false
+      }
+
+      return false
+    })()
+
+    if (attachReasoning) {
+      if (options.reasoning) {
+        // Pass through the reasoning object as-is if provided by caller
+        payload.reasoning = options.reasoning
+      } else {
+        // Build reasoning object from alias options according to API spec
+        const reasoning = {}
+        
+        // Only include reasoning parameters if reasoning is enabled (or if no enabled flag is set)
+        const isReasoningEnabled = options.reasoningEnabled !== false
+        
+        if (isReasoningEnabled) {
+          if (options.reasoningEffort) {
+            // API spec: reasoning.effort can be "minimal", "low", "medium", "high"
+            reasoning.effort = options.reasoningEffort
+          }
+          if (options.reasoningSummary) {
+            // API spec: reasoning.summary can be "auto", "concise", "detailed"
+            reasoning.summary = options.reasoningSummary
+          }
+        }
+
+        if (Object.keys(reasoning).length > 0) {
+          payload.reasoning = reasoning
+        }
+      }
     }
 
     // Optional system message support (kept for backwards compatibility)
@@ -224,33 +278,10 @@ export async function sendChatCompletion(messages, model, options = {}) {
     }
 
     // Only add specific supported options if provided
-    if (maxTokens) payload.max_tokens = maxTokens
+    if (options.max_tokens) payload.max_tokens = options.max_tokens
     if (options.top_p) payload.top_p = options.top_p
     if (options.frequency_penalty) payload.frequency_penalty = options.frequency_penalty
     if (options.presence_penalty) payload.presence_penalty = options.presence_penalty
-
-    // Add reasoning configuration if enabled in settings
-    if (data.settings.reasoning?.enabled) {
-      const reasoning = {}
-      
-      if (data.settings.reasoning.mode === "effort") {
-        // Use effort level (OpenAI-style)
-        reasoning.effort = data.settings.reasoning.effort || "medium"
-      } else if (data.settings.reasoning.mode === "max_tokens" && data.settings.reasoning.maxTokens) {
-        // Use max_tokens (Anthropic-style)
-        reasoning.max_tokens = data.settings.reasoning.maxTokens
-      } else {
-        // Default to enabled with medium effort
-        reasoning.enabled = true
-      }
-      
-      // Add exclude flag if set
-      if (data.settings.reasoning.exclude) {
-        reasoning.exclude = true
-      }
-      
-      payload.reasoning = reasoning
-    }
 
     const response = await makeRequest("/chat/completions", {
       method: "POST",
@@ -358,23 +389,14 @@ export function extractUsage(data) {
     promptTokens: usage.prompt_tokens || 0,
     completionTokens: usage.completion_tokens || 0,
     reasoningTokens: usage.completion_tokens_details?.reasoning_tokens || 0,
-    cachedTokens: usage.prompt_tokens_details?.cached_tokens || 0,
     totalTokens: usage.total_tokens || 0,
-    cost: usage.cost || 0,
-    upstreamCost: usage.cost_details?.upstream_inference_cost || 0,
   }
 }
 
 /**
- * Calculate cost based on model pricing and usage (fallback if API doesn't provide cost)
+ * Calculate cost based on model pricing and usage
  */
 export function calculateCost(usage, pricing) {
-  // If usage already has cost from API, use that
-  if (usage.cost && usage.cost > 0) {
-    return usage.cost
-  }
-  
-  // Otherwise calculate from pricing
   const promptCost = (usage.promptTokens / 1000000) * pricing.prompt
   const completionCost = (usage.completionTokens / 1000000) * pricing.completion
   return promptCost + completionCost

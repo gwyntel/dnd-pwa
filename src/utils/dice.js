@@ -373,9 +373,29 @@ export function formatRoll(result) {
 }
 
 /**
- * Legacy parseRollRequests has been removed.
- * Modern flow uses semantic ROLL tags (skill/save/attack) handled directly in game.js.
+ * Parse roll requests from LLM output.
+ * Keeps existing behavior for backward compatibility.
+ *
+ * @param {string} text - Text containing ROLL[...] markers
+ * @returns {Array} Array of roll requests
  */
+export function parseRollRequests(text) {
+  const regex = /ROLL\[([^\]]+)\]/g;
+  const requests = [];
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const parts = match[1].split("|");
+    requests.push({
+      notation: parts[0],
+      type: parts[1] || "normal",
+      dc: parts[2] ? parseInt(parts[2], 10) : null,
+      fullMatch: match[0],
+    });
+  }
+
+  return requests;
+}
 
 /**
  * Check if roll meets or exceeds DC

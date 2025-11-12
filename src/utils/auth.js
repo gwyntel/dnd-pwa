@@ -11,10 +11,6 @@ const CALLBACK_URL = window.location.origin + "/auth/callback"
 const TOKEN_KEY = "openrouter_access_token"
 const CODE_VERIFIER_KEY = "pkce_code_verifier"
 
-// Persistent storage keys
-const PERSISTENT_TOKEN_KEY = "openrouter_persistent_token"
-const HAS_AUTHENTICATED_KEY = "openrouter_has_authenticated"
-
 /**
  * Generate random string for PKCE code verifier
  */
@@ -112,14 +108,6 @@ export async function handleAuthCallback() {
     // Store API key in session storage
     sessionStorage.setItem(TOKEN_KEY, data.key)
 
-    // Persist token + flag for future sessions so we can auto-dismiss sign-in
-    try {
-      localStorage.setItem(PERSISTENT_TOKEN_KEY, data.key)
-      localStorage.setItem(HAS_AUTHENTICATED_KEY, "true")
-    } catch (e) {
-      console.warn("Persistent auth storage failed:", e)
-    }
-
     // Clean up
     sessionStorage.removeItem(CODE_VERIFIER_KEY)
 
@@ -134,22 +122,7 @@ export async function handleAuthCallback() {
  * Get current access token
  */
 export function getAccessToken() {
-  // Prefer in-memory/session token
-  const sessionToken = sessionStorage.getItem(TOKEN_KEY)
-  if (sessionToken) return sessionToken
-
-  // Fallback to persistent token if available, and hydrate session
-  try {
-    const persistentToken = localStorage.getItem(PERSISTENT_TOKEN_KEY)
-    if (persistentToken) {
-      sessionStorage.setItem(TOKEN_KEY, persistentToken)
-      return persistentToken
-    }
-  } catch (e) {
-    console.warn("Error reading persistent auth token:", e)
-  }
-
-  return null
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
 /**
@@ -165,13 +138,6 @@ export function isAuthenticated() {
 export function logout() {
   sessionStorage.removeItem(TOKEN_KEY)
   sessionStorage.removeItem(CODE_VERIFIER_KEY)
-
-  try {
-    localStorage.removeItem(PERSISTENT_TOKEN_KEY)
-    localStorage.removeItem(HAS_AUTHENTICATED_KEY)
-  } catch (e) {
-    console.warn("Error clearing persistent auth token:", e)
-  }
 }
 
 /**
@@ -179,14 +145,6 @@ export function logout() {
  */
 export function setApiKey(apiKey) {
   sessionStorage.setItem(TOKEN_KEY, apiKey)
-
-  // Also persist so "signed in before" users skip the auth prompt on reload
-  try {
-    localStorage.setItem(PERSISTENT_TOKEN_KEY, apiKey)
-    localStorage.setItem(HAS_AUTHENTICATED_KEY, "true")
-  } catch (e) {
-    console.warn("Persistent auth storage failed:", e)
-  }
 }
 
 /**

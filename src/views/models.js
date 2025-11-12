@@ -116,13 +116,6 @@ function renderModelSelector(data) {
             value="${searchQuery}"
           >
         </div>
-
-        <p class="text-secondary text-xs mb-2">
-          Stuck? Check top roleplay models on the 
-          <a href="https://openrouter.ai/rankings?category=roleplay#categories" target="_blank" rel="noopener noreferrer">
-            OpenRouter leaderboard
-          </a>.
-        </p>
         
         <div class="flex gap-2 mb-2 flex-wrap">
           <select id="provider-filter" class="provider-filter">
@@ -226,6 +219,7 @@ function renderModelsList(currentModel) {
       const supportsStructured =
         Array.isArray(model.supportedParameters) && model.supportedParameters.includes("structured_outputs")
 
+      const reasoningFeature = model.supportsReasoning ? "✅ Reasoning Tokens" : ""
       return `
       <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
         <div class="model-header">
@@ -237,10 +231,9 @@ function renderModelsList(currentModel) {
           <div class="model-detail">
             <span class="detail-label">Features:</span>
             <span class="detail-value">
-              ${supportsStructured ? "✅ Structured Outputs" : ""}
-              ${model.supportsReasoning ? " 🧠 Reasoning" : ""}
+              ${supportsStructured ? "✅ Structured Outputs" : "—"}
+              ${reasoningFeature ? ` ${reasoningFeature}` : ""}
               ${isNitroModel(model.id) ? " ⚡ Nitro" : ""}
-              ${!supportsStructured && !model.supportsReasoning && !isNitroModel(model.id) ? "—" : ""}
             </span>
           </div>
           <div class="model-detail">

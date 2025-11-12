@@ -5,15 +5,12 @@
 import { loadData, saveData, exportData, getStorageInfo, importData } from "../utils/storage.js"
 import { logout } from "../utils/auth.js"
 import { navigateTo } from "../router.js"
+import { fetchModels } from "../utils/openrouter.js"
 
 export function renderSettings() {
   const app = document.getElementById("app")
   const data = loadData()
   const storageInfo = getStorageInfo()
-  
-  // Get current model's max completion tokens
-  const currentModel = (data.models || []).find(m => m.id === data.settings.defaultNarrativeModel)
-  const maxTokensLimit = currentModel?.maxCompletionTokens || 128000
 
   app.innerHTML = `
     <nav>
@@ -49,9 +46,56 @@ export function renderSettings() {
       <div class="card mb-3">
         <h2>Default Model</h2>
         <p class="text-secondary mb-2">Choose your default narrative model</p>
-        <button id="select-model-btn" class="btn-secondary">
+        <button id="select-model-btn" class="btn-secondary" style="width: 100%;">
           ${data.settings.defaultNarrativeModel || "Select Model"}
         </button>
+      </div>
+      
+      <div class="card mb-3" id="reasoning-settings-card" style="display: none;">
+        <h2>Reasoning Tokens</h2>
+        <p class="text-secondary mb-2">
+          Configure reasoning tokens for supported models. Reasoning tokens may improve quality but increase cost.
+        </p>
+        
+        <div class="mb-2">
+          <label class="form-check">
+            <span class="form-check-label">Enable reasoning</span>
+            <input type="checkbox" id="reasoning-enabled-check">
+          </label>
+        </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Effort level</label>
+          <select id="reasoning-effort-select">
+            <option value="">Auto (model default)</option>
+            <option value="minimal">Minimal</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Summary verbosity</label>
+          <select id="reasoning-summary-select">
+            <option value="">Auto (model default)</option>
+            <option value="concise">Concise</option>
+            <option value="detailed">Detailed</option>
+          </select>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-check">
+            <span class="form-check-label">
+              Show 🧠 reasoning panel above the game input when available
+            </span>
+            <input type="checkbox" id="reasoning-display-check">
+          </label>
+        </div>
+        
+        <p class="text-xs text-secondary">
+          These options are only applied when the selected model supports reasoning tokens via OpenRouter.
+        </p>
       </div>
       
       <div class="card mb-3">
@@ -73,90 +117,17 @@ export function renderSettings() {
       </div>
       
       <div class="card mb-3">
-        <h2>Max Tokens</h2>
-        <p class="text-secondary mb-2">Maximum number of tokens to generate (leave blank for model default)</p>
-        <input 
-          type="number" 
-          id="max-tokens-input" 
-          min="1" 
-          max="${maxTokensLimit}" 
-          placeholder="Model default"
-          value="${data.settings.maxTokens || ""}"
-        >
-        <p class="text-secondary text-xs mt-1">
-          ${currentModel ? `Model limit: ${maxTokensLimit.toLocaleString()} tokens. ` : ""}Higher values allow longer responses but may cost more.
-        </p>
-      </div>
-      
-      ${currentModel?.supportsReasoning ? `
-      <div class="card mb-3" id="reasoning-settings">
-        <h2>Reasoning Settings</h2>
-        <p class="text-secondary mb-2">Configure reasoning/thinking tokens for models that support it</p>
-        
-        <div class="mb-2">
-          <label class="form-check">
-            <input type="checkbox" id="reasoning-enabled-check" ${data.settings.reasoning?.enabled ? "checked" : ""}>
-            <span class="form-check-label">Enable Reasoning</span>
-          </label>
-          <p class="text-secondary text-xs mt-1">Allow the model to show its reasoning process</p>
-        </div>
-        
-        <div id="reasoning-options" style="display: ${data.settings.reasoning?.enabled ? "block" : "none"}">
-          <div class="mb-2">
-            <label for="reasoning-mode-select" class="text-sm font-weight-500">Reasoning Mode:</label>
-            <select id="reasoning-mode-select" class="mt-1">
-              <option value="effort" ${!data.settings.reasoning?.mode || data.settings.reasoning?.mode === "effort" ? "selected" : ""}>Effort Level</option>
-              <option value="max_tokens" ${data.settings.reasoning?.mode === "max_tokens" ? "selected" : ""}>Max Tokens</option>
-            </select>
-          </div>
-          
-          <div id="reasoning-effort-container" style="display: ${!data.settings.reasoning?.mode || data.settings.reasoning?.mode === "effort" ? "block" : "none"}">
-            <label for="reasoning-effort-select" class="text-sm font-weight-500">Effort Level:</label>
-            <select id="reasoning-effort-select" class="mt-1">
-              <option value="low" ${data.settings.reasoning?.effort === "low" ? "selected" : ""}>Low (~20% of max tokens)</option>
-              <option value="medium" ${!data.settings.reasoning?.effort || data.settings.reasoning?.effort === "medium" ? "selected" : ""}>Medium (~50% of max tokens)</option>
-              <option value="high" ${data.settings.reasoning?.effort === "high" ? "selected" : ""}>High (~80% of max tokens)</option>
-            </select>
-            <p class="text-secondary text-xs mt-1">Higher effort allows more detailed reasoning but costs more tokens</p>
-          </div>
-          
-          <div id="reasoning-max-tokens-container" style="display: ${data.settings.reasoning?.mode === "max_tokens" ? "block" : "none"}">
-            <label for="reasoning-max-tokens-input" class="text-sm font-weight-500">Max Reasoning Tokens:</label>
-            <input 
-              type="number" 
-              id="reasoning-max-tokens-input" 
-              min="100" 
-              max="32000" 
-              placeholder="2000"
-              value="${data.settings.reasoning?.maxTokens || ""}"
-              class="mt-1"
-            >
-            <p class="text-secondary text-xs mt-1">Specific token limit for reasoning (100-32000)</p>
-          </div>
-          
-          <div class="mb-2 mt-2">
-            <label class="form-check">
-              <input type="checkbox" id="reasoning-exclude-check" ${data.settings.reasoning?.exclude ? "checked" : ""}>
-              <span class="form-check-label">Hide Reasoning from Response</span>
-            </label>
-            <p class="text-secondary text-xs mt-1">Model will still use reasoning internally but won't show it</p>
-          </div>
-        </div>
-      </div>
-      ` : ""}
-      
-      <div class="card mb-3">
         <h2>Preferences</h2>
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
             <span class="form-check-label">Auto-save game state</span>
+            <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
           </label>
         </div>
         <div class="mb-2">
           <label class="form-check">
-            <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
             <span class="form-check-label">Dice roll animations</span>
+            <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
           </label>
         </div>
       </div>
@@ -194,6 +165,9 @@ export function renderSettings() {
   // Apply current theme
   applyTheme(data.settings.theme)
 
+  // Initialize reasoning settings based on selected model
+  initializeReasoningSettings(data).catch(console.error)
+
   // Event listeners
   document.getElementById("theme-select").addEventListener("change", (e) => {
     data.settings.theme = e.target.value
@@ -205,22 +179,6 @@ export function renderSettings() {
     const value = Number.parseFloat(e.target.value)
     document.getElementById("temperature-value").textContent = value.toFixed(1)
     data.settings.temperature = value
-    saveData(data)
-  })
-
-  document.getElementById("max-tokens-input").addEventListener("change", (e) => {
-    const value = e.target.value.trim()
-    const numValue = value ? Number.parseInt(value, 10) : null
-    
-    // Validate against model's max completion tokens
-    if (numValue && currentModel?.maxCompletionTokens && numValue > currentModel.maxCompletionTokens) {
-      showMessage(`Max tokens limited to ${currentModel.maxCompletionTokens.toLocaleString()} for this model`, "error")
-      e.target.value = currentModel.maxCompletionTokens
-      data.settings.maxTokens = currentModel.maxCompletionTokens
-    } else {
-      data.settings.maxTokens = numValue
-    }
-    
     saveData(data)
   })
 
@@ -274,57 +232,131 @@ export function renderSettings() {
     navigateTo("/models")
   })
 
-  // Reasoning settings event listeners (only if reasoning settings exist)
-  if (currentModel?.supportsReasoning) {
-    // Initialize reasoning settings if not present
-    if (!data.settings.reasoning) {
-      data.settings.reasoning = {
-        enabled: false,
-        mode: "effort",
-        effort: "medium",
-        maxTokens: null,
-        exclude: false
+  // Reasoning settings handlers
+  setupReasoningSettingsHandlers(data)
+}
+
+async function initializeReasoningSettings(data) {
+  const cardEl = document.getElementById("reasoning-settings-card")
+  if (!cardEl) return
+
+  const selectedId = data.settings.defaultNarrativeModel
+
+  console.log("[Reasoning] Initializing reasoning settings for model:", selectedId)
+
+  if (!selectedId) {
+    cardEl.style.display = "none"
+    return
+  }
+
+  // First, try to find the model in cached data.models
+  let model = null
+  if (data.models && Array.isArray(data.models)) {
+    console.log("[Reasoning] Checking cached models, count:", data.models.length)
+    model = data.models.find((m) => m.id === selectedId)
+    if (model) {
+      console.log("[Reasoning] Found model in cache:", model.id, "supportsReasoning:", model.supportsReasoning)
+    } else {
+      console.log("[Reasoning] Model not found in cache")
+    }
+  } else {
+    console.log("[Reasoning] No cached models available")
+  }
+
+  // If not found in cached models, fetch models to get the latest metadata
+  if (!model) {
+    try {
+      console.log("[Reasoning] Fetching fresh model list from OpenRouter...")
+      
+      // Fetch models to get the latest metadata
+      const fetchedModels = await fetchModels()
+      console.log("[Reasoning] Fetched", fetchedModels.length, "models from OpenRouter")
+      
+      // Update data with fetched models
+      data.models = fetchedModels
+      saveData(data)
+      
+      model = fetchedModels.find((m) => m.id === selectedId)
+      if (model) {
+        console.log("[Reasoning] Found model after fetch:", model.id, "supportsReasoning:", model.supportsReasoning)
+      } else {
+        console.log("[Reasoning] Model still not found after fetch")
       }
+    } catch (error) {
+      console.error("[Reasoning] Error fetching models for reasoning check:", error)
+      cardEl.style.display = "none"
+      return
+    }
+  }
+
+  if (!model) {
+    console.log("[Reasoning] Model not found in OpenRouter API")
+    cardEl.style.display = "none"
+    return
+  }
+
+  console.log("[Reasoning] Final model check - ID:", model.id, "Name:", model.name, "supportsReasoning:", model.supportsReasoning)
+
+  if (model.supportsReasoning) {
+    console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
+    cardEl.style.display = "block"
+  } else {
+    console.log("[Reasoning] ❌ Model does not support reasoning tokens - hiding settings card")
+    cardEl.style.display = "none"
+  }
+
+  // Load saved reasoning settings
+  const rs = data.settings.reasoning || {}
+  console.log("[Reasoning] Current saved settings:", rs)
+
+  const enabledCheck = document.getElementById("reasoning-enabled-check")
+  const effortSelect = document.getElementById("reasoning-effort-select")
+  const summarySelect = document.getElementById("reasoning-summary-select")
+  const displayCheck = document.getElementById("reasoning-display-check")
+
+  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
+
+  enabledCheck.checked = !!rs.enabled
+  effortSelect.value = rs.effort || ""
+  summarySelect.value = rs.summary || ""
+  displayCheck.checked = !!rs.displayPanel
+}
+
+function setupReasoningSettingsHandlers(data) {
+  const cardEl = document.getElementById("reasoning-settings-card")
+  if (!cardEl) return
+
+  const enabledCheck = document.getElementById("reasoning-enabled-check")
+  const effortSelect = document.getElementById("reasoning-effort-select")
+  const summarySelect = document.getElementById("reasoning-summary-select")
+  const displayCheck = document.getElementById("reasoning-display-check")
+
+  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
+
+  const persist = () => {
+    const reasoning = {
+      enabled: enabledCheck.checked,
+      displayPanel: displayCheck.checked,
     }
 
-    document.getElementById("reasoning-enabled-check").addEventListener("change", (e) => {
-      data.settings.reasoning.enabled = e.target.checked
-      document.getElementById("reasoning-options").style.display = e.target.checked ? "block" : "none"
-      saveData(data)
-    })
+    // Only include effort/summary if enabled and values are set
+    if (enabledCheck.checked) {
+      if (effortSelect.value) reasoning.effort = effortSelect.value
+      if (summarySelect.value) reasoning.summary = summarySelect.value
+    }
 
-    document.getElementById("reasoning-mode-select").addEventListener("change", (e) => {
-      data.settings.reasoning.mode = e.target.value
-      document.getElementById("reasoning-effort-container").style.display = e.target.value === "effort" ? "block" : "none"
-      document.getElementById("reasoning-max-tokens-container").style.display = e.target.value === "max_tokens" ? "block" : "none"
-      saveData(data)
-    })
-
-    document.getElementById("reasoning-effort-select").addEventListener("change", (e) => {
-      data.settings.reasoning.effort = e.target.value
-      saveData(data)
-    })
-
-    document.getElementById("reasoning-max-tokens-input").addEventListener("change", (e) => {
-      const value = e.target.value.trim()
-      const numValue = value ? Number.parseInt(value, 10) : null
-      
-      if (numValue && (numValue < 100 || numValue > 32000)) {
-        showMessage("Reasoning tokens must be between 100 and 32000", "error")
-        e.target.value = Math.max(100, Math.min(32000, numValue || 2000))
-        data.settings.reasoning.maxTokens = Number.parseInt(e.target.value, 10)
-      } else {
-        data.settings.reasoning.maxTokens = numValue
-      }
-      
-      saveData(data)
-    })
-
-    document.getElementById("reasoning-exclude-check").addEventListener("change", (e) => {
-      data.settings.reasoning.exclude = e.target.checked
-      saveData(data)
-    })
+    // Always save the reasoning object (even if just { enabled: false })
+    // This ensures we preserve the user's choice to disable reasoning
+    data.settings.reasoning = reasoning
+    
+    console.log("[Reasoning] Saved settings:", reasoning)
+    saveData(data)
   }
+
+  enabledCheck.addEventListener("change", persist)
+  effortSelect.addEventListener("change", persist)
+  summarySelect.addEventListener("change", persist)
+  displayCheck.addEventListener("change", persist)
 }
 
 function applyTheme(theme) {

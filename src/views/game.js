@@ -5,7 +5,7 @@
 
 import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
+import { sendChatCompletion, parseStreamingResponse, extractUsage, calculateCost } from "../utils/openrouter.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
@@ -418,6 +418,11 @@ function renderSingleMessage(msg) {
   const reasoning = hasReasoning ? msg.metadata.reasoning : ""
   const reasoningTokens = msg.metadata?.reasoningTokens || 0
 
+  // Check if this message has usage data
+  const hasUsage = msg.role === "assistant" && msg.metadata?.usage
+  const usage = hasUsage ? msg.metadata.usage : null
+  const cost = msg.metadata?.cost
+
   const messageHTML = `
     <div class="${className}" data-msg-id="${msg.id}">
       ${
@@ -444,6 +449,26 @@ function renderSingleMessage(msg) {
       <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
+      ${
+        hasUsage
+          ? `
+      <div class="message-usage">
+        <span class="usage-label">Tokens:</span>
+        <span class="usage-value">${usage.promptTokens} prompt</span>
+        <span class="usage-separator">•</span>
+        <span class="usage-value">${usage.completionTokens} completion</span>
+        ${
+          usage.reasoningTokens > 0
+            ? `<span class="usage-separator">•</span><span class="usage-value">${usage.reasoningTokens} reasoning</span>`
+            : ""
+        }
+        <span class="usage-separator">•</span>
+        <span class="usage-value">${usage.totalTokens} total</span>
+        ${cost ? `<span class="usage-separator">•</span><span class="usage-cost">$${cost.toFixed(6)}</span>` : ""}
+      </div>
+      `
+          : ""
+      }
     </div>
   `
   return messageHTML
@@ -734,6 +759,7 @@ async function sendMessage(game, userText, data) {
 
     let assistantMessage = ""
     let reasoningBuffer = ""
+    let lastUsageData = null
     const assistantMsgId = `msg_${Date.now()}`
     const processedTags = new Set()
 
@@ -752,6 +778,11 @@ async function sendMessage(game, userText, data) {
       const choice = chunk.choices?.[0]
       const delta = choice?.delta?.content
       const reasoningDelta = choice?.delta?.reasoning
+
+      // Capture usage data if present in any chunk
+      if (chunk.usage) {
+        lastUsageData = chunk.usage
+      }
 
       if (reasoningDelta) {
         reasoningBuffer += reasoningDelta
@@ -799,13 +830,29 @@ async function sendMessage(game, userText, data) {
     await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
-    // Attach final reasoning metadata (if any)
+    // Attach final reasoning and usage metadata (if any)
+    const metadata = gameRef.messages[assistantMsgIndex].metadata || {}
+    
     if (lastReasoningText) {
-      gameRef.messages[assistantMsgIndex].metadata = {
-        ...(gameRef.messages[assistantMsgIndex].metadata || {}),
-        reasoning: lastReasoningText,
-        reasoningTokens: lastReasoningTokens || undefined,
+      metadata.reasoning = lastReasoningText
+      metadata.reasoningTokens = lastReasoningTokens || undefined
+    }
+
+    if (lastUsageData) {
+      const usage = extractUsage({ usage: lastUsageData })
+      metadata.usage = usage
+
+      // Calculate cost if we have model pricing
+      const models = data.models || []
+      const currentModel = models.find((m) => m.id === gameRef.narrativeModel)
+      if (currentModel && currentModel.pricing) {
+        const cost = calculateCost(usage, currentModel.pricing)
+        metadata.cost = cost
       }
+    }
+
+    if (Object.keys(metadata).length > 0) {
+      gameRef.messages[assistantMsgIndex].metadata = metadata
     }
 
     saveData(data)

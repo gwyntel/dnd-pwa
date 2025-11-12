@@ -763,6 +763,7 @@ async function sendMessage(game, userText, data) {
       content: "",
       timestamp: new Date().toISOString(),
       hidden: false,
+      metadata: {},
     })
 
     for await (const chunk of parseStreamingResponse(response)) {
@@ -778,6 +779,46 @@ async function sendMessage(game, userText, data) {
       if (reasoningDelta) {
         reasoningBuffer += reasoningDelta
         lastReasoningText = reasoningBuffer
+        
+        // Update message metadata with streaming reasoning
+        gameRef.messages[assistantMsgIndex].metadata.reasoning = reasoningBuffer
+        
+        // Update reasoning display in real-time if panel is enabled
+        if (reasoningPanelEnabled) {
+          const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+          
+          if (!streamingMsgElement) {
+            // Create the message element with reasoning panel
+            appendMessage(gameRef.messages[assistantMsgIndex])
+          } else {
+            // Update existing reasoning body
+            let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
+            
+            if (!reasoningBody) {
+              // Create reasoning panel if it doesn't exist yet
+              const messageContent = streamingMsgElement.querySelector(".message-content")
+              if (messageContent) {
+                const reasoningPanel = document.createElement("div")
+                reasoningPanel.className = "message-reasoning"
+                reasoningPanel.innerHTML = `
+                  <details class="reasoning-details" open>
+                    <summary class="reasoning-summary">
+                      🧠 Reasoning
+                      <span class="reasoning-tokens"></span>
+                    </summary>
+                    <div class="reasoning-body"></div>
+                  </details>
+                `
+                messageContent.parentElement.insertBefore(reasoningPanel, messageContent)
+                reasoningBody = reasoningPanel.querySelector(".reasoning-body")
+              }
+            }
+            
+            if (reasoningBody) {
+              reasoningBody.innerHTML = escapeHtml(reasoningBuffer).replace(/\n/g, "<br>")
+            }
+          }
+        }
       }
 
       if (delta) {
@@ -821,16 +862,26 @@ async function sendMessage(game, userText, data) {
     await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
-    // Attach final reasoning metadata (if any)
-    const metadata = gameRef.messages[assistantMsgIndex].metadata || {}
-    
+    // Update final reasoning metadata with token count if we have usage data
     if (lastReasoningText) {
-      metadata.reasoning = lastReasoningText
-      metadata.reasoningTokens = lastReasoningTokens || undefined
-    }
-
-    if (Object.keys(metadata).length > 0) {
-      gameRef.messages[assistantMsgIndex].metadata = metadata
+      gameRef.messages[assistantMsgIndex].metadata.reasoning = lastReasoningText
+      
+      // Update token count in the UI if panel exists
+      if (lastUsageData) {
+        const usage = extractUsage({ usage: lastUsageData })
+        if (usage.reasoningTokens > 0) {
+          gameRef.messages[assistantMsgIndex].metadata.reasoningTokens = usage.reasoningTokens
+          
+          // Update the token count display in the reasoning summary
+          const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+          if (streamingMsgElement) {
+            const tokenSpan = streamingMsgElement.querySelector(".reasoning-tokens")
+            if (tokenSpan) {
+              tokenSpan.textContent = `(${usage.reasoningTokens} tokens)`
+            }
+          }
+        }
+      }
     }
 
     // Update cumulative usage if we have usage data

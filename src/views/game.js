@@ -785,37 +785,48 @@ async function sendMessage(game, userText, data) {
         
         // Update reasoning display in real-time if panel is enabled
         if (reasoningPanelEnabled) {
-          const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+          let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
           
           if (!streamingMsgElement) {
-            // Create the message element with reasoning panel
+            // Create the message element immediately when reasoning starts
             appendMessage(gameRef.messages[assistantMsgIndex])
-          } else {
+            streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+          }
+          
+          if (streamingMsgElement) {
             // Update existing reasoning body
             let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
             
             if (!reasoningBody) {
               // Create reasoning panel if it doesn't exist yet
-              const messageContent = streamingMsgElement.querySelector(".message-content")
-              if (messageContent) {
-                const reasoningPanel = document.createElement("div")
-                reasoningPanel.className = "message-reasoning"
-                reasoningPanel.innerHTML = `
-                  <details class="reasoning-details" open>
-                    <summary class="reasoning-summary">
-                      🧠 Reasoning
-                      <span class="reasoning-tokens"></span>
-                    </summary>
-                    <div class="reasoning-body"></div>
-                  </details>
-                `
-                messageContent.parentElement.insertBefore(reasoningPanel, messageContent)
-                reasoningBody = reasoningPanel.querySelector(".reasoning-body")
+              const messageDiv = streamingMsgElement
+              const reasoningPanel = document.createElement("div")
+              reasoningPanel.className = "message-reasoning"
+              reasoningPanel.innerHTML = `
+                <details class="reasoning-details" open>
+                  <summary class="reasoning-summary">
+                    🧠 Reasoning
+                    <span class="reasoning-tokens"></span>
+                  </summary>
+                  <div class="reasoning-body"></div>
+                </details>
+              `
+              
+              // Insert at the beginning of the message
+              if (messageDiv.firstChild) {
+                messageDiv.insertBefore(reasoningPanel, messageDiv.firstChild)
+              } else {
+                messageDiv.appendChild(reasoningPanel)
               }
+              
+              reasoningBody = reasoningPanel.querySelector(".reasoning-body")
             }
             
             if (reasoningBody) {
               reasoningBody.innerHTML = escapeHtml(reasoningBuffer).replace(/\n/g, "<br>")
+              
+              // Auto-scroll reasoning body to bottom as it streams
+              reasoningBody.scrollTop = reasoningBody.scrollHeight
             }
           }
         }
@@ -825,11 +836,22 @@ async function sendMessage(game, userText, data) {
         assistantMessage += delta
         gameRef.messages[assistantMsgIndex].content = assistantMessage
 
-        const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+        let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
 
         if (!streamingMsgElement) {
           appendMessage(gameRef.messages[assistantMsgIndex])
-        } else {
+          streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+        }
+        
+        // Collapse reasoning panel when content starts arriving
+        if (assistantMessage.trim() && reasoningPanelEnabled) {
+          const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
+          if (reasoningDetails && reasoningDetails.open) {
+            reasoningDetails.open = false
+          }
+        }
+        
+        if (streamingMsgElement) {
           const contentElement = streamingMsgElement.querySelector(".message-content")
           if (contentElement) {
             const cleanContent = stripTags(assistantMessage)

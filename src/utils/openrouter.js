@@ -117,8 +117,9 @@ export async function fetchModels() {
         prompt: model.pricing?.prompt || 0,
         completion: model.pricing?.completion || 0,
       },
+      // Whether this model advertises support for the unified `reasoning` API
       supportsReasoning: model.supports_reasoning || false,
-      // OpenRouter models advertise supported parameters; use this to gate structured outputs
+      // OpenRouter models advertise supported parameters; use this to gate structured outputs and other features
       supportedParameters: model.supported_parameters || [],
       provider: model.id.split("/")[0] || "unknown",
     }))
@@ -187,6 +188,62 @@ export async function sendChatCompletion(messages, model, options = {}) {
       messages: validMessages,
       stream: true,
       temperature,
+    }
+
+    // Unified reasoning token controls per OpenRouter API spec.
+    // IMPORTANT:
+    // - Only attach `reasoning` for models that advertise supports_reasoning (supportsReasoning),
+    //   or when the caller explicitly passes a reasoning object and has validated support.
+    // - This avoids sending unsupported reasoning parameters to models like some DeepSeek/OSS models.
+    const attachReasoning = (() => {
+      // Explicit override: if caller passes `options.reasoning`, assume they know the model supports it.
+      if (options.reasoning) return true
+
+      // If caller provides alias options, try to gate using known model metadata when available.
+      if (
+        options.reasoningEffort !== undefined ||
+        options.reasoningSummary !== undefined ||
+        options.reasoningEnabled !== undefined
+      ) {
+        // If options.modelSupportsReasoning is provided by caller, respect it.
+        if (typeof options.modelSupportsReasoning === "boolean") {
+          return options.modelSupportsReasoning
+        }
+
+        // Otherwise, be conservative: do NOT auto-attach for unknown models.
+        // Callers should pass `modelSupportsReasoning` based on fetchModels() metadata.
+        return false
+      }
+
+      return false
+    })()
+
+    if (attachReasoning) {
+      if (options.reasoning) {
+        // Pass through the reasoning object as-is if provided by caller
+        payload.reasoning = options.reasoning
+      } else {
+        // Build reasoning object from alias options according to API spec
+        const reasoning = {}
+        
+        // Only include reasoning parameters if reasoning is enabled (or if no enabled flag is set)
+        const isReasoningEnabled = options.reasoningEnabled !== false
+        
+        if (isReasoningEnabled) {
+          if (options.reasoningEffort) {
+            // API spec: reasoning.effort can be "minimal", "low", "medium", "high"
+            reasoning.effort = options.reasoningEffort
+          }
+          if (options.reasoningSummary) {
+            // API spec: reasoning.summary can be "auto", "concise", "detailed"
+            reasoning.summary = options.reasoningSummary
+          }
+        }
+
+        if (Object.keys(reasoning).length > 0) {
+          payload.reasoning = reasoning
+        }
+      }
     }
 
     // Optional system message support (kept for backwards compatibility)

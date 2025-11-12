@@ -5,6 +5,7 @@
 import { loadData, saveData, exportData, getStorageInfo, importData } from "../utils/storage.js"
 import { logout } from "../utils/auth.js"
 import { navigateTo } from "../router.js"
+import { fetchModels } from "../utils/openrouter.js"
 
 export function renderSettings() {
   const app = document.getElementById("app")
@@ -48,6 +49,45 @@ export function renderSettings() {
         <button id="select-model-btn" class="btn-secondary">
           ${data.settings.defaultNarrativeModel || "Select Model"}
         </button>
+        <p id="model-reasoning-support" class="text-xs text-secondary mt-1"></p>
+      </div>
+      
+      <div class="card mb-3" id="reasoning-settings-card" style="display: none;">
+        <h2>Reasoning Tokens</h2>
+        <p class="text-secondary mb-2">
+          Configure reasoning tokens for supported models. Reasoning tokens may improve quality but increase cost.
+        </p>
+        
+        <div class="mb-2">
+          <label class="form-check">
+            <input type="checkbox" id="reasoning-enabled-check">
+            <span class="form-check-label">Enable reasoning</span>
+          </label>
+        </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Effort level</label>
+          <select id="reasoning-effort-select">
+            <option value="">Auto (model default)</option>
+            <option value="minimal">Minimal</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Summary verbosity</label>
+          <select id="reasoning-summary-select">
+            <option value="">Auto (model default)</option>
+            <option value="concise">Concise</option>
+            <option value="detailed">Detailed</option>
+          </select>
+        </div>
+        
+        <p class="text-xs text-secondary">
+          These options are only applied when the selected model supports reasoning tokens via OpenRouter.
+        </p>
       </div>
       
       <div class="card mb-3">
@@ -117,6 +157,9 @@ export function renderSettings() {
   // Apply current theme
   applyTheme(data.settings.theme)
 
+  // Initialize reasoning settings based on selected model
+  initializeReasoningSettings(data).catch(console.error)
+
   // Event listeners
   document.getElementById("theme-select").addEventListener("change", (e) => {
     data.settings.theme = e.target.value
@@ -180,6 +223,139 @@ export function renderSettings() {
   document.getElementById("select-model-btn").addEventListener("click", () => {
     navigateTo("/models")
   })
+
+  // Reasoning settings handlers
+  setupReasoningSettingsHandlers(data)
+}
+
+async function initializeReasoningSettings(data) {
+  const infoEl = document.getElementById("model-reasoning-support")
+  const cardEl = document.getElementById("reasoning-settings-card")
+  if (!infoEl || !cardEl) return
+
+  const selectedId = data.settings.defaultNarrativeModel
+
+  console.log("[Reasoning] Initializing reasoning settings for model:", selectedId)
+
+  if (!selectedId) {
+    infoEl.textContent = "No model selected."
+    cardEl.style.display = "none"
+    return
+  }
+
+  // Show loading state
+  infoEl.textContent = "Checking model capabilities..."
+
+  // First, try to find the model in cached data.models
+  let model = null
+  if (data.models && Array.isArray(data.models)) {
+    console.log("[Reasoning] Checking cached models, count:", data.models.length)
+    model = data.models.find((m) => m.id === selectedId)
+    if (model) {
+      console.log("[Reasoning] Found model in cache:", model.id, "supportsReasoning:", model.supportsReasoning)
+    } else {
+      console.log("[Reasoning] Model not found in cache")
+    }
+  } else {
+    console.log("[Reasoning] No cached models available")
+  }
+
+  // If not found in cached models, fetch models to get the latest metadata
+  if (!model) {
+    try {
+      console.log("[Reasoning] Fetching fresh model list from OpenRouter...")
+      infoEl.textContent = "Loading model information..."
+      
+      // Fetch models to get the latest metadata
+      const fetchedModels = await fetchModels()
+      console.log("[Reasoning] Fetched", fetchedModels.length, "models from OpenRouter")
+      
+      // Update data with fetched models
+      data.models = fetchedModels
+      saveData(data)
+      
+      model = fetchedModels.find((m) => m.id === selectedId)
+      if (model) {
+        console.log("[Reasoning] Found model after fetch:", model.id, "supportsReasoning:", model.supportsReasoning)
+      } else {
+        console.log("[Reasoning] Model still not found after fetch")
+      }
+    } catch (error) {
+      console.error("[Reasoning] Error fetching models for reasoning check:", error)
+      infoEl.textContent = "Unable to load model metadata. Please try again later."
+      cardEl.style.display = "none"
+      return
+    }
+  }
+
+  if (!model) {
+    console.log("[Reasoning] Model not found in OpenRouter API")
+    infoEl.textContent = "Selected model not found in OpenRouter API."
+    cardEl.style.display = "none"
+    return
+  }
+
+  console.log("[Reasoning] Final model check - ID:", model.id, "Name:", model.name, "supportsReasoning:", model.supportsReasoning)
+
+  if (model.supportsReasoning) {
+    console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
+    infoEl.textContent = "✅ This model supports reasoning tokens."
+    infoEl.style.color = "var(--success-color, #10b981)"
+    cardEl.style.display = "block"
+  } else {
+    console.log("[Reasoning] ❌ Model does not support reasoning tokens - hiding settings card")
+    infoEl.textContent = "This model does not advertise reasoning token support."
+    infoEl.style.color = ""
+    cardEl.style.display = "none"
+  }
+
+  // Load saved reasoning settings
+  const rs = data.settings.reasoning || {}
+  console.log("[Reasoning] Current saved settings:", rs)
+
+  const enabledCheck = document.getElementById("reasoning-enabled-check")
+  const effortSelect = document.getElementById("reasoning-effort-select")
+  const summarySelect = document.getElementById("reasoning-summary-select")
+
+  if (!enabledCheck || !effortSelect || !summarySelect) return
+
+  enabledCheck.checked = !!rs.enabled
+  effortSelect.value = rs.effort || ""
+  summarySelect.value = rs.summary || ""
+}
+
+function setupReasoningSettingsHandlers(data) {
+  const cardEl = document.getElementById("reasoning-settings-card")
+  if (!cardEl) return
+
+  const enabledCheck = document.getElementById("reasoning-enabled-check")
+  const effortSelect = document.getElementById("reasoning-effort-select")
+  const summarySelect = document.getElementById("reasoning-summary-select")
+
+  if (!enabledCheck || !effortSelect || !summarySelect) return
+
+  const persist = () => {
+    const reasoning = {
+      enabled: enabledCheck.checked
+    }
+
+    // Only include effort/summary if enabled and values are set
+    if (enabledCheck.checked) {
+      if (effortSelect.value) reasoning.effort = effortSelect.value
+      if (summarySelect.value) reasoning.summary = summarySelect.value
+    }
+
+    // Always save the reasoning object (even if just { enabled: false })
+    // This ensures we preserve the user's choice to disable reasoning
+    data.settings.reasoning = reasoning
+    
+    console.log("[Reasoning] Saved settings:", reasoning)
+    saveData(data)
+  }
+
+  enabledCheck.addEventListener("change", persist)
+  effortSelect.addEventListener("change", persist)
+  summarySelect.addEventListener("change", persist)
 }
 
 function applyTheme(theme) {

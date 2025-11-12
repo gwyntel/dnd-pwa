@@ -219,6 +219,7 @@ function renderModelsList(currentModel) {
       const supportsStructured =
         Array.isArray(model.supportedParameters) && model.supportedParameters.includes("structured_outputs")
 
+      const reasoningFeature = model.supportsReasoning ? "✅ Reasoning Tokens" : ""
       return `
       <div class="model-card ${isSelected ? "selected" : ""}" data-model-id="${model.id}">
         <div class="model-header">
@@ -231,6 +232,7 @@ function renderModelsList(currentModel) {
             <span class="detail-label">Features:</span>
             <span class="detail-value">
               ${supportsStructured ? "✅ Structured Outputs" : "—"}
+              ${reasoningFeature ? ` ${reasoningFeature}` : ""}
               ${isNitroModel(model.id) ? " ⚡ Nitro" : ""}
             </span>
           </div>

@@ -1054,7 +1054,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       game.inventory.findIndex((it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase())
 
     let idx = findIndex()
-    if (idx === -1 && deltaQty > 0) {
+    const isNewItem = idx === -1
+    
+    if (isNewItem && deltaQty > 0) {
       game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
       idx = findIndex()
     }
@@ -1065,8 +1067,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
     const item = game.inventory[idx]
     const oldQty = typeof item.quantity === "number" ? item.quantity : 0
-    const newQty = Math.max(0, oldQty + deltaQty)
-
+    
+    // Only add delta if item already existed; if we just created it, quantity is already set
+    const newQty = isNewItem ? item.quantity : Math.max(0, oldQty + deltaQty)
     item.quantity = newQty
 
     if (equip === true) {

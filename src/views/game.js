@@ -143,12 +143,14 @@ async function createGame() {
     id: gameId,
     title,
     characterId,
-    worldId, // Added worldId to game
+    worldId,
     narrativeModel: model,
     currentHP: character.maxHP,
     currentLocation: "Unknown",
+    visitedLocations: [],
     questLog: [],
     inventory: [...character.inventory],
+    currency: { gp: 0 },
     conditions: [],
     combat: {
       active: false,
@@ -292,6 +294,7 @@ export async function renderGame(state = {}) {
             <div><strong>AC</strong><br>${character.armorClass}</div>
             <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
             <div><strong>SPD</strong><br>${character.speed}ft</div>
+            <div><strong>Gold</strong><br>${game.currency?.gp ?? 0} gp</div>
           </div>
           
           <div class="stats-grid mt-3">
@@ -334,9 +337,36 @@ export async function renderGame(state = {}) {
         </div>
 
         <div class="card">
+          <h3>Inventory</h3>
+          ${
+            Array.isArray(game.inventory) && game.inventory.length > 0
+              ? `
+            <ul class="inventory-list">
+              ${game.inventory
+                .map((it) => {
+                  const qty = typeof it.quantity === "number" ? it.quantity : 1
+                  const label = escapeHtml(it.item || "")
+                  const eq = it.equipped ? " (eq.)" : ""
+                  return `<li>${qty}x ${label}${eq}</li>`
+                })
+                .join("")}
+            </ul>
+          `
+              : `<p class="text-secondary text-sm">No items in inventory.</p>`
+          }
+        </div>
+
+        <div class="card">
           <h3 class="rolls-title">Recent Rolls</h3>
           <div id="roll-history-container" class="roll-history-container">
             ${renderRollHistory(game.messages)}
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Locations Visited</h3>
+          <div id="location-history-container" class="location-history-container">
+            ${renderLocationHistory(game)}
           </div>
         </div>
       </div>
@@ -1068,7 +1098,16 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   for (const match of locationMatches) {
     const tagKey = `location_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      game.currentLocation = match[1]
+      const loc = match[1].trim()
+      if (loc) {
+        game.currentLocation = loc
+        if (!Array.isArray(game.visitedLocations)) {
+          game.visitedLocations = []
+        }
+        if (!game.visitedLocations.includes(loc)) {
+          game.visitedLocations.push(loc)
+        }
+      }
       processedTags.add(tagKey)
       // Icon will be added in UI
     }
@@ -1603,7 +1642,16 @@ async function processGameCommands(game, character, text, processedTags = new Se
   // Parse location updates
   const locationMatch = text.match(/LOCATION\[([^\]]+)\]/)
   if (locationMatch) {
-    game.currentLocation = locationMatch[1]
+    const loc = locationMatch[1].trim()
+    if (loc) {
+      game.currentLocation = loc
+      if (!Array.isArray(game.visitedLocations)) {
+        game.visitedLocations = []
+      }
+      if (!game.visitedLocations.includes(loc)) {
+        game.visitedLocations.push(loc)
+      }
+    }
   }
 
   // Check for combat start (fallback - streaming handler should normally cover this)
@@ -1789,6 +1837,24 @@ function buildSystemPrompt(character, game) {
   return buildGameDMPrompt(character, game, world)
 }
 
+function renderLocationHistory(game) {
+  if (!Array.isArray(game.visitedLocations) || game.visitedLocations.length === 0) {
+    return '<p class="text-secondary text-sm">No locations recorded yet.</p>'
+  }
+
+  return `
+    <div class="location-chips">
+      ${game.visitedLocations
+        .map((loc) => {
+          const icon = getLocationIcon(loc)
+          const safe = escapeHtml(loc)
+          return `<button class="location-chip" data-location="${safe}">${icon} ${safe}</button>`
+        })
+        .join("")}
+    </div>
+  `
+}
+
 function renderUsageDisplay(game) {
   if (!game.cumulativeUsage || game.cumulativeUsage.totalTokens === 0) {
     return ""
@@ -1863,6 +1929,39 @@ function setupRollHistoryToggle() {
   })
 }
 
+function setupLocationFastTravel(game) {
+  const container = document.getElementById("location-history-container")
+  if (!container || !Array.isArray(game.visitedLocations)) return
+
+  container.querySelectorAll(".location-chip").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault()
+      const loc = e.currentTarget.getAttribute("data-location")
+      if (!loc) return
+
+      const data = loadData()
+      const g = data.games.find((x) => x.id === currentGameId)
+      if (!g) return
+
+      // Fast travel: set currentLocation only; history preserved
+      g.currentLocation = loc
+      if (!Array.isArray(g.visitedLocations)) {
+        g.visitedLocations = []
+      }
+      if (!g.visitedLocations.includes(loc)) {
+        g.visitedLocations.push(loc)
+      }
+
+      saveData(data)
+
+      const header = document.querySelector(".game-header-left p")
+      if (header) {
+        header.innerHTML = `${getLocationIcon(loc)} <strong>${loc}</strong>`
+      }
+    })
+  })
+}
+
 function updateInputContainer(game) {
   const inputContainer = document.querySelector(".input-container")
   if (!inputContainer) return
@@ -1910,6 +2009,7 @@ function updateInputContainer(game) {
   // Ensure roll history stays updated when suggested actions / input change
   if (game) {
     updateRollHistory(game)
+    setupLocationFastTravel(game)
   }
 
   document.querySelectorAll(".action-bubble").forEach((bubble) => {

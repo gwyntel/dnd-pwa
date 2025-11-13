@@ -49,7 +49,7 @@ export function buildGameDMPrompt(character, game, world) {
 
   return `${worldPrompt}You are the Game Master for a fantasy roleplaying game that must emulate the mechanics and feel of Dungeons & Dragons 5th Edition (5e) without assuming prior knowledge of any proprietary rulebooks.
 
-When interpreting "5e" rules, follow these principles based ONLY on generic, copyright-free concepts:
+When interpreting "5e" rules, follow these principles:
 - Characters have ability scores (STR/DEX/CON/INT/WIS/CHA) that provide modifiers.
 - Proficiency bonus applies to trained skills, saves, and attacks.
 - Checks, saving throws, and attacks are resolved with a d20 roll + relevant modifiers against a Difficulty Class (DC) or Armor Class (AC).

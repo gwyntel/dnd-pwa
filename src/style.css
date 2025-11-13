@@ -1405,6 +1405,48 @@ a,
   gap: 0.25rem;
 }
 
+/* Location chips */
+.location-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.location-chip {
+  padding: 0.5rem 1rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.location-chip:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-strong);
+}
+
+.location-chip:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .location-chip {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.85rem;
+  }
+}
+
 /* Template Cards (used across Templates, Worlds, etc.) */
 .template-card {
   transition: all 0.2s ease;

@@ -23,12 +23,66 @@ const DEFAULT_DATA = {
     temperature: 1.0,
   },
   worlds: [
+    // Canonical default world used when no worlds exist yet.
+    // This MUST stay in sync with the default created in src/views/worlds.js.
     {
-      id: "world_default",
-      name: "Generic Fantasy",
-      description: "A classic high fantasy world with magic, monsters, and adventure.",
-      systemPrompt:
-        "This is a high fantasy world with magic, mythical creatures, and medieval technology. Dragons exist, magic is real and studied by wizards, and various races (humans, elves, dwarves, halflings, etc.) live together. The tone is heroic adventure with clear good vs evil themes.",
+      id: "world_default_classic_fantasy",
+      name: "Default: Classic Fantasy Realm",
+      settingType: "classic-fantasy",
+      sourceType: "default",
+      briefDescription:
+        "Beginner-friendly heroic fantasy with clear good vs evil, standard D&D-style races, and straightforward adventure hooks.",
+      fullDescription:
+        "A welcoming, classic fantasy realm designed for quick-start play. Cozy villages, nearby ruins, and local threats provide immediate reasons to adventure without overwhelming lore. Magic exists and is respected but feels special rather than mundane. Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and familiar classes fit naturally. Technology is medieval: swords, bows, armor, ships, no firearms or modern industry unless the user explicitly adds them.",
+      tone:
+        "Heroic, hopeful, and beginner-friendly. Clear stakes, readable consequences, and a focus on fun, fairness, and collaboration.",
+      magicLevel: "medium",
+      techLevel: "medieval",
+      startingLocation:
+        "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
+      systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
+
+CORE INTENT:
+- Make it EASY for new players and GMs.
+- Keep tone heroic and inviting, with clear threats and clear ways to be awesome.
+- Provide obvious adventure hooks without heavy lore dumps.
+- Respect player agency and the game's mechanical constraints.
+
+WORLD OVERVIEW:
+- Baseline: A classic medieval fantasy realm with magic, monsters, and ancient ruins.
+  - Magic exists, studied by wizards and guided by priests, but is not mundane consumer tech.
+  - Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and classes fit smoothly.
+  - Medieval tech level: swords, bows, armor, sailing ships; no guns or modern industry unless the user/world explicitly permits them.
+- Home Base — Greenhollow:
+  - Friendly riverside town and default starting hub.
+  - Key NPCs (examples, adapt as needed):
+    - Mayor Elira Thorne: Capable but overstretched; values practical heroes.
+    - Captain Bram: Town watch leader, honest and blunt.
+    - Sister Maelin: Temple priest and healer; a natural quest-giver.
+    - Old Tamsin: Retired adventurer who shares rumors, maps, and gentle guidance.
+- Nearby Hooks:
+  - Whispering Woods: Goblins, wolves, fey lights, lost shrines, mysterious tracks.
+  - Old Watchtower: Bandits or a small cult; straightforward but dramatic dungeon site.
+  - Crystalford Mine: Miners missing, strange lights and sounds below.
+- Factions (keep simple and readable):
+  - Town Watch (order and safety),
+  - Road Wardens (caravans and travel),
+  - A Hidden Cult or Shadowy Mage (slow-burn villain behind local troubles).
+
+TONE & GENRE:
+- Heroic fantasy with room for wonder, suspense, and light drama.
+- Default to clear good vs evil. Moral nuance is allowed, but do not force grimdark by default.
+- Maintain a welcoming tone suitable for new or cautious groups.
+
+AI DM BEHAVIOR GUIDELINES:
+- Always follow the global system + tool rules, tag formats, and dice/roll semantics.
+- Present 2–3 clear, meaningful options instead of long unfocused lists.
+- When rules or mechanics are involved, explain outcomes and difficulties in plain language.
+- Never remove player agency: offer consequences and choices, do not decide for them.
+- Use safety tools lightly but explicitly when appropriate (tone checks, content checks).
+- When uncertain, choose the path that keeps play fun, fair, comprehensible, and grounded in this realm.
+
+Use this as the default world context whenever a game uses the default world and no custom world overrides it.`,
       createdAt: new Date().toISOString(),
       isDefault: true,
     },
@@ -252,6 +306,46 @@ export function loadData() {
     if (data.version !== SCHEMA_VERSION) {
       console.warn(`Schema version mismatch. Expected ${SCHEMA_VERSION}, got ${data.version}`)
       // TODO: Implement migration logic in future versions
+    }
+
+    // Ensure we always have at least one robust default world.
+    try {
+      if (!Array.isArray(data.worlds)) {
+        data.worlds = []
+      }
+
+      const hasCanonicalDefault = data.worlds.some(
+        (w) => w && (w.isDefault || w.id === "world_default_classic_fantasy"),
+      )
+
+      if (!hasCanonicalDefault) {
+        // Look for an older weak default and upgrade it in-memory.
+        const legacy = data.worlds.find(
+          (w) =>
+            w &&
+            (w.id === "world_default" ||
+              w.name === "Generic Fantasy" ||
+              w.name === "Default World"),
+        )
+
+        const canonicalDefault = {
+          ...DEFAULT_DATA.worlds[0],
+          createdAt: (legacy && legacy.createdAt) || new Date().toISOString(),
+        }
+
+        if (legacy) {
+          const idx = data.worlds.indexOf(legacy)
+          if (idx !== -1) {
+            data.worlds[idx] = canonicalDefault
+          } else {
+            data.worlds.push(canonicalDefault)
+          }
+        } else {
+          data.worlds.push(canonicalDefault)
+        }
+      }
+    } catch (e) {
+      console.warn("Worlds normalization failed; using stored worlds as-is.", e)
     }
 
     return data

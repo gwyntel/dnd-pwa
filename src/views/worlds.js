@@ -179,59 +179,73 @@ export function renderWorlds() {
   const data = loadData()
 
   if (!data.worlds || data.worlds.length === 0) {
+    // Seed with the canonical default world.
+    // Must remain in sync with DEFAULT_DATA.worlds[0] in src/utils/storage.js.
     data.worlds = [
       {
-        id: "world_default_classic_fantasy",
-        name: "Default: Classic Fantasy Realm",
-        settingType: "classic-fantasy",
-        sourceType: "default",
-        briefDescription: "Beginner-friendly heroic fantasy with clear good vs evil and straightforward adventure hooks.",
-        fullDescription:
-          "A welcoming, classic fantasy realm designed for quick-start play. Cozy villages, ancient ruins, and nearby threats give you immediate reasons to adventure without overwhelming lore. Magic exists but feels special. Heroes protect the innocent, explore ruins, and uncover secrets step by step.",
-        tone: "Heroic, hopeful, beginner-friendly; emphasizes clarity, fun, and easy decision-making.",
-        magicLevel: "medium",
-        techLevel: "medieval",
-        startingLocation:
-          "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
-        systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
+        ...JSON.parse(
+          JSON.stringify({
+            id: "world_default_classic_fantasy",
+            name: "Default: Classic Fantasy Realm",
+            settingType: "classic-fantasy",
+            sourceType: "default",
+            briefDescription:
+              "Beginner-friendly heroic fantasy with clear good vs evil, standard D&D-style races, and straightforward adventure hooks.",
+            fullDescription:
+              "A welcoming, classic fantasy realm designed for quick-start play. Cozy villages, nearby ruins, and local threats provide immediate reasons to adventure without overwhelming lore. Magic exists and is respected but feels special rather than mundane. Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and familiar classes fit naturally. Technology is medieval: swords, bows, armor, ships, no firearms or modern industry unless the user explicitly adds them.",
+            tone:
+              "Heroic, hopeful, and beginner-friendly. Clear stakes, readable consequences, and a focus on fun, fairness, and collaboration.",
+            magicLevel: "medium",
+            techLevel: "medieval",
+            startingLocation:
+              "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
+            systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
 
-CORE GOALS:
-- Make it EASY for new players and DMs.
-- Keep stakes clear and tone heroic with room for light drama.
-- Offer obvious hooks, simple factions, and readable consequences.
-- Avoid overwhelming lore; suggest, don't drown in details.
+CORE INTENT:
+- Make it EASY for new players and GMs.
+- Keep tone heroic and inviting, with clear threats and clear ways to be awesome.
+- Provide obvious adventure hooks without heavy lore dumps.
+- Respect player agency and the game's mechanical constraints.
 
 WORLD OVERVIEW:
-- Greenhollow: Friendly riverside town, ideal home base. Key NPCs:
-  - Mayor Elira Thorne: Kind but slightly overwhelmed, wants practical heroes.
-  - Captain Bram: Town watch leader, honest and direct.
-  - Sister Maelin: Temple priest, healer and quest-giver.
-  - Old Tamsin: Retired adventurer, local rumors and map fragments.
-- Nearby Locations:
-  - Whispering Woods: Goblins, wolves, fey lights, lost shrines.
-  - Old Watchtower: Bandits or cultists; simple but dramatic dungeon.
-  - Crystalford Mine: Miners missing, strange magic or monsters below.
-- Factions:
+- Baseline: A classic medieval fantasy realm with magic, monsters, and ancient ruins.
+  - Magic exists, studied by wizards and guided by priests, but is not mundane consumer tech.
+  - Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and classes fit smoothly.
+  - Medieval tech level: swords, bows, armor, sailing ships; no guns or modern industry unless the user/world explicitly permits them.
+- Home Base — Greenhollow:
+  - Friendly riverside town and default starting hub.
+  - Key NPCs (examples, adapt as needed):
+    - Mayor Elira Thorne: Capable but overstretched; values practical heroes.
+    - Captain Bram: Town watch leader, honest and blunt.
+    - Sister Maelin: Temple priest and healer; a natural quest-giver.
+    - Old Tamsin: Retired adventurer who shares rumors, maps, and gentle guidance.
+- Nearby Hooks:
+  - Whispering Woods: Goblins, wolves, fey lights, lost shrines, mysterious tracks.
+  - Old Watchtower: Bandits or a small cult; straightforward but dramatic dungeon site.
+  - Crystalford Mine: Miners missing, strange lights and sounds below.
+- Factions (keep simple and readable):
   - Town Watch (order and safety),
-  - Road Wardens (travelers and caravans),
-  - Hidden Cult or Dark Mage (slow-burn villain).
-  Keep them simple and readable.
+  - Road Wardens (caravans and travel),
+  - A Hidden Cult or Shadowy Mage (slow-burn villain behind local troubles).
 
-MAGIC & TONE:
-- Magic exists and is understood but not mundane.
-- Standard fantasy races and classes fit easily.
-- Moral compass leans towards clear good vs evil, but allow nuance if players seek it.
+TONE & GENRE:
+- Heroic fantasy with room for wonder, suspense, and light drama.
+- Default to clear good vs evil. Moral nuance is allowed, but do not force grimdark by default.
+- Maintain a welcoming tone suitable for new or cautious groups.
 
-DM/AI GUIDELINES:
-- Give 2–3 clear options instead of 10 vague ones.
-- Explain rules, abilities, and consequences in plain language.
-- Offer gentle safety tools: check in, tone check, content check.
-- Encourage teamwork, heroism, and creative problem solving.
-- When in doubt, choose the option that keeps things fun, fair, and flowing.
+AI DM BEHAVIOR GUIDELINES:
+- Always follow the global system + tool rules, tag formats, and dice/roll semantics.
+- Present 2–3 clear, meaningful options instead of long unfocused lists.
+- When rules or mechanics are involved, explain outcomes and difficulties in plain language.
+- Never remove player agency: offer consequences and choices, do not decide for them.
+- Use safety tools lightly but explicitly when appropriate (tone checks, content checks).
+- When uncertain, choose the path that keeps play fun, fair, comprehensible, and grounded in this realm.
 
-Use this prompt to ground scenes, NPCs, quests, and descriptions so that new players feel confident and excited from the first session.`,
-        createdAt: new Date().toISOString(),
-        isDefault: true,
+Use this as the default world context whenever a game uses the default world and no custom world overrides it.`,
+            createdAt: new Date().toISOString(),
+            isDefault: true,
+          }),
+        ),
       },
     ]
     saveData(data)

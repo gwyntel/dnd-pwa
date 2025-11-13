@@ -2007,12 +2007,11 @@ function updatePlayerStats(game) {
     }
   }
 
-  // Update inventory display
-  const data = loadData()
-  const inventoryContainer = document.querySelector(".card h3")
-  if (inventoryContainer && inventoryContainer.textContent === "Inventory") {
-    const inventoryCard = inventoryContainer.parentElement
-    if (inventoryCard) {
+  // Update inventory display - find the inventory card by searching for all cards with h3 "Inventory"
+  const cards = document.querySelectorAll(".card")
+  for (const card of cards) {
+    const h3 = card.querySelector("h3")
+    if (h3 && h3.textContent.trim() === "Inventory") {
       const inventoryHTML = Array.isArray(game.inventory) && game.inventory.length > 0
         ? `
           <h3>Inventory</h3>
@@ -2032,7 +2031,8 @@ function updatePlayerStats(game) {
           <p class="text-secondary text-sm">No items in inventory.</p>
         `
       
-      inventoryCard.innerHTML = inventoryHTML
+      card.innerHTML = inventoryHTML
+      break
     }
   }
 }

@@ -257,7 +257,13 @@ function renderModelsList(currentModel) {
     .join("")
 }
 
-function updateModelsList(currentModel) {
+function updateModelsList(currentModel = null) {
+  // If no currentModel provided, load from storage to get latest selection
+  if (currentModel === null) {
+    const data = loadData()
+    currentModel = data.settings.defaultNarrativeModel
+  }
+  
   const listContainer = document.getElementById("models-list")
   listContainer.innerHTML = renderModelsList(currentModel)
 
@@ -355,6 +361,9 @@ function selectModel(modelId) {
   const data = loadData()
   data.settings.defaultNarrativeModel = modelId
   saveData(data)
+
+  // Update the UI immediately to reflect the selection
+  updateModelsList(modelId)
 
   showMessage("Model selected successfully!", "success")
 

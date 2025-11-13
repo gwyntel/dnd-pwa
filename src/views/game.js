@@ -1625,6 +1625,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         })
       }
       processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
@@ -1683,6 +1684,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   if (needsUIUpdate) {
     updateInputContainer(game)
     updateLocationHistory(game)
+    updatePlayerStats(game)
   }
 
   return newMessages
@@ -1993,6 +1995,46 @@ function updateLocationHistory(game) {
   locationHistoryContainer.innerHTML = renderLocationHistory(game)
   // Re-attach fast travel handlers after updating DOM
   setupLocationFastTravel(game)
+}
+
+function updatePlayerStats(game) {
+  // Update gold display
+  const goldStats = document.querySelectorAll(".key-stats div")
+  if (goldStats.length >= 4) {
+    const goldDiv = goldStats[3]
+    if (goldDiv) {
+      goldDiv.innerHTML = `<strong>Gold</strong><br>${game.currency?.gp ?? 0} gp`
+    }
+  }
+
+  // Update inventory display
+  const data = loadData()
+  const inventoryContainer = document.querySelector(".card h3")
+  if (inventoryContainer && inventoryContainer.textContent === "Inventory") {
+    const inventoryCard = inventoryContainer.parentElement
+    if (inventoryCard) {
+      const inventoryHTML = Array.isArray(game.inventory) && game.inventory.length > 0
+        ? `
+          <h3>Inventory</h3>
+          <ul class="inventory-list">
+            ${game.inventory
+              .map((it) => {
+                const qty = typeof it.quantity === "number" ? it.quantity : 1
+                const label = escapeHtml(it.item || "")
+                const eq = it.equipped ? " (eq.)" : ""
+                return `<li>${qty}x ${label}${eq}</li>`
+              })
+              .join("")}
+          </ul>
+        `
+        : `
+          <h3>Inventory</h3>
+          <p class="text-secondary text-sm">No items in inventory.</p>
+        `
+      
+      inventoryCard.innerHTML = inventoryHTML
+    }
+  }
 }
 
 function setupRollHistoryToggle() {

@@ -729,6 +729,56 @@ async function handlePlayerInput() {
   await sendMessage(game, text, data)
 }
 
+function sanitizeMessagesForModel(messages) {
+  if (!Array.isArray(messages)) return []
+
+  const lastAssistantIndex = [...messages]
+    .reverse()
+    .findIndex((m) => m && m.role === "assistant")
+
+  const cutoff =
+    lastAssistantIndex === -1
+      ? -1
+      : messages.length - 1 - lastAssistantIndex
+
+  return messages.map((msg, index) => {
+    // Always keep system + user messages as-is
+    if (!msg || msg.role === "system" || msg.role === "user") {
+      return msg
+    }
+
+    // Keep the latest assistant message (or if none detected) intact
+    if (index === cutoff || cutoff === -1) {
+      return msg
+    }
+
+    // For older assistant messages, strip ACTION[...] suggestions only.
+    // All canonical tags (LOCATION, ROLL, DAMAGE, etc.) must be preserved.
+    if (msg.role === "assistant" && typeof msg.content === "string") {
+      const trimmed = msg.content.replace(/ACTION\[[^\]]*]/g, "")
+      // If trimming somehow empties the message, keep the original to avoid
+      // breaking any downstream parsing that expects its presence.
+      if (trimmed !== msg.content && trimmed.trim().length > 0) {
+        return { ...msg, content: trimmed }
+      }
+    }
+
+    return msg
+  })
+}
+
+/**
+ * Build the messages payload for the model.
+ * - Preserves full stored history in gameRef.messages.
+ * - Returns a derived array where stale ACTION[...] suggestions are removed
+ *   from older assistant messages to save context.
+ * - Canonical tags (LOCATION, ROLL, DAMAGE, etc.) are never stripped here.
+ */
+function buildApiMessages(gameRef) {
+  const base = gameRef?.messages || []
+  return sanitizeMessagesForModel(base)
+}
+
 async function sendMessage(game, userText, data) {
   const gameRef = game // Use the passed-in game object
   if (!gameRef) {
@@ -756,7 +806,7 @@ async function sendMessage(game, userText, data) {
   let lastReasoningTokens = 0
 
   try {
-    const apiMessages = gameRef.messages
+    const apiMessages = buildApiMessages(gameRef)
 
     const hasNonSystemMessage = apiMessages.some((m) => m.role === "user" || m.role === "assistant")
 

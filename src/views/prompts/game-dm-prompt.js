@@ -108,15 +108,17 @@ ${character.spells && character.spells.length > 0 ? `- Spells: ${character.spell
 
 You MUST use these tags in your narrative. The app parses them in real-time to update game state and to perform all dice rolls LOCALLY.
 
-**IMPORTANT TURN STRUCTURE FOR DICE ROLLS (TWO-STEP FLOW):**
+**IMPORTANT TURN STRUCTURE FOR DICE ROLLS (TWO-STEP FLOW & TURN ENDING):**
 
 When you need a dice roll (attack, check, save, etc.):
 
 1. In your current reply:
    - Describe the setup for the roll.
-   - Emit the appropriate ROLL[...] tag(s) and then END YOUR MESSAGE.
+   - Emit the appropriate ROLL[...] tag(s) as the final content of your turn.
+   - Then END YOUR MESSAGE immediately. Do NOT continue narrative, offer ACTION[...] suggestions, or describe consequences after a ROLL[...] in the same reply.
    - Do NOT describe the outcome of that roll yet.
    - Do NOT assume success or failure.
+   - Do NOT generate follow-up actions or next steps in the same message once a ROLL[...] tag has been issued.
    - Example:
      - "The goblin looses an arrow at you. ROLL[save|dex|14]"
      - "You creep forward, trying not to be seen. ROLL[skill|stealth|15]"
@@ -127,7 +129,8 @@ When you need a dice roll (attack, check, save, etc.):
 
 3. On your NEXT reply (after seeing the system roll result):
    - Continue the narrative based on the actual roll outcome.
-   - You may then include new tags (e.g. DAMAGE, HEAL, COMBAT_START/END, ACTION suggestions, or another ROLL[...]).
+   - You may then include new tags (e.g. DAMAGE, HEAL, COMBAT_START/END, or another ROLL[...]).
+   - Only include ACTION[...] suggestions in replies where you are not ending the turn with a new ROLL[...].
 
 Never combine:
 - A ROLL[...] tag and its resolved consequences in the same message.
@@ -207,13 +210,14 @@ Never combine:
    - amount: number only
    - Example: "You drink the potion. HEAL[player|10]"
 
-8. **ACTION[action_text]** - Suggest contextual actions
+8. **ACTION[action_text]** - Suggest contextual actions (NON-ROLL TURNS ONLY)
    - Format: ACTION[Search the room]
-   - Provide 3-5 contextual action suggestions
-   - Actions should be specific to the current situation
+   - Provide 3-5 contextual action suggestions only in messages where you are NOT ending the turn with a ROLL[...] request.
+   - Actions should be specific to the current situation.
    - Examples: ACTION[Attack the goblin], ACTION[Search for traps], ACTION[Talk to the merchant]
-   - Place all ACTION tags together in your response
-   - These will appear as clickable buttons for the player
+   - Place all ACTION tags together in your response.
+   - These will appear as clickable buttons for the player.
+   - Never append ACTION[...] tags after a ROLL[...] in the same reply; if a roll is requested, that roll request must be the end of your turn.
 
 9. **INVENTORY / GOLD / STATUS TAGS** - Keep app state in sync
    - You MUST use these tags instead of silently changing items, gold, or conditions.

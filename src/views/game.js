@@ -409,31 +409,6 @@ export async function renderGame(state = {}) {
   // Update last played timestamp
   game.lastPlayedAt = new Date().toISOString()
   saveData(data)
-
-  // If a semantic roll was just handled, trigger a concise follow-up narration.
-  if (game._pendingRollFollowup && character) {
-    const { kind, label, roll } = game._pendingRollFollowup
-    delete game._pendingRollFollowup
-
-    try {
-      const outcomeText =
-        roll.success === true
-          ? "The roll succeeded. Describe the positive outcome."
-          : roll.success === false
-          ? "The roll failed. Describe the consequences of this failure."
-          : "Interpret this roll narratively based on its value."
-
-      const followupPrompt =
-        `The player just made a ${kind} roll for ${label}: ` +
-        `${roll.notation || "1d20"} = ${roll.total}. ` +
-        `${outcomeText} Keep the response concise and continue the scene.`
-
-      // Use the existing sendMessage pipeline so narration streams normally.
-      await sendMessage(game, followupPrompt, data)
-    } catch (e) {
-      console.error("[v0] Error during roll follow-up narration:", e)
-    }
-  }
 }
 
 function renderSingleMessage(msg) {
@@ -1879,6 +1854,36 @@ async function processGameCommands(game, character, text, processedTags = new Se
   }
 
   saveData(data)
+
+  // If a semantic roll was just handled, trigger a concise follow-up narration.
+  // This happens AFTER all command processing is complete.
+  if (game._pendingRollFollowup && character) {
+    console.log("[dice][followup] Triggering follow-up narration for roll:", game._pendingRollFollowup)
+    
+    const { kind, label, roll } = game._pendingRollFollowup
+    delete game._pendingRollFollowup
+
+    try {
+      const outcomeText =
+        roll.success === true
+          ? "The roll succeeded. Describe the positive outcome."
+          : roll.success === false
+          ? "The roll failed. Describe the consequences of this failure."
+          : "Interpret this roll narratively based on its value."
+
+      const followupPrompt =
+        `The player just made a ${kind} roll for ${label}: ` +
+        `${roll.notation || "1d20"} = ${roll.total}. ` +
+        `${outcomeText} Keep the response concise and continue the scene.`
+
+      console.log("[dice][followup] Sending follow-up prompt:", followupPrompt)
+
+      // Use the existing sendMessage pipeline so narration streams normally.
+      await sendMessage(game, followupPrompt, data)
+    } catch (e) {
+      console.error("[v0] Error during roll follow-up narration:", e)
+    }
+  }
 }
 
 async function sendRollResultToAI(game, rollResult, request) {

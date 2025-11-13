@@ -161,23 +161,40 @@ h3,
 h4,
 h5,
 h6 {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
 }
 
+/* Base font sizing (desktop-ish) */
+body {
+  font-size: 16px;
+}
+
 h1 {
-  font-size: 2rem;
+  font-size: 1.75rem; /* ~28px */
 }
+
 h2 {
-  font-size: 1.5rem;
+  font-size: 1.25rem; /* ~20px */
 }
+
 h3 {
-  font-size: 1.25rem;
+  font-size: 1rem; /* ~16px, consistent with body for compact cards */
 }
 
 p {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* Small text helpers */
+.text-sm {
+  font-size: 0.8rem;
+}
+
+.text-xs {
+  font-size: 0.7rem;
 }
 
 /* Links */
@@ -459,13 +476,7 @@ nav a:hover {
   margin-bottom: 2rem;
 }
 
-/* Simple text size helpers */
-.text-sm {
-  font-size: 0.875rem;
-}
-.text-xs {
-  font-size: 0.75rem;
-}
+/* (text-sm and text-xs standardized above with global typography) */
 
 .flex {
   display: flex;
@@ -582,14 +593,20 @@ nav a:hover {
 
 /* Responsive */
 @media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
   h1 {
-    font-size: 1.5rem;
+    font-size: 1.5rem; /* ~24px */
   }
+
   h2 {
-    font-size: 1.25rem;
+    font-size: 1.15rem; /* ~18px */
   }
+
   h3 {
-    font-size: 1.1rem;
+    font-size: 0.95rem; /* slightly smaller headings on mobile */
   }
 
   .container {

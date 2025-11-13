@@ -2022,24 +2022,11 @@ function setupLocationFastTravel(game) {
       const loc = e.currentTarget.getAttribute("data-location")
       if (!loc) return
 
-      const data = loadData()
-      const g = data.games.find((x) => x.id === currentGameId)
-      if (!g) return
-
-      // Fast travel: set currentLocation only; history preserved
-      g.currentLocation = loc
-      if (!Array.isArray(g.visitedLocations)) {
-        g.visitedLocations = []
-      }
-      if (!g.visitedLocations.includes(loc)) {
-        g.visitedLocations.push(loc)
-      }
-
-      saveData(data)
-
-      const header = document.querySelector(".game-header-left p")
-      if (header) {
-        header.innerHTML = `${getLocationIcon(loc)} <strong>${loc}</strong>`
+      // Prefill the input with fast travel message
+      const input = document.getElementById("player-input")
+      if (input) {
+        input.value = `Fast travel to ${loc}`
+        input.focus()
       }
     })
   })

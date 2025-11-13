@@ -1132,9 +1132,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         if (!game.visitedLocations.includes(loc)) {
           game.visitedLocations.push(loc)
         }
+        needsUIUpdate = true
       }
       processedTags.add(tagKey)
-      // Icon will be added in UI
     }
   }
 
@@ -1679,6 +1679,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
   if (needsUIUpdate) {
     updateInputContainer(game)
+    updateLocationHistory(game)
   }
 
   return newMessages
@@ -1981,6 +1982,14 @@ function updateRollHistory(game) {
   const rollHistoryContainer = document.getElementById("roll-history-container")
   if (!rollHistoryContainer) return
   rollHistoryContainer.innerHTML = renderRollHistory(game.messages || [])
+}
+
+function updateLocationHistory(game) {
+  const locationHistoryContainer = document.getElementById("location-history-container")
+  if (!locationHistoryContainer) return
+  locationHistoryContainer.innerHTML = renderLocationHistory(game)
+  // Re-attach fast travel handlers after updating DOM
+  setupLocationFastTravel(game)
 }
 
 function setupRollHistoryToggle() {

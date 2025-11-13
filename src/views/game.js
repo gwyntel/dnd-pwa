@@ -13,6 +13,7 @@ import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
 
 let currentGameId = null
 let isStreaming = false
+let pendingRollFollowup = null  // Track roll follow-ups in memory only (never persisted)
 
 export function renderGameList() {
   const app = document.getElementById("app")
@@ -1364,7 +1365,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             },
           })
           // Let follow-up helper know a semantic skill roll occurred
-          game._pendingRollFollowup = {
+          pendingRollFollowup = {
             kind: "skill",
             label: key || "skill check",
             roll: result,
@@ -1396,7 +1397,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
-          game._pendingRollFollowup = {
+          pendingRollFollowup = {
             kind: "save",
             label: (key || "save").toUpperCase(),
             roll: result,
@@ -1438,7 +1439,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
-          game._pendingRollFollowup = {
+          pendingRollFollowup = {
             kind: "attack",
             label: label,
             roll: toHit,
@@ -1857,11 +1858,11 @@ async function processGameCommands(game, character, text, processedTags = new Se
 
   // If a semantic roll was just handled, trigger a concise follow-up narration.
   // This happens AFTER all command processing is complete.
-  if (game._pendingRollFollowup && character) {
-    console.log("[dice][followup] Triggering follow-up narration for roll:", game._pendingRollFollowup)
+  if (pendingRollFollowup && character) {
+    console.log("[dice][followup] Triggering follow-up narration for roll:", pendingRollFollowup)
     
-    const { kind, label, roll } = game._pendingRollFollowup
-    delete game._pendingRollFollowup
+    const { kind, label, roll } = pendingRollFollowup
+    pendingRollFollowup = null  // Clear the flag immediately
 
     try {
       const outcomeText =

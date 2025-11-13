@@ -398,6 +398,9 @@ export async function renderGame(state = {}) {
     })
   })
 
+  // Setup location fast travel click handlers
+  setupLocationFastTravel(game)
+
   // If no messages, start the game
   if (game.messages.length === 0) {
     await startGame(game, character, data)

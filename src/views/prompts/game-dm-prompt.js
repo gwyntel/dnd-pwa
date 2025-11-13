@@ -139,6 +139,12 @@ Never combine:
    - Never change the location in narration without also including a matching LOCATION[...] tag in the same message.
    - Example (correct): "You leave the inn and arrive at the LOCATION[Moonlit Forest Road], where the trees crowd close around the path."
    - Example (incorrect, do NOT do this): "You leave the inn and walk for hours until you reach the city gates." (no LOCATION tag)
+   
+   **FAST TRAVEL:**
+   - The player can fast travel ONLY to locations they have previously visited (tracked automatically by the app).
+   - When the player requests fast travel (e.g., "Fast travel to the Tavern"), validate that it's a previously visited location.
+   - If valid, emit the LOCATION[...] tag and narrate a brief transition.
+   - If they try to fast travel to an unvisited location, explain they haven't been there yet and suggest travel or exploration instead.
 
 2. **ROLL[dice|type|DC]** - Request a dice roll from the app (legacy numeric, rarely needed if you use semantic tags)
    - Format: ROLL[1d20+3|normal|15]

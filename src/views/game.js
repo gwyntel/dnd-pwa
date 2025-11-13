@@ -406,6 +406,31 @@ export async function renderGame(state = {}) {
   // Update last played timestamp
   game.lastPlayedAt = new Date().toISOString()
   saveData(data)
+
+  // If a semantic roll was just handled, trigger a concise follow-up narration.
+  if (game._pendingRollFollowup && character) {
+    const { kind, label, roll } = game._pendingRollFollowup
+    delete game._pendingRollFollowup
+
+    try {
+      const outcomeText =
+        roll.success === true
+          ? "The roll succeeded. Describe the positive outcome."
+          : roll.success === false
+          ? "The roll failed. Describe the consequences of this failure."
+          : "Interpret this roll narratively based on its value."
+
+      const followupPrompt =
+        `The player just made a ${kind} roll for ${label}: ` +
+        `${roll.notation || "1d20"} = ${roll.total}. ` +
+        `${outcomeText} Keep the response concise and continue the scene.`
+
+      // Use the existing sendMessage pipeline so narration streams normally.
+      await sendMessage(game, followupPrompt, data)
+    } catch (e) {
+      console.error("[v0] Error during roll follow-up narration:", e)
+    }
+  }
 }
 
 function renderSingleMessage(msg) {
@@ -1341,7 +1366,11 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             content:
               `🎲 Skill (${key || "check"}): ` +
               `${formatRoll(result)}` +
-              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
+              (dc != null
+                ? ` vs DC ${dc} - ${
+                    result.success ? "✓ Success!" : "✗ Failure"
+                  }`
+                : ""),
             timestamp: meta.timestamp,
             hidden: false,
             metadata: {
@@ -1353,6 +1382,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
+          // Let follow-up helper know a semantic skill roll occurred
+          game._pendingRollFollowup = {
+            kind: "skill",
+            label: key || "skill check",
+            roll: result,
+          }
         } else if (kind === "save") {
           const dc = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic save roll", { key, dc, adv, raw: match[0] })
@@ -1364,7 +1399,11 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             content:
               `🎲 Save (${(key || "").toUpperCase() || "save"}): ` +
               `${formatRoll(result)}` +
-              (dc != null ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"}` : ""),
+              (dc != null
+                ? ` vs DC ${dc} - ${
+                    result.success ? "✓ Success!" : "✗ Failure"
+                  }`
+                : ""),
             timestamp: meta.timestamp,
             hidden: false,
             metadata: {
@@ -1376,6 +1415,11 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
+          game._pendingRollFollowup = {
+            kind: "save",
+            label: (key || "save").toUpperCase(),
+            roll: result,
+          }
         } else if (kind === "attack") {
           const targetAC = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic attack roll", { key, targetAC, adv, raw: match[0] })
@@ -1413,6 +1457,11 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
+          game._pendingRollFollowup = {
+            kind: "attack",
+            label: label,
+            roll: toHit,
+          }
         }
 
         processedTags.add(tagKey)
@@ -1824,11 +1873,36 @@ async function processGameCommands(game, character, text, processedTags = new Se
 }
 
 async function sendRollResultToAI(game, rollResult, request) {
-  // Build a message with the roll result for AI context
-  const resultText = `[Roll Result: ${rollResult.notation} = ${rollResult.total}${request.dc ? `, DC ${request.dc} - ${rollResult.total >= request.dc ? "SUCCESS" : "FAILURE"}` : ""}]`
+  // Build a message with the roll result for AI context and persist it
+  const dcPart =
+    request.dc != null
+      ? `, DC ${request.dc} - ${
+          rollResult.total >= request.dc ? "SUCCESS" : "FAILURE"
+        }`
+      : ""
 
-  // This will be sent in the next message context automatically
-  // The AI will see the roll result and continue the narrative
+  const resultText = `[Roll Result: ${rollResult.notation} = ${rollResult.total}${dcPart}]`
+
+  // Append as a visible system message so future prompts include it
+  const msg = {
+    id: `msg_${Date.now()}_roll_result`,
+    role: "system",
+    content: resultText,
+    timestamp: new Date().toISOString(),
+    hidden: false,
+    metadata: {
+      diceRoll: rollResult,
+      dc: request.dc ?? null,
+      success:
+        request.dc != null
+          ? rollResult.total >= request.dc
+          : null,
+    },
+  }
+
+  if (Array.isArray(game.messages)) {
+    game.messages.push(msg)
+  }
 }
 
 function buildSystemPrompt(character, game) {

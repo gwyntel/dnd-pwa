@@ -153,6 +153,7 @@ async function createGame() {
     inventory: [...character.inventory],
     currency: { gp: 0 },
     conditions: [],
+    relationships: {},
     combat: {
       active: false,
       round: 0,
@@ -623,6 +624,9 @@ function stripTags(text) {
   cleaned = cleaned.replace(/GOLD_CHANGE\[([^\]]+)\]/g, "")
   cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, "")
   cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, "")
+
+  // Relationship tags
+  cleaned = cleaned.replace(/RELATIONSHIP\[([^\]]+)\]/g, "")
 
   // Suggested actions - strip ACTION[...] tags but keep surrounding text intact
   cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, "")
@@ -1689,6 +1693,45 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
           timestamp: new Date().toISOString(),
           hidden: false,
         })
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // RELATIONSHIP[entity_id:delta]
+  const relationshipMatches = text.matchAll(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g)
+  for (const match of relationshipMatches) {
+    const tagKey = `relationship_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const entityId = match[1].trim()
+      const delta = Number.parseInt(match[2], 10)
+      
+      if (entityId && !Number.isNaN(delta)) {
+        // Initialize relationships object if needed
+        if (!game.relationships || typeof game.relationships !== 'object') {
+          game.relationships = {}
+        }
+        
+        // Get current value or default to 0
+        const currentValue = typeof game.relationships[entityId] === 'number' 
+          ? game.relationships[entityId] 
+          : 0
+        
+        // Apply delta
+        const newValue = currentValue + delta
+        game.relationships[entityId] = newValue
+        
+        // Create system message
+        const sign = delta > 0 ? '+' : ''
+        newMessages.push({
+          id: `msg_${Date.now()}_relationship`,
+          role: "system",
+          content: `🤝 Relationship with ${entityId}: ${currentValue} → ${newValue} (${sign}${delta})`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+        })
+        
+        needsUIUpdate = true
       }
       processedTags.add(tagKey)
     }

@@ -37,10 +37,17 @@ export function buildGameDMPrompt(character, game, world) {
     })
     .filter(Boolean)
 
+  // Build relationships summary
+  const relationships = game.relationships && typeof game.relationships === 'object' ? game.relationships : {}
+  const relationshipEntries = Object.entries(relationships)
+    .map(([entity, value]) => `${entity}: ${value}`)
+    .join(", ")
+
   const statusLineParts = []
   statusLineParts.push(`Gold: ${gold} gp`)
   if (inventorySummary) statusLineParts.push(`Key items: ${inventorySummary}`)
   if (conditionNames.length > 0) statusLineParts.push(`Active conditions: ${conditionNames.join(", ")}`)
+  if (relationshipEntries) statusLineParts.push(`Relationships: ${relationshipEntries}`)
 
   const statusLine =
     statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""
@@ -231,6 +238,20 @@ Never combine:
      - Example cost: "The fee is steep. GOLD_CHANGE[-50]"
    - STATUS_ADD[name] / STATUS_REMOVE[name] - Apply or clear narrative conditions (e.g. Poisoned, Inspired).
    - Do NOT describe hp loss, healing, gold spent/earned, or items gained/lost without also emitting the appropriate tag.
+
+10. **RELATIONSHIP[entity:delta]** - Track relationships with entities
+   - Format: RELATIONSHIP[entity_name:+5] or RELATIONSHIP[entity_name:-3]
+   - Use to track reputation, trust, or standing with people, factions, locations, or groups.
+   - The number is a simple score that you interpret narratively:
+     - Positive values suggest good standing, favor, trust, or friendship
+     - Negative values suggest hostility, distrust, or poor reputation
+     - Zero is neutral
+   - Examples:
+     - "The mayor nods approvingly. RELATIONSHIP[Mayor_Thorne:+2]"
+     - "Your actions have angered the Thieves Guild. RELATIONSHIP[Thieves_Guild:-5]"
+     - "The villagers are grateful. RELATIONSHIP[Greenhollow_Village:+3]"
+   - Entity names can be people, groups, factions, or locations - use whatever makes sense narratively
+   - The AI interprets these scores to inform NPC behavior and story consequences
 
 **Formatting Rules:**
 - Use **bold** for emphasis: **important text**

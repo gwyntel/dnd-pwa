@@ -108,6 +108,12 @@ function renderModelSelector(data) {
       </div>
       
       <div class="card mb-3">
+        <p class="text-center mb-3">
+          <strong>Stuck?</strong> Check the best roleplay models on OpenRouter: 
+          <a href="https://openrouter.ai/rankings?category=roleplay#categories" target="_blank" rel="noopener noreferrer">
+            Roleplay Rankings
+          </a>
+        </p>
         <div class="mb-2">
           <input 
             type="text" 

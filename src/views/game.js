@@ -371,6 +371,13 @@ export async function renderGame(state = {}) {
             ${renderLocationHistory(game)}
           </div>
         </div>
+
+        <div class="card">
+          <h3>Relationships</h3>
+          <div id="relationships-container" class="relationships-container">
+            ${renderRelationships(game)}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1757,6 +1764,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     updateInputContainer(game)
     updateLocationHistory(game)
     updatePlayerStats(game)
+    updateRelationshipsDisplay(game)
   }
 
   return newMessages
@@ -2037,6 +2045,33 @@ function renderLocationHistory(game) {
   `
 }
 
+function renderRelationships(game) {
+  const relationships = game.relationships && typeof game.relationships === 'object' ? game.relationships : {}
+  const entries = Object.entries(relationships)
+
+  if (entries.length === 0) {
+    return '<p class="text-secondary text-sm">No relationships tracked yet.</p>'
+  }
+
+  return `
+    <ul class="relationship-list">
+      ${entries
+        .map(([entity, value]) => {
+          const numValue = typeof value === 'number' ? value : 0
+          const sentiment = numValue > 0 ? 'positive' : numValue < 0 ? 'negative' : 'neutral'
+          const icon = numValue > 0 ? '😊' : numValue < 0 ? '😠' : '😐'
+          return `
+            <li class="relationship-item relationship-${sentiment}">
+              <span class="relationship-entity">${icon} ${escapeHtml(entity)}</span>
+              <span class="relationship-value">${numValue > 0 ? '+' : ''}${numValue}</span>
+            </li>
+          `
+        })
+        .join("")}
+    </ul>
+  `
+}
+
 function renderUsageDisplay(game) {
   if (!game.cumulativeUsage || game.cumulativeUsage.totalTokens === 0) {
     return ""
@@ -2137,6 +2172,12 @@ function updatePlayerStats(game) {
       break
     }
   }
+}
+
+function updateRelationshipsDisplay(game) {
+  const relationshipsContainer = document.getElementById("relationships-container")
+  if (!relationshipsContainer) return
+  relationshipsContainer.innerHTML = renderRelationships(game)
 }
 
 function setupRollHistoryToggle() {

@@ -200,24 +200,32 @@ Never combine:
    - Use when enemies attack or player initiates combat
    - Example: "COMBAT_START[A dire wolf growls and attacks!]"
 
-5. **COMBAT_END[outcome]** - End combat
+5. **COMBAT_NEXT_TURN** - Advance to next combatant's turn
+   - Format: COMBAT_NEXT_TURN
+   - Use after a combatant completes their turn (attacks, moves, etc.)
+   - The app will advance to the next person in initiative order
+   - When the last combatant's turn ends, the app automatically increments the round counter
+   - Example: "The goblin's turn ends. COMBAT_NEXT_TURN"
+   - You should narrate whose turn it is after the app processes this tag
+
+6. **COMBAT_END[outcome]** - End combat
    - Format: COMBAT_END[Victory! The goblins flee.]
    - Use when combat concludes.
    - The app will clear initiative/turn tracking.
 
-6. **DAMAGE[target|amount]** - Apply damage
+7. **DAMAGE[target|amount]** - Apply damage
    - Format: DAMAGE[player|5]
    - target: "player" (lowercase)
    - amount: number only
    - Example: "The goblin's arrow hits! DAMAGE[player|4]"
 
-7. **HEAL[target|amount]** - Apply healing
+8. **HEAL[target|amount]** - Apply healing
    - Format: HEAL[player|8]
    - target: "player" (lowercase)
    - amount: number only
    - Example: "You drink the potion. HEAL[player|10]"
 
-8. **ACTION[action_text]** - Suggest contextual actions (NON-ROLL TURNS ONLY)
+9. **ACTION[action_text]** - Suggest contextual actions (NON-ROLL TURNS ONLY)
    - Format: ACTION[Search the room]
    - Provide 3-5 contextual action suggestions only in messages where you are NOT ending the turn with a ROLL[...] request.
    - Actions should be specific to the current situation.
@@ -226,7 +234,7 @@ Never combine:
    - These will appear as clickable buttons for the player.
    - Never append ACTION[...] tags after a ROLL[...] in the same reply; if a roll is requested, that roll request must be the end of your turn.
 
-9. **INVENTORY / GOLD / STATUS TAGS** - Keep app state in sync
+10. **INVENTORY / GOLD / STATUS TAGS** - Keep app state in sync
    - You MUST use these tags instead of silently changing items, gold, or conditions.
    - INVENTORY_ADD[item|qty] - Player gains items.
      - Example: "Among the rubble, you find a healing draught. INVENTORY_ADD[Healing Potion|1]"
@@ -239,7 +247,7 @@ Never combine:
    - STATUS_ADD[name] / STATUS_REMOVE[name] - Apply or clear narrative conditions (e.g. Poisoned, Inspired).
    - Do NOT describe hp loss, healing, gold spent/earned, or items gained/lost without also emitting the appropriate tag.
 
-10. **RELATIONSHIP[entity:delta]** - Track relationships with entities
+11. **RELATIONSHIP[entity:delta]** - Track relationships with entities
    - Format: RELATIONSHIP[entity_name:+5] or RELATIONSHIP[entity_name:-3]
    - Use to track reputation, trust, or standing with people, factions, locations, or groups.
    - The number is a simple score that you interpret narratively:
@@ -274,7 +282,7 @@ ACTION[Try to reason with the guardian]
 ACTION[Search for another exit]"
 
 Current location: ${game.currentLocation}
-${game.combat.active ? `Currently in combat (Round ${game.combat.round})` : ""}
+${game.combat.active ? `Currently in combat (Round ${game.combat.round}, ${getCurrentTurnDescription(game)})` : ""}
 
 Begin the adventure!`
 }
@@ -297,4 +305,19 @@ function buildDiceProfileForPrompt(character) {
 function loadDataForPrompt() {
   // This will be called from game.js which has access to loadData
   return {}
+}
+
+function getCurrentTurnDescription(game) {
+  if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
+    return ""
+  }
+  
+  const currentIndex = game.combat.currentTurnIndex || 0
+  const current = game.combat.initiative[currentIndex]
+  
+  if (!current) {
+    return ""
+  }
+  
+  return `${current.name}'s turn`
 }

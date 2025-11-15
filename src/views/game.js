@@ -331,7 +331,9 @@ export async function renderGame(state = {}) {
               ? `
             <div class="combat-indicator mt-2">
               <strong>⚔️ IN COMBAT</strong>
-              <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">Round ${game.combat.round}</p>
+              <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">
+                Round ${game.combat.round}${renderCurrentTurn(game)}
+              </p>
             </div>
           `
               : ""
@@ -617,6 +619,7 @@ function stripTags(text) {
 
   // COMBAT tags - not shown directly
   cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/COMBAT_NEXT_TURN/g, "")
   cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, "")
 
   // HP change tags
@@ -1287,6 +1290,50 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         metadata: startMeta,
       })
 
+      processedTags.add(tagKey)
+    }
+  }
+
+  // COMBAT_NEXT_TURN - advance to next combatant
+  const combatNextTurnMatches = text.matchAll(/COMBAT_NEXT_TURN/g)
+  for (const match of combatNextTurnMatches) {
+    const tagKey = `combat_next_turn_${match[0]}`
+    if (!processedTags.has(tagKey) && game.combat.active) {
+      if (Array.isArray(game.combat.initiative) && game.combat.initiative.length > 0) {
+        // Advance to next turn
+        game.combat.currentTurnIndex = (game.combat.currentTurnIndex || 0) + 1
+        
+        // If we've wrapped around to the start, increment round
+        if (game.combat.currentTurnIndex >= game.combat.initiative.length) {
+          game.combat.currentTurnIndex = 0
+          game.combat.round += 1
+          
+          newMessages.push({
+            id: `msg_${Date.now()}_round_advance`,
+            role: "system",
+            content: `⚔️ Round ${game.combat.round} begins!`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { combatEvent: "round_advance", round: game.combat.round },
+          })
+        }
+        
+        // Announce whose turn it is
+        const currentCombatant = game.combat.initiative[game.combat.currentTurnIndex]
+        if (currentCombatant) {
+          const turnIndicator = currentCombatant.type === "player" ? "Your turn!" : `${currentCombatant.name}'s turn`
+          newMessages.push({
+            id: `msg_${Date.now()}_turn_announce`,
+            role: "system",
+            content: `⚔️ ${turnIndicator}`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { combatEvent: "turn_change", combatant: currentCombatant.name },
+          })
+        }
+        
+        needsUIUpdate = true
+      }
       processedTags.add(tagKey)
     }
   }
@@ -2076,6 +2123,22 @@ function renderRelationships(game) {
         .join("")}
     </ul>
   `
+}
+
+function renderCurrentTurn(game) {
+  if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
+    return ""
+  }
+  
+  const currentIndex = game.combat.currentTurnIndex || 0
+  const current = game.combat.initiative[currentIndex]
+  
+  if (!current) {
+    return ""
+  }
+  
+  const turnText = current.type === "player" ? "Your turn" : `${current.name}'s turn`
+  return ` • ${turnText}`
 }
 
 function renderUsageDisplay(game) {

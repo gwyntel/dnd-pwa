@@ -471,7 +471,7 @@ function renderSingleMessage(msg) {
         hasReasoning
           ? `
       <div class="message-reasoning">
-        <details class="reasoning-details" open>
+        <details class="reasoning-details">
           <summary class="reasoning-summary">
             🧠 Reasoning
             ${

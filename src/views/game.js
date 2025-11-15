@@ -1318,50 +1318,6 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     }
   }
 
-  // COMBAT_NEXT_TURN - advance to next combatant
-  const combatNextTurnMatches = text.matchAll(/COMBAT_NEXT_TURN/g)
-  for (const match of combatNextTurnMatches) {
-    const tagKey = `combat_next_turn_${match[0]}`
-    if (!processedTags.has(tagKey) && game.combat.active) {
-      if (Array.isArray(game.combat.initiative) && game.combat.initiative.length > 0) {
-        // Advance to next turn
-        game.combat.currentTurnIndex = (game.combat.currentTurnIndex || 0) + 1
-        
-        // If we've wrapped around to the start, increment round
-        if (game.combat.currentTurnIndex >= game.combat.initiative.length) {
-          game.combat.currentTurnIndex = 0
-          game.combat.round += 1
-          
-          newMessages.push({
-            id: `msg_${Date.now()}_round_advance`,
-            role: "system",
-            content: `⚔️ Round ${game.combat.round} begins!`,
-            timestamp: new Date().toISOString(),
-            hidden: false,
-            metadata: { combatEvent: "round_advance", round: game.combat.round },
-          })
-        }
-        
-        // Announce whose turn it is
-        const currentCombatant = game.combat.initiative[game.combat.currentTurnIndex]
-        if (currentCombatant) {
-          const turnIndicator = currentCombatant.type === "player" ? "Your turn!" : `${currentCombatant.name}'s turn`
-          newMessages.push({
-            id: `msg_${Date.now()}_turn_announce`,
-            role: "system",
-            content: `⚔️ ${turnIndicator}`,
-            timestamp: new Date().toISOString(),
-            hidden: false,
-            metadata: { combatEvent: "turn_change", combatant: currentCombatant.name },
-          })
-        }
-        
-        needsUIUpdate = true
-      }
-      processedTags.add(tagKey)
-    }
-  }
-
   // COMBAT_END
   const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g)
   for (const match of combatEndMatches) {
@@ -1867,8 +1823,9 @@ async function processGameCommands(game, character, text, processedTags = new Se
   }
 
   // Check for combat start (fallback - streaming handler should normally cover this)
+  // Skip if combat is already active (prevents duplication on reload)
   const combatStartMatch = text.match(/COMBAT_START\[([^\]]*)\]/)
-  if (combatStartMatch) {
+  if (combatStartMatch && !game.combat.active) {
     game.combat.active = true
     game.combat.round = 1
 

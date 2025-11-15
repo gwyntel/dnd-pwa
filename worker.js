@@ -7,15 +7,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // If we're under /auth, normalize paths so assets and manifest load correctly.
+    // If we're under /auth or /game, normalize paths so assets and manifest load correctly.
     // Example:
     //   /auth/assets/index.js       -> /assets/index.js
     //   /auth/manifest.json         -> /manifest.json
     //   /auth/callback?code=...     -> SPA route -> index.html
-    if (url.pathname.startsWith("/auth/")) {
-      const subPath = url.pathname.slice("/auth".length); // keep leading '/' on remainder
+    //   /game/assets/index.js       -> /assets/index.js
+    //   /game/manifest.json         -> /manifest.json
+    if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/game/")) {
+      const prefix = url.pathname.startsWith("/auth/") ? "/auth" : "/game";
+      const subPath = url.pathname.slice(prefix.length); // keep leading '/' on remainder
 
-      // Asset or manifest under /auth -> strip /auth and fetch real asset.
+      // Asset or manifest under /auth or /game -> strip prefix and fetch real asset.
       if (subPath.startsWith("/assets/") || subPath === "/manifest.json" || subPath === "/favicon.ico") {
         const rewritten = new URL(subPath, request.url);
         const assetReq = new Request(rewritten.toString(), request);
@@ -26,8 +29,8 @@ export default {
         // If not found as asset, fall through to SPA handling below.
       }
 
-      // For /auth/callback and any other /auth/* path without an extension:
-      // treat as SPA route -> serve index.html so client-side code can run handleAuthCallback().
+      // For /auth/callback, /game/... and any other path without an extension:
+      // treat as SPA route -> serve index.html so client-side code can run.
       const lastSegment = subPath.split("/").pop() || "";
       const hasExt = lastSegment.includes(".");
       if (!hasExt) {

@@ -886,6 +886,12 @@ async function sendMessage(game, userText, data) {
             // Create the message element immediately when reasoning starts
             appendMessage(gameRef.messages[assistantMsgIndex])
             streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+            
+            // Open the details element that was just created by appendMessage
+            const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
+            if (reasoningDetails) {
+              reasoningDetails.open = true
+            }
           }
           
           if (streamingMsgElement) {
@@ -893,7 +899,7 @@ async function sendMessage(game, userText, data) {
             let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
             
             if (!reasoningBody) {
-              // Create reasoning panel if it doesn't exist yet
+              // Create reasoning panel if it doesn't exist yet (fallback, shouldn't happen)
               const messageDiv = streamingMsgElement
               const reasoningPanel = document.createElement("div")
               reasoningPanel.className = "message-reasoning"

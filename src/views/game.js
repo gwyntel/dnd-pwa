@@ -1056,6 +1056,8 @@ async function sendMessage(game, userText, data) {
       updateUsageDisplay(gameRef)
     }
 
+    // Save immediately after streaming and post-processing completes
+    // This ensures the message is persisted even if user exits quickly
     saveData(data)
     updateInputContainer(gameRef)
   } catch (error) {

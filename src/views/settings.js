@@ -64,24 +64,25 @@ export function renderSettings() {
           </label>
         </div>
         
-        <div class="mb-2">
+        <div class="mb-2" id="reasoning-effort-container" style="display: none;">
           <label class="form-label text-sm">Effort level</label>
           <select id="reasoning-effort-select">
             <option value="">Auto (model default)</option>
-            <option value="minimal">Minimal</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
           </select>
+          <p class="text-xs text-secondary mt-1">
+            Controls how much reasoning the model performs (OpenAI, Grok models)
+          </p>
         </div>
         
-        <div class="mb-2">
-          <label class="form-label text-sm">Summary verbosity</label>
-          <select id="reasoning-summary-select">
-            <option value="">Auto (model default)</option>
-            <option value="concise">Concise</option>
-            <option value="detailed">Detailed</option>
-          </select>
+        <div class="mb-2" id="reasoning-max-tokens-container" style="display: none;">
+          <label class="form-label text-sm">Max reasoning tokens</label>
+          <input type="number" id="reasoning-max-tokens-input" min="1024" max="32000" step="1024" placeholder="Auto (model default)">
+          <p class="text-xs text-secondary mt-1">
+            Maximum tokens allocated for reasoning (Anthropic, Gemini, DeepSeek models)
+          </p>
         </div>
 
         <div class="mb-2">
@@ -295,14 +296,33 @@ async function initializeReasoningSettings(data) {
     return
   }
 
-  console.log("[Reasoning] Final model check - ID:", model.id, "Name:", model.name, "supportsReasoning:", model.supportsReasoning)
+  console.log("[Reasoning] Final model check - ID:", model.id, "Name:", model.name, "supportsReasoning:", model.supportsReasoning, "reasoningType:", model.reasoningType)
 
   if (model.supportsReasoning) {
     console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
     cardEl.style.display = "block"
+    
+    // Show/hide appropriate controls based on reasoning type
+    const effortContainer = document.getElementById("reasoning-effort-container")
+    const maxTokensContainer = document.getElementById("reasoning-max-tokens-container")
+    
+    if (model.reasoningType === "effort") {
+      console.log("[Reasoning] Model uses effort-based reasoning")
+      effortContainer.style.display = "block"
+      maxTokensContainer.style.display = "none"
+    } else if (model.reasoningType === "max_tokens") {
+      console.log("[Reasoning] Model uses max_tokens-based reasoning")
+      effortContainer.style.display = "none"
+      maxTokensContainer.style.display = "block"
+    } else {
+      console.log("[Reasoning] Unknown reasoning type, showing both options")
+      effortContainer.style.display = "block"
+      maxTokensContainer.style.display = "block"
+    }
   } else {
     console.log("[Reasoning] ❌ Model does not support reasoning tokens - hiding settings card")
     cardEl.style.display = "none"
+    return
   }
 
   // Load saved reasoning settings
@@ -311,14 +331,16 @@ async function initializeReasoningSettings(data) {
 
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
-  const summarySelect = document.getElementById("reasoning-summary-select")
+  const maxTokensInput = document.getElementById("reasoning-max-tokens-input")
   const displayCheck = document.getElementById("reasoning-display-check")
 
-  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
+  if (!enabledCheck || !effortSelect || !maxTokensInput || !displayCheck) return
 
   enabledCheck.checked = !!rs.enabled
   effortSelect.value = rs.effort || ""
-  summarySelect.value = rs.summary || ""
+  if (rs.maxTokens) {
+    maxTokensInput.value = rs.maxTokens
+  }
   displayCheck.checked = !!rs.displayPanel
 }
 
@@ -328,10 +350,10 @@ function setupReasoningSettingsHandlers(data) {
 
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
-  const summarySelect = document.getElementById("reasoning-summary-select")
+  const maxTokensInput = document.getElementById("reasoning-max-tokens-input")
   const displayCheck = document.getElementById("reasoning-display-check")
 
-  if (!enabledCheck || !effortSelect || !summarySelect || !displayCheck) return
+  if (!enabledCheck || !effortSelect || !maxTokensInput || !displayCheck) return
 
   const persist = () => {
     const reasoning = {
@@ -339,10 +361,10 @@ function setupReasoningSettingsHandlers(data) {
       displayPanel: displayCheck.checked,
     }
 
-    // Only include effort/summary if enabled and values are set
+    // Only include effort/maxTokens if enabled and values are set
     if (enabledCheck.checked) {
       if (effortSelect.value) reasoning.effort = effortSelect.value
-      if (summarySelect.value) reasoning.summary = summarySelect.value
+      if (maxTokensInput.value) reasoning.maxTokens = Number(maxTokensInput.value)
     }
 
     // Always save the reasoning object (even if just { enabled: false })
@@ -355,7 +377,7 @@ function setupReasoningSettingsHandlers(data) {
 
   enabledCheck.addEventListener("change", persist)
   effortSelect.addEventListener("change", persist)
-  summarySelect.addEventListener("change", persist)
+  maxTokensInput.addEventListener("change", persist)
   displayCheck.addEventListener("change", persist)
 }
 

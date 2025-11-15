@@ -838,9 +838,14 @@ async function sendMessage(game, userText, data) {
     if (data.settings.reasoning) {
       reasoningOptions.reasoningEnabled = data.settings.reasoning.enabled
       reasoningOptions.reasoningEffort = data.settings.reasoning.effort
-      reasoningOptions.reasoningSummary = data.settings.reasoning.summary
-      // TODO: Could check if model supports reasoning from fetchModels() data
-      // For now, let openrouter.js handle it conservatively
+      reasoningOptions.reasoningMaxTokens = data.settings.reasoning.maxTokens
+      
+      // Get model metadata to determine reasoning type
+      const model = data.models?.find((m) => m.id === gameRef.narrativeModel)
+      if (model) {
+        reasoningOptions.modelSupportsReasoning = model.supportsReasoning
+        reasoningOptions.reasoningType = model.reasoningType
+      }
     }
 
     const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)

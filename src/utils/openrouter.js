@@ -101,6 +101,58 @@ async function makeRequest(endpoint, options = {}) {
 }
 
 /**
+ * Detect reasoning type based on model ID
+ * @param {string} modelId - The model ID
+ * @returns {"effort" | "max_tokens" | null} - The reasoning type
+ */
+function detectReasoningType(modelId) {
+  const lowerModelId = modelId.toLowerCase()
+  
+  // OpenAI reasoning models: o1, o3, gpt-5 series use effort-based reasoning
+  if (lowerModelId.includes("/o1") || lowerModelId.includes("/o3") || lowerModelId.includes("/gpt-5")) {
+    return "effort"
+  }
+  
+  // xAI Grok models use effort-based reasoning
+  if (lowerModelId.includes("grok")) {
+    return "effort"
+  }
+  
+  // Anthropic Claude models use max_tokens-based reasoning
+  if (lowerModelId.includes("claude")) {
+    return "max_tokens"
+  }
+  
+  // Google Gemini thinking models use max_tokens-based reasoning
+  if (lowerModelId.includes("gemini") && lowerModelId.includes("thinking")) {
+    return "max_tokens"
+  }
+  
+  // Alibaba Qwen models - some support max_tokens (check model description for thinking_budget)
+  // For now, default to max_tokens for qwen models with "thinking" in the name
+  if (lowerModelId.includes("qwen") && lowerModelId.includes("thinking")) {
+    return "max_tokens"
+  }
+  
+  // DeepSeek reasoning models
+  if (lowerModelId.includes("deepseek") && (lowerModelId.includes("-r1") || lowerModelId.includes("reasoning"))) {
+    return "max_tokens"
+  }
+  
+  // MiniMax M2
+  if (lowerModelId.includes("minimax") && lowerModelId.includes("m2")) {
+    return "max_tokens"
+  }
+  
+  // Kimi K2 Thinking
+  if (lowerModelId.includes("kimi") && lowerModelId.includes("k2") && lowerModelId.includes("thinking")) {
+    return "max_tokens"
+  }
+  
+  return null
+}
+
+/**
  * Fetch available models from OpenRouter
  */
 export async function fetchModels() {
@@ -111,6 +163,8 @@ export async function fetchModels() {
     // Transform model data for easier use
     return data.data.map((model) => {
       const supportedParameters = model.supported_parameters || []
+      const supportsReasoning = supportedParameters.includes("reasoning")
+      
       return {
         id: model.id,
         name: model.name || model.id,
@@ -120,7 +174,9 @@ export async function fetchModels() {
           completion: model.pricing?.completion || 0,
         },
         // Check if model supports reasoning by looking for "reasoning" in supported_parameters array
-        supportsReasoning: supportedParameters.includes("reasoning"),
+        supportsReasoning: supportsReasoning,
+        // Detect which type of reasoning parameters this model supports
+        reasoningType: supportsReasoning ? detectReasoningType(model.id) : null,
         // OpenRouter models advertise supported parameters; use this to gate structured outputs and other features
         supportedParameters: supportedParameters,
         provider: model.id.split("/")[0] || "unknown",
@@ -194,18 +250,18 @@ export async function sendChatCompletion(messages, model, options = {}) {
     }
 
     // Unified reasoning token controls per OpenRouter API spec.
-    // IMPORTANT:
-    // - Only attach `reasoning` for models that advertise supports_reasoning (supportsReasoning),
-    //   or when the caller explicitly passes a reasoning object and has validated support.
-    // - This avoids sending unsupported reasoning parameters to models like some DeepSeek/OSS models.
+    // Different models support different reasoning parameters:
+    // - "effort" models (OpenAI o1/o3/gpt-5, Grok): use reasoning.effort ("low"/"medium"/"high")
+    // - "max_tokens" models (Anthropic, Gemini, DeepSeek, etc.): use reasoning.max_tokens (number)
+    // - All models support reasoning.enabled (boolean) and reasoning.exclude (boolean)
     const attachReasoning = (() => {
       // Explicit override: if caller passes `options.reasoning`, assume they know the model supports it.
       if (options.reasoning) return true
 
-      // If caller provides alias options, try to gate using known model metadata when available.
+      // If caller provides alias options, check if model supports reasoning
       if (
         options.reasoningEffort !== undefined ||
-        options.reasoningSummary !== undefined ||
+        options.reasoningMaxTokens !== undefined ||
         options.reasoningEnabled !== undefined
       ) {
         // If options.modelSupportsReasoning is provided by caller, respect it.
@@ -233,13 +289,22 @@ export async function sendChatCompletion(messages, model, options = {}) {
         const isReasoningEnabled = options.reasoningEnabled !== false
         
         if (isReasoningEnabled) {
-          if (options.reasoningEffort) {
-            // API spec: reasoning.effort can be "minimal", "low", "medium", "high"
+          // Determine which reasoning parameter to use based on reasoningType
+          const reasoningType = options.reasoningType || detectReasoningType(model)
+          
+          if (reasoningType === "effort" && options.reasoningEffort) {
+            // API spec: reasoning.effort can be "low", "medium", "high"
             reasoning.effort = options.reasoningEffort
-          }
-          if (options.reasoningSummary) {
-            // API spec: reasoning.summary can be "auto", "concise", "detailed"
-            reasoning.summary = options.reasoningSummary
+          } else if (reasoningType === "max_tokens" && options.reasoningMaxTokens) {
+            // API spec: reasoning.max_tokens for models that support it
+            reasoning.max_tokens = Number(options.reasoningMaxTokens)
+          } else if (reasoningType === "effort" && !options.reasoningEffort) {
+            // Default to medium effort for effort-based models if not specified
+            reasoning.effort = "medium"
+          } else if (reasoningType === "max_tokens" && !options.reasoningMaxTokens) {
+            // For max_tokens models, let the API use its default if not specified
+            // We set enabled: true to explicitly enable reasoning
+            reasoning.enabled = true
           }
         }
 

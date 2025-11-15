@@ -395,10 +395,11 @@ export function extractUsage(data) {
 
 /**
  * Calculate cost based on model pricing and usage
+ * Note: OpenRouter API returns pricing in $/token, not $/million tokens
  */
 export function calculateCost(usage, pricing) {
-  const promptCost = (usage.promptTokens / 1000000) * pricing.prompt
-  const completionCost = (usage.completionTokens / 1000000) * pricing.completion
+  const promptCost = usage.promptTokens * Number(pricing.prompt)
+  const completionCost = usage.completionTokens * Number(pricing.completion)
   return promptCost + completionCost
 }
 

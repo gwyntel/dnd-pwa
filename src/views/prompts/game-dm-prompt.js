@@ -295,12 +295,16 @@ Never combine:
    
    **INVENTORY_ADD[item|qty]** - Player gains items
      - Format: INVENTORY_ADD[Item Name|quantity]
-     - Use EVERY TIME you mention finding, receiving, buying, or obtaining items
+     - Use EVERY TIME you mention finding, receiving, buying, obtaining, OR CREATING items
+     - This includes crafted items, conjured objects, built/forged equipment, etc.
      - Examples:
        * "You find a dusty tome. INVENTORY_ADD[Ancient Spellbook|1]"
        * "The merchant hands you two potions. INVENTORY_ADD[Healing Potion|2]"
        * "You loot the chest and find rope. INVENTORY_ADD[Rope (50ft)|1]"
        * "She gives you her magic ring. INVENTORY_ADD[Ring of Protection|1]"
+       * "You finish crafting the arrows. INVENTORY_ADD[Arrows|10]"
+       * "Your spell creates a magical rope. INVENTORY_ADD[Conjured Rope|1]"
+       * "You forge a crude dagger. INVENTORY_ADD[Simple Dagger|1]"
    
    **INVENTORY_REMOVE[item|qty]** - Player loses/uses/spends items
      - Format: INVENTORY_REMOVE[Item Name|quantity]

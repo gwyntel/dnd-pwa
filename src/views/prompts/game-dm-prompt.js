@@ -192,26 +192,27 @@ Never combine:
 4. **COMBAT_START[description]** - Begin combat encounter
    - Use when combat begins.
    - The app will:
-     - Mark combat active and set round to 1.
-     - Roll initiative LOCALLY for the player (Dex-based) and optionally for obvious foes.
-     - Sort initiative and track turn order.
+     - Mark combat active
+     - Roll initiative LOCALLY for the player (Dex-based) and optionally for obvious foes
+     - Track simple turn alternation (player → enemies → player → repeat)
    - You may still describe "Roll initiative" in prose, but do NOT roll yourself; rely on COMBAT_START and/or explicit initiative ROLL tags if needed.
    - Format: COMBAT_START[Two goblins leap from the shadows!]
    - Use when enemies attack or player initiates combat
    - Example: "COMBAT_START[A dire wolf growls and attacks!]"
 
-5. **COMBAT_NEXT_TURN** - Advance to next combatant's turn
-   - Format: COMBAT_NEXT_TURN
-   - Use after a combatant completes their turn (attacks, moves, etc.)
-   - The app will advance to the next person in initiative order
-   - When the last combatant's turn ends, the app automatically increments the round counter
-   - Example: "The goblin's turn ends. COMBAT_NEXT_TURN"
-   - You should narrate whose turn it is after the app processes this tag
+5. **COMBAT_CONTINUE** - Keepalive signal for ongoing combat (CRITICAL)
+   - Format: COMBAT_CONTINUE
+   - You MUST emit this tag at the end of EVERY combat message where combat is still ongoing
+   - If you forget this tag, combat will automatically end (failsafe)
+   - This prevents combat from being left in limbo
+   - Example: "The goblin readies another attack. COMBAT_CONTINUE"
+   - Only omit this tag when you intentionally want combat to end naturally
 
-6. **COMBAT_END[outcome]** - End combat
+6. **COMBAT_END[outcome]** - Explicitly end combat with closure
    - Format: COMBAT_END[Victory! The goblins flee.]
-   - Use when combat concludes.
-   - The app will clear initiative/turn tracking.
+   - Use when combat concludes with a clear narrative outcome
+   - The app will clear initiative and mark combat as inactive
+   - Alternative: Simply omit COMBAT_CONTINUE to let combat end naturally
 
 7. **DAMAGE[target|amount]** - Apply damage
    - Format: DAMAGE[player|5]
@@ -282,7 +283,7 @@ ACTION[Try to reason with the guardian]
 ACTION[Search for another exit]"
 
 Current location: ${game.currentLocation}
-${game.combat.active ? `Currently in combat (Round ${game.combat.round}, ${getCurrentTurnDescription(game)})` : ""}
+${game.combat.active ? `Currently in combat (${getCurrentTurnDescription(game)})` : ""}
 
 Begin the adventure!`
 }
@@ -309,15 +310,18 @@ function loadDataForPrompt() {
 
 function getCurrentTurnDescription(game) {
   if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
-    return ""
+    return "combat active"
   }
   
-  const currentIndex = game.combat.currentTurnIndex || 0
-  const current = game.combat.initiative[currentIndex]
+  // Simple turn tracking: if last action was by player, it's enemy turn; otherwise player turn
+  const lastActor = game.combat.lastActor || "enemy"
+  const currentTurn = lastActor === "player" ? "enemy" : "player"
   
-  if (!current) {
-    return ""
+  if (currentTurn === "player") {
+    return "Your turn"
   }
   
-  return `${current.name}'s turn`
+  // Find first enemy in initiative for display
+  const firstEnemy = game.combat.initiative.find(i => i.type === "npc")
+  return firstEnemy ? `${firstEnemy.name}'s turn` : "Enemy turn"
 }

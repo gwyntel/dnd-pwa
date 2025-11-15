@@ -156,9 +156,8 @@ async function createGame() {
     relationships: {},
     combat: {
       active: false,
-      round: 0,
       initiative: [],
-      currentTurnIndex: 0,
+      lastActor: null, // Track who acted last for turn alternation
     },
     suggestedActions: [],
     messages: [],
@@ -332,7 +331,7 @@ export async function renderGame(state = {}) {
             <div class="combat-indicator mt-2">
               <strong>⚔️ IN COMBAT</strong>
               <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">
-                Round ${game.combat.round}${renderCurrentTurn(game)}
+                ${renderCurrentTurn(game)}
               </p>
             </div>
           `
@@ -619,7 +618,7 @@ function stripTags(text) {
 
   // COMBAT tags - not shown directly
   cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/COMBAT_NEXT_TURN/g, "")
+  cleaned = cleaned.replace(/COMBAT_CONTINUE/g, "")
   cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, "")
 
   // HP change tags

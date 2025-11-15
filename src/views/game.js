@@ -987,6 +987,31 @@ async function sendMessage(game, userText, data) {
     await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
+    // COMBAT_CONTINUE keepalive: If combat is active and no COMBAT_CONTINUE tag, end combat
+    if (gameRef.combat.active) {
+      const hasCombatContinue = /COMBAT_CONTINUE/.test(assistantMessage)
+      const hasCombatEnd = /COMBAT_END\[/.test(assistantMessage)
+      
+      if (!hasCombatContinue && !hasCombatEnd) {
+        // AI forgot to continue combat, auto-end it
+        console.log('[combat] No COMBAT_CONTINUE found, ending combat automatically')
+        gameRef.combat.active = false
+        gameRef.combat.initiative = []
+        gameRef.combat.lastActor = null
+        
+        const autoEndMsg = {
+          id: `msg_${Date.now()}_combat_auto_end`,
+          role: "system",
+          content: "✓ Combat ended (no continuation signal)",
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { combatEvent: "end", autoEnd: true },
+        }
+        gameRef.messages.push(autoEndMsg)
+        appendMessage(autoEndMsg)
+      }
+    }
+
     // Update final reasoning metadata with token count if we have usage data
     if (lastReasoningText) {
       gameRef.messages[assistantMsgIndex].metadata.reasoning = lastReasoningText

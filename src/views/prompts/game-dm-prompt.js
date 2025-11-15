@@ -14,17 +14,16 @@ export function buildGameDMPrompt(character, game, world) {
   const data = loadDataForPrompt()
   const gold = game.currency && typeof game.currency.gp === "number" ? game.currency.gp : 0
 
-  // Summarize key inventory (top 6 items by quantity / importance)
+  // Build FULL inventory list (not truncated)
   const inventory = Array.isArray(game.inventory) ? game.inventory : []
-  const inventorySummary = inventory
+  const inventoryList = inventory
     .filter((it) => it && typeof it.item === "string")
-    .slice(0, 6)
     .map((it) => {
       const qty = typeof it.quantity === "number" ? it.quantity : 1
-      const equipped = it.equipped ? " (eq.)" : ""
-      return `${qty}x ${it.item}${equipped}`
+      const equipped = it.equipped ? " (equipped)" : ""
+      return `  - ${it.item}: ${qty}${equipped}`
     })
-    .join(", ")
+    .join("\n")
 
   // Normalize conditions into names
   const conditions = Array.isArray(game.conditions) ? game.conditions : []
@@ -45,12 +44,15 @@ export function buildGameDMPrompt(character, game, world) {
 
   const statusLineParts = []
   statusLineParts.push(`Gold: ${gold} gp`)
-  if (inventorySummary) statusLineParts.push(`Key items: ${inventorySummary}`)
   if (conditionNames.length > 0) statusLineParts.push(`Active conditions: ${conditionNames.join(", ")}`)
   if (relationshipEntries) statusLineParts.push(`Relationships: ${relationshipEntries}`)
 
   const statusLine =
     statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""
+
+  const inventorySection = inventoryList 
+    ? `\n\n**Current Inventory:**\n${inventoryList}` 
+    : "\n\n**Current Inventory:** (empty)"
 
   const worldPrompt = world ? `**World Setting:**\n${world.systemPrompt}\n\n` : ""
 
@@ -109,7 +111,7 @@ The player is:
 - INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(", ")}
 - Features: ${character.features ? character.features.join(", ") : "None"}
-${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}${statusLine}
+${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}${statusLine}${inventorySection}
 
 **CRITICAL - Structured Output Tags (MUST USE EXACT FORMAT):**
 
@@ -304,10 +306,6 @@ Never combine:
        * "She gives you her magic ring. INVENTORY_ADD[Ring of Protection|1]"
        * "You finish crafting the arrows. INVENTORY_ADD[Arrows|10]"
        * "Your spell creates a magical rope. INVENTORY_ADD[Conjured Rope|1]"
-       * "You forge a crude dagger. INVENTORY_ADD[Simple Dagger|1]"
-   
-   **INVENTORY_REMOVE[item|qty]** - Player loses/uses/spends items
-     - Format: INVENTORY_REMOVE[Item Name|quantity]
      - Use EVERY TIME items are consumed, given away, sold, lost, or destroyed
      - Examples:
        * "You drink the potion. INVENTORY_REMOVE[Healing Potion|1]"
@@ -357,6 +355,9 @@ Never combine:
        * "You shake off the effect. STATUS_REMOVE[Stunned]"
    
    **CRITICAL REMINDER:** If you write about gold, items, or conditions in your narrative but don't emit the tag, the game state WILL NOT UPDATE. The player will see your story but the mechanics won't work. This makes it a broken chat app, not a game.
+   
+   **⚠️ SPECIAL ATTENTION - CONSUMABLE ITEMS:**
+   The Current Inventory list above shows EXACTLY what the player has. When a player uses/consumes an item (potions, scrolls, food, ammunition, spell components, etc.), you MUST use INVENTORY_REMOVE to delete it. If you narrate using an item without INVENTORY_REMOVE, that item will remain in inventory forever, breaking the game economy. Always check the inventory list and remove consumed items!
 
 11. **RELATIONSHIP[entity:delta]** - Track relationships with entities
    - Format: RELATIONSHIP[entity_name:+5] or RELATIONSHIP[entity_name:-3]

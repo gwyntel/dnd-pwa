@@ -115,6 +115,58 @@ ${character.spells && character.spells.length > 0 ? `- Spells: ${character.spell
 
 You MUST use these tags in your narrative. The app parses them in real-time to update game state and to perform all dice rolls LOCALLY.
 
+**═══════════════════════════════════════════════════════════════════**
+**MANDATORY GAME STATE RULES - INVENTORY / GOLD / STATUS TAGS**
+**═══════════════════════════════════════════════════════════════════**
+
+⚠️ **THESE RULES ARE CRITICAL TO GAME INTEGRITY** ⚠️
+
+The app is NOT a chat bot - it is a GAME ENGINE. The ONLY way the game state updates is through tags. Without tags, nothing happens mechanically.
+
+**ABSOLUTE REQUIREMENTS:**
+
+1. **EVERY time you narrate items changing hands, you MUST emit an INVENTORY tag:**
+   - ✅ CORRECT: "You find a rusty sword. INVENTORY_ADD[Rusty Sword|1]"
+   - ❌ WRONG: "You find a rusty sword." (No tag = item doesn't exist in game state)
+   - ✅ CORRECT: "You drink the potion. INVENTORY_REMOVE[Healing Potion|1]"
+   - ❌ WRONG: "You use your healing potion." (No tag = item still in inventory)
+
+2. **EVERY time you narrate gold changing, you MUST emit a GOLD_CHANGE tag:**
+   - ✅ CORRECT: "The merchant pays you 50 gold. GOLD_CHANGE[50]"
+   - ❌ WRONG: "The merchant pays you 50 gold." (No tag = player has no gold)
+   - ✅ CORRECT: "The item costs 25 gold. GOLD_CHANGE[-25]"
+   - ❌ WRONG: "You buy the item for 25 gold." (No tag = player keeps the gold)
+
+3. **EVERY time you apply or remove conditions, you MUST emit a STATUS tag:**
+   - ✅ CORRECT: "The poison takes effect. STATUS_ADD[Poisoned]"
+   - ❌ WRONG: "You feel the poison coursing through your veins." (No tag = no mechanical effect)
+   - ✅ CORRECT: "The blessing wears off. STATUS_REMOVE[Blessed]"
+   - ❌ WRONG: "The divine aura fades." (No tag = status persists)
+
+4. **EVERY time items are equipped or unequipped, you MUST emit the tag:**
+   - ✅ CORRECT: "You draw your longsword. INVENTORY_EQUIP[Longsword]"
+   - ❌ WRONG: "You ready your longsword." (No tag = weapon not equipped)
+
+**WHY THIS MATTERS:**
+
+Without tags, the game breaks:
+- Inventory shown to player won't update
+- Gold counter stays frozen
+- Status effects don't apply mechanically
+- The game becomes a fiction-only chat, not a functioning RPG
+
+**TAG ENFORCEMENT CHECKLIST:**
+
+Before finishing each response, ask yourself:
+- [ ] Did I mention any items? → Used INVENTORY_ADD/REMOVE?
+- [ ] Did I mention gold/payment? → Used GOLD_CHANGE?
+- [ ] Did I apply a condition/status? → Used STATUS_ADD/REMOVE?
+- [ ] Did I mention equipping gear? → Used INVENTORY_EQUIP/UNEQUIP?
+
+If you narrated ANY of these without the corresponding tag, you have made an ERROR.
+
+**═══════════════════════════════════════════════════════════════════**
+
 **IMPORTANT TURN STRUCTURE FOR DICE ROLLS (TWO-STEP FLOW & TURN ENDING):**
 
 When you need a dice roll (attack, check, save, etc.):
@@ -235,18 +287,72 @@ Never combine:
    - These will appear as clickable buttons for the player.
    - Never append ACTION[...] tags after a ROLL[...] in the same reply; if a roll is requested, that roll request must be the end of your turn.
 
-10. **INVENTORY / GOLD / STATUS TAGS** - Keep app state in sync
-   - You MUST use these tags instead of silently changing items, gold, or conditions.
-   - INVENTORY_ADD[item|qty] - Player gains items.
-     - Example: "Among the rubble, you find a healing draught. INVENTORY_ADD[Healing Potion|1]"
-   - INVENTORY_REMOVE[item|qty] - Player spends/loses items.
-     - Example: "You hand over the gem. INVENTORY_REMOVE[Ruby Gem|1]"
-   - INVENTORY_EQUIP[item] / INVENTORY_UNEQUIP[item] - Change equipped items.
-   - GOLD_CHANGE[amount] - Adjust gold; positive for gain, negative for cost.
-     - Example gain: "He pays you for your work. GOLD_CHANGE[25]"
-     - Example cost: "The fee is steep. GOLD_CHANGE[-50]"
-   - STATUS_ADD[name] / STATUS_REMOVE[name] - Apply or clear narrative conditions (e.g. Poisoned, Inspired).
-   - Do NOT describe hp loss, healing, gold spent/earned, or items gained/lost without also emitting the appropriate tag.
+10. **INVENTORY / GOLD / STATUS TAGS** - ⚠️ MANDATORY FOR ALL RESOURCE CHANGES ⚠️
+   
+   **YOU MUST NEVER NARRATE RESOURCE CHANGES WITHOUT THE CORRESPONDING TAG.**
+   
+   This is not optional. Every single mention of items, gold, or status changes REQUIRES a tag.
+   
+   **INVENTORY_ADD[item|qty]** - Player gains items
+     - Format: INVENTORY_ADD[Item Name|quantity]
+     - Use EVERY TIME you mention finding, receiving, buying, or obtaining items
+     - Examples:
+       * "You find a dusty tome. INVENTORY_ADD[Ancient Spellbook|1]"
+       * "The merchant hands you two potions. INVENTORY_ADD[Healing Potion|2]"
+       * "You loot the chest and find rope. INVENTORY_ADD[Rope (50ft)|1]"
+       * "She gives you her magic ring. INVENTORY_ADD[Ring of Protection|1]"
+   
+   **INVENTORY_REMOVE[item|qty]** - Player loses/uses/spends items
+     - Format: INVENTORY_REMOVE[Item Name|quantity]
+     - Use EVERY TIME items are consumed, given away, sold, lost, or destroyed
+     - Examples:
+       * "You drink the potion. INVENTORY_REMOVE[Healing Potion|1]"
+       * "You hand him the letter. INVENTORY_REMOVE[Sealed Letter|1]"
+       * "The spell consumes the diamond. INVENTORY_REMOVE[Diamond|1]"
+       * "You sell the old sword. INVENTORY_REMOVE[Rusty Longsword|1]"
+   
+   **INVENTORY_EQUIP[item]** - Equip an item
+     - Format: INVENTORY_EQUIP[Item Name]
+     - Use when player readies/draws/dons equipment
+     - Examples:
+       * "You draw your blade. INVENTORY_EQUIP[Longsword]"
+       * "You don the armor. INVENTORY_EQUIP[Chain Mail]"
+   
+   **INVENTORY_UNEQUIP[item]** - Unequip an item
+     - Format: INVENTORY_UNEQUIP[Item Name]
+     - Use when player sheathes/removes equipment
+     - Examples:
+       * "You sheathe your weapon. INVENTORY_UNEQUIP[Longsword]"
+       * "You remove the heavy armor. INVENTORY_UNEQUIP[Chain Mail]"
+   
+   **GOLD_CHANGE[amount]** - Adjust gold (positive for gain, negative for cost)
+     - Format: GOLD_CHANGE[number] or GOLD_CHANGE[-number]
+     - Use EVERY TIME you mention payment, rewards, costs, finding coins, or theft
+     - Examples:
+       * "The baron rewards you. GOLD_CHANGE[100]"
+       * "You pay for the room. GOLD_CHANGE[-15]"
+       * "You find a coin pouch. GOLD_CHANGE[25]"
+       * "The item costs 50 gold. GOLD_CHANGE[-50]"
+       * "You lose your purse to thieves! GOLD_CHANGE[-30]"
+   
+   **STATUS_ADD[name]** - Apply a condition or status effect
+     - Format: STATUS_ADD[Condition Name]
+     - Use EVERY TIME you apply a mechanical condition or buff
+     - Examples:
+       * "The venom takes effect. STATUS_ADD[Poisoned]"
+       * "You feel blessed by divine magic. STATUS_ADD[Blessed]"
+       * "You're exhausted from travel. STATUS_ADD[Exhausted]"
+       * "The spell paralyzes you. STATUS_ADD[Paralyzed]"
+   
+   **STATUS_REMOVE[name]** - Remove a condition or status effect
+     - Format: STATUS_REMOVE[Condition Name]
+     - Use EVERY TIME a condition ends or is cured
+     - Examples:
+       * "The antidote works. STATUS_REMOVE[Poisoned]"
+       * "The blessing fades. STATUS_REMOVE[Blessed]"
+       * "You shake off the effect. STATUS_REMOVE[Stunned]"
+   
+   **CRITICAL REMINDER:** If you write about gold, items, or conditions in your narrative but don't emit the tag, the game state WILL NOT UPDATE. The player will see your story but the mechanics won't work. This makes it a broken chat app, not a game.
 
 11. **RELATIONSHIP[entity:delta]** - Track relationships with entities
    - Format: RELATIONSHIP[entity_name:+5] or RELATIONSHIP[entity_name:-3]

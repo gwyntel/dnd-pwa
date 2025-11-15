@@ -455,8 +455,8 @@ function renderSingleMessage(msg) {
 
   const cleanContent = stripTags(msg.content || "")
 
-  // Do not render empty assistant messages unless they have dice roll metadata
-  if (msg.role === "assistant" && !cleanContent.trim() && !msg.metadata?.diceRoll) {
+  // Do not render empty assistant messages unless they have dice roll metadata or reasoning
+  if (msg.role === "assistant" && !cleanContent.trim() && !msg.metadata?.diceRoll && !msg.metadata?.reasoning) {
     return ""
   }
 
@@ -471,7 +471,7 @@ function renderSingleMessage(msg) {
         hasReasoning
           ? `
       <div class="message-reasoning">
-        <details class="reasoning-details">
+        <details class="reasoning-details" open>
           <summary class="reasoning-summary">
             🧠 Reasoning
             ${

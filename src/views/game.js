@@ -1045,11 +1045,36 @@ async function sendMessage(game, userText, data) {
       gameRef.cumulativeUsage.totalTokens += usage.totalTokens
 
       // Calculate and add cost
+      // Ensure models are loaded in data
+      if (!data.models || data.models.length === 0) {
+        console.warn('[v0] Models not loaded, fetching to enable cost tracking...')
+        try {
+          const { fetchModels } = await import("../utils/openrouter.js")
+          data.models = await fetchModels()
+          saveData(data)
+        } catch (error) {
+          console.error('[v0] Failed to fetch models for cost tracking:', error)
+        }
+      }
+      
       const models = data.models || []
       const currentModel = models.find((m) => m.id === gameRef.narrativeModel)
       if (currentModel && currentModel.pricing) {
         const cost = calculateCost(usage, currentModel.pricing)
         gameRef.cumulativeUsage.totalCost += cost
+        console.log('[v0] Cost calculated:', {
+          usage,
+          pricing: currentModel.pricing,
+          cost,
+          cumulativeCost: gameRef.cumulativeUsage.totalCost
+        })
+      } else {
+        console.warn('[v0] Cannot calculate cost - model not found or missing pricing:', {
+          modelId: gameRef.narrativeModel,
+          hasModels: models.length > 0,
+          modelFound: !!currentModel,
+          hasPricing: currentModel?.pricing ? true : false
+        })
       }
 
       // Update the usage display in the header

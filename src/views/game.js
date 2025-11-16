@@ -13,7 +13,11 @@ import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
 
 let currentGameId = null
 let isStreaming = false
-let pendingRollFollowup = null  // Track roll follow-ups in memory only (never persisted)
+
+// Roll batching system - collects multiple rolls before triggering follow-up
+let rollBatch = []
+let rollSettlingTimer = null
+const ROLL_SETTLING_DELAY_MS = 500 // Wait 500ms after last roll before triggering follow-up
 
 export function renderGameList() {
   const app = document.getElementById("app")
@@ -667,6 +671,80 @@ function parseMarkdown(text) {
   return html
 }
 
+/**
+ * Add a roll to the batch and start/reset the settling timer
+ * @param {Object} rollData - { kind, label, roll }
+ */
+function addRollToBatch(rollData) {
+  console.log("[dice][batch] Adding roll to batch:", rollData)
+  rollBatch.push(rollData)
+  
+  // Clear existing timer and start new one
+  if (rollSettlingTimer) {
+    clearTimeout(rollSettlingTimer)
+  }
+  
+  rollSettlingTimer = setTimeout(() => {
+    processRollBatch()
+  }, ROLL_SETTLING_DELAY_MS)
+}
+
+/**
+ * Process all batched rolls and trigger follow-up narration
+ */
+async function processRollBatch() {
+  if (rollBatch.length === 0) return
+  
+  console.log("[dice][batch] Processing roll batch:", rollBatch)
+  
+  const data = loadData()
+  const game = data.games.find((g) => g.id === currentGameId)
+  if (!game) return
+  
+  const rawCharacter = data.characters.find((c) => c.id === game.characterId)
+  const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
+  if (!character) return
+  
+  // Don't trigger follow-up if user is already streaming
+  if (isStreaming) {
+    console.log("[dice][batch] Skipping follow-up - already streaming")
+    rollBatch = []
+    return
+  }
+  
+  // Build summary of all rolls
+  const rollSummaries = rollBatch.map(({ kind, label, roll }) => {
+    const outcome = roll.success === true 
+      ? "✓ Success" 
+      : roll.success === false 
+      ? "✗ Failure" 
+      : `Total: ${roll.total}`
+    return `${kind} (${label}): ${roll.notation || "1d20"} = ${roll.total} (${outcome})`
+  }).join(", ")
+  
+  console.log("[dice][batch] Sending follow-up for rolls:", rollSummaries)
+  
+  // Build follow-up prompt
+  const followupPrompt = rollBatch.length === 1
+    ? `The player just made a ${rollBatch[0].kind} roll for ${rollBatch[0].label}: ${rollBatch[0].roll.notation || "1d20"} = ${rollBatch[0].roll.total}. ${
+        rollBatch[0].roll.success === true
+          ? "The roll succeeded. Describe the positive outcome."
+          : rollBatch[0].roll.success === false
+          ? "The roll failed. Describe the consequences."
+          : "Interpret this roll narratively."
+      } Keep the response concise and continue the scene.`
+    : `The player just made the following rolls: ${rollSummaries}. Narrate the outcomes briefly and continue the scene.`
+  
+  // Clear batch
+  rollBatch = []
+  
+  try {
+    await sendMessage(game, followupPrompt, data)
+  } catch (e) {
+    console.error("[dice][batch] Error during roll follow-up narration:", e)
+  }
+}
+
 async function startGame(game, character, data) {
   const systemPrompt = buildSystemPrompt(character, game)
 
@@ -788,7 +866,20 @@ function sanitizeMessagesForModel(messages) {
     totalMessages: messages.length
   })
 
-  return messages.map((msg, index) => {
+  // Filter out ephemeral system messages that appear before the last assistant message
+  // These are reminders that have already been seen and ingested by the AI
+  return messages.filter((msg, index) => {
+    // Remove ephemeral messages that appear before the last assistant response
+    if (msg?.metadata?.ephemeral && index < cutoff) {
+      console.log('[flow] sanitizeMessagesForModel: removing ephemeral message', {
+        index,
+        id: msg?.id,
+        content: msg?.content?.substring(0, 50)
+      })
+      return false
+    }
+    return true
+  }).map((msg, index) => {
     // Always keep system + user messages as-is
     if (!msg || msg.role === "system" || msg.role === "user") {
       console.log('[flow] sanitizeMessagesForModel: keeping system/user message', {
@@ -1124,28 +1215,25 @@ async function sendMessage(game, userText, data) {
       }))
     })
 
-    // COMBAT_CONTINUE keepalive: If combat is active and no COMBAT_CONTINUE tag, end combat
+    // Combat reminder system: If combat is still active after AI response, inject reminder
     if (gameRef.combat.active) {
-      const hasCombatContinue = /COMBAT_CONTINUE/.test(assistantMessage)
       const hasCombatEnd = /COMBAT_END\[/.test(assistantMessage)
       
-      if (!hasCombatContinue && !hasCombatEnd) {
-        // AI forgot to continue combat, auto-end it
-        console.log('[combat] No COMBAT_CONTINUE found, ending combat automatically')
-        gameRef.combat.active = false
-        gameRef.combat.initiative = []
-        gameRef.combat.lastActor = null
-        
-        const autoEndMsg = {
-          id: `msg_${Date.now()}_combat_auto_end`,
+      if (!hasCombatEnd) {
+        // Combat is ongoing - add reminder message
+        console.log('[combat] Adding combat reminder for AI')
+        const reminderMsg = {
+          id: `msg_${Date.now()}_combat_reminder`,
           role: "system",
-          content: "✓ Combat ended (no continuation signal)",
+          content: "⚔️ Combat is still active. Continue narrating combat actions or use COMBAT_END[reason] to end combat.",
           timestamp: new Date().toISOString(),
-          hidden: false,
-          metadata: { combatEvent: "end", autoEnd: true },
+          hidden: true, // Hidden from UI but visible to AI
+          metadata: { 
+            combatReminder: true,
+            ephemeral: true // Mark for later cleanup
+          },
         }
-        gameRef.messages.push(autoEndMsg)
-        appendMessage(autoEndMsg)
+        gameRef.messages.push(reminderMsg)
       }
     }
 
@@ -1629,12 +1717,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
-          // Let follow-up helper know a semantic skill roll occurred
-          pendingRollFollowup = {
+          // Add to roll batch
+          addRollToBatch({
             kind: "skill",
             label: key || "skill check",
             roll: result,
-          }
+          })
         } else if (kind === "save") {
           const dc = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic save roll", { key, dc, adv, raw: match[0] })
@@ -1662,11 +1750,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
-          pendingRollFollowup = {
+          // Add to roll batch
+          addRollToBatch({
             kind: "save",
             label: (key || "save").toUpperCase(),
             roll: result,
-          }
+          })
         } else if (kind === "attack") {
           const targetAC = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic attack roll", { key, targetAC, adv, raw: match[0] })
@@ -1704,11 +1793,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
               ...meta,
             },
           })
-          pendingRollFollowup = {
+          // Add to roll batch
+          addRollToBatch({
             kind: "attack",
             label: label,
             roll: toHit,
-          }
+          })
         }
 
         processedTags.add(tagKey)

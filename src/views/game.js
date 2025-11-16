@@ -1615,6 +1615,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         hidden: false,
         metadata: { combatEvent: "end" },
       })
+      needsUIUpdate = true // Update UI to remove combat indicator
       processedTags.add(tagKey)
     }
   }

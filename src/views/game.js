@@ -1967,6 +1967,9 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   if (needsUIUpdate) {
     console.log('[flow] processGameCommandsRealtime: UI update needed')
     updateInputContainer(game)
+    updatePlayerStats(game)
+    updateRelationshipsDisplay(game)
+    updateLocationHistory(game)
   }
 
   return newMessages

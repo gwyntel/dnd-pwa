@@ -2017,6 +2017,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         })
       }
       processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
@@ -2035,6 +2036,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         })
       }
       processedTags.add(tagKey)
+      needsUIUpdate = true
     }
   }
 
@@ -2518,6 +2520,44 @@ function updatePlayerStats(game) {
       
       card.innerHTML = inventoryHTML
       break
+    }
+  }
+
+  // Update status effects display - find the status effects section in the player card
+  const playerCard = document.querySelector(".game-below-chat .card")
+  if (playerCard) {
+    // Look for existing status effects section
+    let statusEffectsSection = playerCard.querySelector(".status-effects")
+    const statsGrid = playerCard.querySelector(".stats-grid")
+    
+    if (game.conditions && game.conditions.length > 0) {
+      // Build status effects HTML
+      const statusEffectsHTML = `
+        <div class="status-effects mt-3">
+          <h4 class="text-sm font-bold mb-1">Status Effects</h4>
+          <div class="status-chips">
+            ${game.conditions
+              .map((c) => {
+                const name = typeof c === "string" ? c : c.name
+                return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+              })
+              .join("")}
+          </div>
+        </div>
+      `
+      
+      if (statusEffectsSection) {
+        // Update existing section
+        statusEffectsSection.outerHTML = statusEffectsHTML
+      } else if (statsGrid) {
+        // Insert after stats grid
+        statsGrid.insertAdjacentHTML('afterend', statusEffectsHTML)
+      }
+    } else {
+      // Remove status effects section if no conditions
+      if (statusEffectsSection) {
+        statusEffectsSection.remove()
+      }
     }
   }
 }

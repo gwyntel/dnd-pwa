@@ -68,6 +68,7 @@ export function renderSettings() {
           <label class="form-label text-sm">Effort level</label>
           <select id="reasoning-effort-select">
             <option value="">Auto (model default)</option>
+            <option value="minimal">Minimal</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>

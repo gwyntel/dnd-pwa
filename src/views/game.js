@@ -2251,36 +2251,7 @@ async function processGameCommands(game, character, text, processedTags = new Se
   }
 
   // NOTE: Saving is handled by sendMessage() - don't call saveData() here as we no longer have 'data'
-
-  // If a semantic roll was just handled, trigger a concise follow-up narration.
-  // This happens AFTER all command processing is complete.
-  if (pendingRollFollowup && character) {
-    console.log("[dice][followup] Triggering follow-up narration for roll:", pendingRollFollowup)
-    
-    const { kind, label, roll } = pendingRollFollowup
-    pendingRollFollowup = null  // Clear the flag immediately
-
-    try {
-      const outcomeText =
-        roll.success === true
-          ? "The roll succeeded. Describe the positive outcome."
-          : roll.success === false
-          ? "The roll failed. Describe the consequences of this failure."
-          : "Interpret this roll narratively based on its value."
-
-      const followupPrompt =
-        `The player just made a ${kind} roll for ${label}: ` +
-        `${roll.notation || "1d20"} = ${roll.total}. ` +
-        `${outcomeText} Keep the response concise and continue the scene.`
-
-      console.log("[dice][followup] Sending follow-up prompt:", followupPrompt)
-
-      // Use the existing sendMessage pipeline so narration streams normally.
-      await sendMessage(game, followupPrompt, data)
-    } catch (e) {
-      console.error("[v0] Error during roll follow-up narration:", e)
-    }
-  }
+  // Roll follow-up narration is now handled by the roll batching system (processRollBatch)
 }
 
 async function sendRollResultToAI(game, rollResult, request) {

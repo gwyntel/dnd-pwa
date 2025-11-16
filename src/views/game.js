@@ -1298,8 +1298,8 @@ async function sendMessage(game, userText, data) {
       if (!data.models || data.models.length === 0) {
         console.warn('[v0] Models not loaded, fetching to enable cost tracking...')
         try {
-          const { fetchModels } = await import("../utils/openrouter.js")
-          data.models = await fetchModels()
+          const provider = await getProvider()
+          data.models = await provider.fetchModels()
           saveData(data)
         } catch (error) {
           console.error('[v0] Failed to fetch models for cost tracking:', error)
@@ -2433,7 +2433,13 @@ function renderUsageDisplay(game) {
   const data = loadData()
   const models = data.models || []
   const currentModel = models.find((m) => m.id === game.narrativeModel)
-  const contextLength = currentModel?.contextLength || 128000 // Default fallback
+  
+  // For LM Studio, prioritize user-configured context length
+  let contextLength = currentModel?.contextLength || 8192 // Default fallback
+  if (data.settings.provider === "lmstudio" && data.settings.providers?.lmstudio?.contextLength) {
+    contextLength = data.settings.providers.lmstudio.contextLength
+  }
+  
   const contextPercent = ((usage.totalTokens / contextLength) * 100).toFixed(1)
 
   return `

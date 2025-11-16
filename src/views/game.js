@@ -330,6 +330,24 @@ export async function renderGame(state = {}) {
           </div>
 
           ${
+            game.conditions && game.conditions.length > 0
+              ? `
+            <div class="status-effects mt-3">
+              <h4 class="text-sm font-bold mb-1">Status Effects</h4>
+              <div class="status-chips">
+                ${game.conditions
+                  .map((c) => {
+                    const name = typeof c === "string" ? c : c.name
+                    return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+                  })
+                  .join("")}
+              </div>
+            </div>
+            `
+              : ""
+          }
+
+          ${
             game.combat.active
               ? `
             <div class="combat-indicator mt-2">

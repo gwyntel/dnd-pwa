@@ -274,8 +274,28 @@ export async function renderGame(state = {}) {
       <!-- Character + Rolls below chat for fullscreen chat-first layout -->
       <div class="game-below-chat">
         <div class="card">
-          <h3>${character.name}</h3>
-          <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
+          <div class="character-header">
+            <div class="character-header-left">
+              <h3>${character.name}</h3>
+              <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
+            </div>
+            ${
+              game.conditions && game.conditions.length > 0
+                ? `
+              <div class="character-header-right">
+                <div class="status-chips">
+                  ${game.conditions
+                    .map((c) => {
+                      const name = typeof c === "string" ? c : c.name
+                      return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+                    })
+                    .join("")}
+                </div>
+              </div>
+              `
+                : ""
+            }
+          </div>
           
           <div class="stat-bar mt-2">
             <div class="flex justify-between mb-1">
@@ -329,24 +349,6 @@ export async function renderGame(state = {}) {
               <span class="stat-value">${character.stats.charisma}</span>
             </div>
           </div>
-
-          ${
-            game.conditions && game.conditions.length > 0
-              ? `
-            <div class="status-effects mt-3">
-              <h4 class="text-sm font-bold mb-1">Status Effects</h4>
-              <div class="status-chips">
-                ${game.conditions
-                  .map((c) => {
-                    const name = typeof c === "string" ? c : c.name
-                    return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-                  })
-                  .join("")}
-              </div>
-            </div>
-            `
-              : ""
-          }
 
           ${
             game.combat.active
@@ -2538,41 +2540,37 @@ function updatePlayerStats(game) {
     }
   }
 
-  // Update status effects display - find the status effects section in the player card
-  const playerCard = document.querySelector(".game-below-chat .card")
-  if (playerCard) {
-    // Look for existing status effects section
-    let statusEffectsSection = playerCard.querySelector(".status-effects")
-    const statsGrid = playerCard.querySelector(".stats-grid")
+  // Update status effects in character header (top right)
+  const characterHeaderRight = document.querySelector(".character-header-right")
+  
+  if (game.conditions && game.conditions.length > 0) {
+    const statusChipsHTML = game.conditions
+      .map((c) => {
+        const name = typeof c === "string" ? c : c.name
+        return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+      })
+      .join("")
     
-    if (game.conditions && game.conditions.length > 0) {
-      // Build status effects HTML
-      const statusEffectsHTML = `
-        <div class="status-effects mt-3">
-          <h4 class="text-sm font-bold mb-1">Status Effects</h4>
-          <div class="status-chips">
-            ${game.conditions
-              .map((c) => {
-                const name = typeof c === "string" ? c : c.name
-                return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-              })
-              .join("")}
-          </div>
-        </div>
-      `
-      
-      if (statusEffectsSection) {
-        // Update existing section
-        statusEffectsSection.outerHTML = statusEffectsHTML
-      } else if (statsGrid) {
-        // Insert after stats grid
-        statsGrid.insertAdjacentHTML('afterend', statusEffectsHTML)
+    if (characterHeaderRight) {
+      // Update existing status chips
+      const statusChipsContainer = characterHeaderRight.querySelector(".status-chips")
+      if (statusChipsContainer) {
+        statusChipsContainer.innerHTML = statusChipsHTML
       }
     } else {
-      // Remove status effects section if no conditions
-      if (statusEffectsSection) {
-        statusEffectsSection.remove()
+      // Create new character-header-right section
+      const characterHeader = document.querySelector(".character-header")
+      if (characterHeader) {
+        const newHeaderRight = document.createElement("div")
+        newHeaderRight.className = "character-header-right"
+        newHeaderRight.innerHTML = `<div class="status-chips">${statusChipsHTML}</div>`
+        characterHeader.appendChild(newHeaderRight)
       }
+    }
+  } else {
+    // Remove character-header-right if no conditions
+    if (characterHeaderRight) {
+      characterHeaderRight.remove()
     }
   }
 }

@@ -17,6 +17,7 @@ let isStreaming = false
 // Roll batching system - collects multiple rolls before triggering follow-up
 let rollBatch = []
 let rollSettlingTimer = null
+let pendingRollBatch = null // Stores batch that was deferred due to streaming
 const ROLL_SETTLING_DELAY_MS = 500 // Wait 500ms after last roll before triggering follow-up
 
 export function renderGameList() {
@@ -723,9 +724,10 @@ async function processRollBatch() {
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
   if (!character) return
   
-  // Don't trigger follow-up if user is already streaming
+  // If streaming is active, defer this batch until streaming completes
   if (isStreaming) {
-    console.log("[dice][batch] Skipping follow-up - already streaming")
+    console.log("[dice][batch] Deferring follow-up - streaming in progress")
+    pendingRollBatch = [...rollBatch] // Save a copy of the current batch
     rollBatch = []
     return
   }
@@ -1360,6 +1362,19 @@ async function sendMessage(game, userText, data) {
       submitButton.disabled = false
       submitButton.textContent = "Send"
     }
+    
+    // Check if there's a pending roll batch that was deferred during streaming
+    if (pendingRollBatch && pendingRollBatch.length > 0) {
+      console.log('[dice][batch] Processing deferred roll batch after streaming completed')
+      rollBatch = pendingRollBatch
+      pendingRollBatch = null
+      
+      // Process the deferred batch
+      setTimeout(() => {
+        processRollBatch()
+      }, 100) // Small delay to ensure streaming cleanup is complete
+    }
+    
     console.log('[flow] ========== sendMessage END (finally) ==========')
   }
 }

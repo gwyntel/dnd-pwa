@@ -1267,7 +1267,7 @@ async function sendMessage(game, userText, data) {
       
       // Update token count in the UI if panel exists
       if (lastUsageData) {
-        const usage = extractUsage({ usage: lastUsageData })
+        const usage = provider.extractUsage({ usage: lastUsageData })
         if (usage.reasoningTokens > 0) {
           gameRef.messages[assistantMsgIndex].metadata.reasoningTokens = usage.reasoningTokens
           
@@ -1298,7 +1298,6 @@ async function sendMessage(game, userText, data) {
       if (!data.models || data.models.length === 0) {
         console.warn('[v0] Models not loaded, fetching to enable cost tracking...')
         try {
-          const provider = await getProvider()
           data.models = await provider.fetchModels()
           saveData(data)
         } catch (error) {

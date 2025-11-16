@@ -698,11 +698,20 @@ async function startGame(game, character, data) {
 }
 
 async function handlePlayerInput() {
+  console.log('[flow] ========== handlePlayerInput START ==========')
   const input = document.getElementById("player-input")
   const submitButton = document.querySelector('#chat-form button[type="submit"]')
   const text = input.value.trim()
 
-  if (!text || isStreaming) return
+  console.log('[flow] handlePlayerInput: user input', {
+    text: text?.substring(0, 100),
+    isStreaming
+  })
+
+  if (!text || isStreaming) {
+    console.log('[flow] handlePlayerInput: ignoring (empty or streaming)')
+    return
+  }
 
   input.value = ""
   isStreaming = true
@@ -715,6 +724,11 @@ async function handlePlayerInput() {
   const data = loadData()
   const game = data.games.find((g) => g.id === currentGameId)
 
+  console.log('[flow] handlePlayerInput: game state before user message', {
+    gameId: game?.id,
+    messageCount: game?.messages?.length
+  })
+
   // Add user message
   const userMessage = {
     id: `msg_${Date.now()}`,
@@ -724,11 +738,17 @@ async function handlePlayerInput() {
     hidden: false,
   }
 
+  console.log('[flow] handlePlayerInput: adding user message', {
+    id: userMessage.id,
+    content: userMessage.content.substring(0, 50)
+  })
+
   game.messages.push(userMessage)
   appendMessage(userMessage) // Append the user's message to the DOM
 
   game.suggestedActions = []
 
+  console.log('[flow] handlePlayerInput: saving user message')
   saveData(data)
 
   const messagesContainer = document.getElementById("messages-container")
@@ -743,7 +763,15 @@ async function handlePlayerInput() {
 }
 
 function sanitizeMessagesForModel(messages) {
-  if (!Array.isArray(messages)) return []
+  console.log('[flow] sanitizeMessagesForModel called', {
+    messageCount: Array.isArray(messages) ? messages.length : 0,
+    messages: messages?.map(m => ({ id: m?.id, role: m?.role, contentLength: m?.content?.length }))
+  })
+  
+  if (!Array.isArray(messages)) {
+    console.log('[flow] sanitizeMessagesForModel: messages not an array, returning empty')
+    return []
+  }
 
   const lastAssistantIndex = [...messages]
     .reverse()
@@ -754,14 +782,31 @@ function sanitizeMessagesForModel(messages) {
       ? -1
       : messages.length - 1 - lastAssistantIndex
 
+  console.log('[flow] sanitizeMessagesForModel: calculated cutoff', {
+    lastAssistantIndex,
+    cutoff,
+    totalMessages: messages.length
+  })
+
   return messages.map((msg, index) => {
     // Always keep system + user messages as-is
     if (!msg || msg.role === "system" || msg.role === "user") {
+      console.log('[flow] sanitizeMessagesForModel: keeping system/user message', {
+        index,
+        id: msg?.id,
+        role: msg?.role
+      })
       return msg
     }
 
     // Keep the latest assistant message (or if none detected) intact
     if (index === cutoff || cutoff === -1) {
+      console.log('[flow] sanitizeMessagesForModel: keeping latest assistant message', {
+        index,
+        id: msg?.id,
+        role: msg?.role,
+        contentLength: msg?.content?.length
+      })
       return msg
     }
 
@@ -772,10 +817,21 @@ function sanitizeMessagesForModel(messages) {
       // If trimming somehow empties the message, keep the original to avoid
       // breaking any downstream parsing that expects its presence.
       if (trimmed !== msg.content && trimmed.trim().length > 0) {
+        console.log('[flow] sanitizeMessagesForModel: stripped ACTION tags from old assistant message', {
+          index,
+          id: msg?.id,
+          originalLength: msg.content.length,
+          trimmedLength: trimmed.length
+        })
         return { ...msg, content: trimmed }
       }
     }
 
+    console.log('[flow] sanitizeMessagesForModel: returning message unchanged', {
+      index,
+      id: msg?.id,
+      role: msg?.role
+    })
     return msg
   })
 }
@@ -788,11 +844,44 @@ function sanitizeMessagesForModel(messages) {
  * - Canonical tags (LOCATION, ROLL, DAMAGE, etc.) are never stripped here.
  */
 function buildApiMessages(gameRef) {
+  console.log('[flow] buildApiMessages called', {
+    gameId: gameRef?.id,
+    storedMessageCount: gameRef?.messages?.length || 0
+  })
+  
   const base = gameRef?.messages || []
-  return sanitizeMessagesForModel(base)
+  
+  console.log('[flow] buildApiMessages: stored messages', {
+    messages: base.map(m => ({
+      id: m?.id,
+      role: m?.role,
+      contentPreview: m?.content?.substring(0, 50),
+      timestamp: m?.timestamp
+    }))
+  })
+  
+  const sanitized = sanitizeMessagesForModel(base)
+  
+  console.log('[flow] buildApiMessages: returning sanitized messages', {
+    count: sanitized.length,
+    messages: sanitized.map(m => ({
+      id: m?.id,
+      role: m?.role,
+      contentPreview: m?.content?.substring(0, 50)
+    }))
+  })
+  
+  return sanitized
 }
 
 async function sendMessage(game, userText, data) {
+  console.log('[flow] ========== sendMessage START ==========')
+  console.log('[flow] sendMessage called', {
+    gameId: game?.id,
+    userText: userText?.substring(0, 100),
+    currentMessageCount: game?.messages?.length
+  })
+  
   const gameRef = game // Use the passed-in game object
   if (!gameRef) {
     console.error("[v0] Game not found!")
@@ -801,6 +890,11 @@ async function sendMessage(game, userText, data) {
 
   const rawCharacter = data.characters.find((c) => c.id === gameRef.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
+
+  console.log('[flow] sendMessage: character loaded', {
+    characterId: gameRef.characterId,
+    characterName: character?.name
+  })
 
   // Initialize cumulative usage if not present
   if (!gameRef.cumulativeUsage) {
@@ -819,17 +913,23 @@ async function sendMessage(game, userText, data) {
   let lastReasoningTokens = 0
 
   try {
+    console.log('[flow] sendMessage: building API messages')
     const apiMessages = buildApiMessages(gameRef)
+
+    console.log('[flow] sendMessage: API messages built', {
+      count: apiMessages.length,
+      roles: apiMessages.map(m => m.role)
+    })
 
     const hasNonSystemMessage = apiMessages.some((m) => m.role === "user" || m.role === "assistant")
 
     if (!hasNonSystemMessage && apiMessages.length > 0) {
-      console.error("[v0] Only system messages found, no user/assistant messages")
+      console.error("[flow] [v0] Only system messages found, no user/assistant messages")
       throw new Error("Cannot send API request with only system messages")
     }
 
     if (apiMessages.length === 0) {
-      console.error("[v0] No valid messages to send to API")
+      console.error("[flow] [v0] No valid messages to send to API")
       throw new Error("Messages array cannot be empty - check the openrouter docs for chat completions please")
     }
 
@@ -848,7 +948,15 @@ async function sendMessage(game, userText, data) {
       }
     }
 
+    console.log('[flow] sendMessage: sending to API', {
+      model: gameRef.narrativeModel,
+      messageCount: apiMessages.length,
+      reasoningOptions
+    })
+
     const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
+    
+    console.log('[flow] sendMessage: API response received')
 
     let assistantMessage = ""
     let reasoningBuffer = ""
@@ -859,6 +967,8 @@ async function sendMessage(game, userText, data) {
     gameRef.suggestedActions = []
 
     const assistantMsgIndex = gameRef.messages.length
+    console.log('[flow] sendMessage: creating assistant message at index', assistantMsgIndex)
+    
     gameRef.messages.push({
       id: assistantMsgId,
       role: "assistant",
@@ -868,6 +978,7 @@ async function sendMessage(game, userText, data) {
       metadata: {},
     })
 
+    console.log('[flow] sendMessage: starting stream processing')
     for await (const chunk of parseStreamingResponse(response)) {
       const choice = chunk.choices?.[0]
       const delta = choice?.delta?.content
@@ -944,6 +1055,12 @@ async function sendMessage(game, userText, data) {
         assistantMessage += delta
         gameRef.messages[assistantMsgIndex].content = assistantMessage
 
+        console.log('[flow] sendMessage: delta received', {
+          deltaLength: delta.length,
+          totalContentLength: assistantMessage.length,
+          messageId: assistantMsgId
+        })
+
         let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
 
         if (!streamingMsgElement) {
@@ -969,6 +1086,10 @@ async function sendMessage(game, userText, data) {
 
         const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
         if (newMessages.length > 0) {
+          console.log('[flow] sendMessage: adding new system messages from realtime processing', {
+            count: newMessages.length,
+            ids: newMessages.map(m => m.id)
+          })
           newMessages.forEach((msg) => {
             gameRef.messages.push(msg)
             appendMessage(msg)
@@ -989,8 +1110,19 @@ async function sendMessage(game, userText, data) {
       }
     }
 
+    console.log('[flow] sendMessage: stream complete, running final processGameCommands')
     await processGameCommands(gameRef, character, assistantMessage, processedTags)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
+
+    console.log('[flow] sendMessage: final message state', {
+      totalMessages: gameRef.messages.length,
+      assistantMessageLength: assistantMessage.length,
+      lastMessages: gameRef.messages.slice(-5).map(m => ({
+        id: m.id,
+        role: m.role,
+        contentPreview: m.content?.substring(0, 50)
+      }))
+    })
 
     // COMBAT_CONTINUE keepalive: If combat is active and no COMBAT_CONTINUE tag, end combat
     if (gameRef.combat.active) {
@@ -1088,8 +1220,13 @@ async function sendMessage(game, userText, data) {
 
     // Save immediately after streaming and post-processing completes
     // This ensures the message is persisted even if user exits quickly
+    console.log('[flow] sendMessage: saving data', {
+      gameId: gameRef.id,
+      messageCount: gameRef.messages.length
+    })
     saveData(data)
     updateInputContainer(gameRef)
+    console.log('[flow] ========== sendMessage END (success) ==========')
   } catch (error) {
     console.error("[v0] Error sending message:", error)
     const errorMessage = error.message || "An unknown error occurred"
@@ -1105,6 +1242,7 @@ async function sendMessage(game, userText, data) {
     appendMessage(errorMsg)
     saveData(data)
   } finally {
+    console.log('[flow] sendMessage: cleanup in finally block')
     isStreaming = false
     const input = document.getElementById("player-input")
     const submitButton = document.querySelector('#chat-form button[type="submit"]')
@@ -1116,6 +1254,7 @@ async function sendMessage(game, userText, data) {
       submitButton.disabled = false
       submitButton.textContent = "Send"
     }
+    console.log('[flow] ========== sendMessage END (finally) ==========')
   }
 }
 
@@ -1826,11 +1965,13 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   if (needsUIUpdate) {
-    updateInputContainer(game)
-    updateLocationHistory(game)
-    updatePlayerStats(game)
-    updateRelationshipsDisplay(game)
-  }
+  updateInputContainer(game)
+
+  console.log('[flow] handlePlayerInput: calling sendMessage')
+  // Send to LLM
+  await sendMessage(game, text, data)
+  console.log('[flow] ========== handlePlayerInput END ==========')
+}
 
   return newMessages
 }

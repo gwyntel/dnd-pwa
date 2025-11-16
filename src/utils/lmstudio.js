@@ -14,6 +14,7 @@ function getProviderConfig() {
   
   return {
     baseUrl: (config.baseUrl || "http://localhost:1234/v1").replace(/\/$/, ""), // Remove trailing slash
+    contextLength: config.contextLength || null, // User-configured context length
   }
 }
 
@@ -125,6 +126,7 @@ function detectReasoningType(modelId) {
  */
 export async function fetchModels() {
   try {
+    const config = getProviderConfig()
     const response = await makeRequest("/models")
     const data = await response.json()
 
@@ -135,11 +137,13 @@ export async function fetchModels() {
       const modelId = model.id || model.model || "unknown"
       const supportsReasoning = detectReasoningType(modelId) !== null
       
+      // Use user-configured context length if available, otherwise try to get from model metadata
+      const contextLength = config.contextLength || model.context_length || model.max_model_len || 4096
+      
       return {
         id: modelId,
         name: model.name || modelId,
-        // LM Studio may provide context_length or max_model_len
-        contextLength: model.context_length || model.max_model_len || 4096,
+        contextLength: contextLength,
         pricing: {
           prompt: 0, // Local models have no API cost
           completion: 0,

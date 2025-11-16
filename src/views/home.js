@@ -136,6 +136,11 @@ function renderProviderConfig(provider) {
         <label class="form-label text-left">LM Studio Server URL</label>
         <input type="text" id="lmstudio-url" placeholder="http://localhost:1234/v1" value="http://localhost:1234/v1" class="mb-2">
       </div>
+      <div class="mb-2">
+        <label class="form-label text-left">Context Length (tokens)</label>
+        <input type="number" id="lmstudio-context-length" placeholder="8192" min="2048" max="200000" step="1024" class="mb-2">
+        <p class="text-xs text-secondary" style="margin-top: 0.25rem;">Optional: Set your model's context length (e.g., 8192, 32768, 128000)</p>
+      </div>
       <button id="lmstudio-save-btn" class="btn btn-block">Save and Continue</button>
       <div class="text-secondary text-xs mt-2" style="text-align: left;">
         <p class="mb-1"><strong>ℹ️ Before testing:</strong></p>
@@ -227,6 +232,7 @@ function setupAuthEventListeners() {
   // LM Studio save
   document.getElementById("lmstudio-save-btn")?.addEventListener("click", () => {
     const baseUrl = document.getElementById("lmstudio-url")?.value.trim()
+    const contextLength = document.getElementById("lmstudio-context-length")?.value.trim()
     
     if (!baseUrl) {
       alert("Please enter LM Studio server URL")
@@ -237,6 +243,13 @@ function setupAuthEventListeners() {
     data.settings = data.settings || {}
     data.settings.provider = "lmstudio"
     data.settings.lmstudioBaseUrl = baseUrl
+    
+    // Save context length if provided
+    if (!data.settings.providers) data.settings.providers = {}
+    if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
+    data.settings.providers.lmstudio.baseUrl = baseUrl
+    data.settings.providers.lmstudio.contextLength = contextLength ? parseInt(contextLength, 10) : null
+    
     saveData(data)
     
     // LM Studio doesn't need authentication, just reload

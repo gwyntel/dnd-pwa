@@ -102,6 +102,21 @@ export function renderSettings() {
               LM Studio server URL (default: http://localhost:1234/v1)
             </p>
           </div>
+          <div class="mb-2">
+            <label class="form-label text-sm">Context Length (tokens)</label>
+            <input 
+              type="number" 
+              id="lmstudio-context-length" 
+              placeholder="8192"
+              min="2048"
+              max="200000"
+              step="1024"
+              value="${data.settings.providers?.lmstudio?.contextLength || ""}"
+            >
+            <p class="text-xs text-secondary mt-1">
+              Maximum context length for your model (e.g., 8192, 32768, 128000). Check your model's documentation.
+            </p>
+          </div>
           <button id="test-lmstudio-btn" class="btn-secondary btn-sm mt-2">Test Connection</button>
           <div class="text-xs text-secondary mt-2" style="text-align: left;">
             <p class="mb-1"><strong>ℹ️ Before testing:</strong></p>
@@ -402,6 +417,7 @@ function setupProviderHandlers(data) {
   
   // LM Studio configuration handlers
   const lmstudioBaseUrl = document.getElementById("lmstudio-base-url")
+  const lmstudioContextLength = document.getElementById("lmstudio-context-length")
   const testLMStudioBtn = document.getElementById("test-lmstudio-btn")
   
   if (lmstudioBaseUrl) {
@@ -409,6 +425,16 @@ function setupProviderHandlers(data) {
       if (!data.settings.providers) data.settings.providers = {}
       if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
       data.settings.providers.lmstudio.baseUrl = e.target.value
+      saveData(data)
+    })
+  }
+  
+  if (lmstudioContextLength) {
+    lmstudioContextLength.addEventListener("change", (e) => {
+      if (!data.settings.providers) data.settings.providers = {}
+      if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
+      const value = e.target.value ? parseInt(e.target.value, 10) : null
+      data.settings.providers.lmstudio.contextLength = value
       saveData(data)
     })
   }

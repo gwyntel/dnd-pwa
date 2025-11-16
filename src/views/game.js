@@ -2417,6 +2417,29 @@ function updateLocationHistory(game) {
 }
 
 function updatePlayerStats(game) {
+  const data = loadData()
+  const rawCharacter = data.characters.find((c) => c.id === game.characterId)
+  const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
+  
+  if (!character) return
+
+  // Update HP bar
+  const hpBar = document.querySelector(".progress-fill")
+  const hpText = document.querySelector(".stat-bar .flex.justify-between span:last-child")
+  
+  if (hpBar && hpText) {
+    const hpPercent = (game.currentHP / character.maxHP) * 100
+    const hpColor = game.currentHP > character.maxHP * 0.5
+      ? "var(--success-color, #4caf50)"
+      : game.currentHP > character.maxHP * 0.25
+      ? "var(--warning-color, #ff9800)"
+      : "var(--error-color, #f44336)"
+    
+    hpBar.style.width = `${hpPercent}%`
+    hpBar.style.backgroundColor = hpColor
+    hpText.textContent = `${game.currentHP}/${character.maxHP}`
+  }
+
   // Update gold display
   const goldStats = document.querySelectorAll(".key-stats div")
   if (goldStats.length >= 4) {

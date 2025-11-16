@@ -5,7 +5,7 @@
 
 import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
+import { getProvider } from "../utils/model-utils.js"
 import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
 import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
@@ -673,7 +673,8 @@ async function generateCharacterWithLLM(userPrompt = "") {
 
   try {
     // Prefer structured outputs when supported; otherwise fall back to plain JSON-mode prompt instructions.
-    const response = await sendChatCompletion(messages, model, {
+    const provider = await getProvider()
+    const response = await provider.sendChatCompletion(messages, model, {
       system: systemPrompt,
       temperature: 0.8,
       ...(supportsStructuredOutputs
@@ -688,7 +689,7 @@ async function generateCharacterWithLLM(userPrompt = "") {
     })
 
     let fullResponse = ""
-    for await (const chunk of parseStreamingResponse(response)) {
+    for await (const chunk of provider.parseStreamingResponse(response)) {
       // For structured outputs, OpenRouter returns JSON chunks; fall back to .choices streaming if present.
       if (chunk.choices && chunk.choices[0]?.delta?.content) {
         fullResponse += chunk.choices[0].delta.content

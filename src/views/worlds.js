@@ -4,7 +4,7 @@
  */
 
 import { loadData, saveData } from "../utils/storage.js"
-import { sendChatCompletion, parseStreamingResponse } from "../utils/openrouter.js"
+import { getProvider } from "../utils/model-utils.js"
 
 let editingWorldId = null
 
@@ -702,11 +702,12 @@ Respond ONLY with the JSON object.`
         }
       : {}
 
-    const response = await sendChatCompletion(messages, model, requestOptions)
+    const provider = await getProvider()
+    const response = await provider.sendChatCompletion(messages, model, requestOptions)
 
     let fullResponse = ""
 
-    for await (const chunk of parseStreamingResponse(response)) {
+    for await (const chunk of provider.parseStreamingResponse(response)) {
       if (chunk.output_json) {
         // Some providers may return fully parsed JSON objects
         fullResponse = JSON.stringify(chunk.output_json)

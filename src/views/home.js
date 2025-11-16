@@ -10,9 +10,12 @@ export function renderHome() {
   const app = document.getElementById("app")
   const data = loadData()
 
-  // Check authentication
-  if (!isAuthenticated()) {
-    app.innerHTML = renderAuthPrompt()
+  // Check authentication (provider-aware)
+  const selectedProvider = data.settings?.provider || "openrouter"
+  
+  // LM Studio doesn't require authentication
+  if (selectedProvider !== "lmstudio" && !isAuthenticated()) {
+    app.innerHTML = renderAuthPrompt(selectedProvider)
     return
   }
 
@@ -62,7 +65,72 @@ export function renderHome() {
   })
 }
 
-function renderAuthPrompt() {
+function renderAuthPrompt(provider = "openrouter") {
+  const providerNames = {
+    openrouter: "OpenRouter",
+    openai: "OpenAI-compatible API",
+    lmstudio: "LM Studio"
+  }
+  
+  const providerName = providerNames[provider] || "OpenRouter"
+  
+  if (provider === "openrouter") {
+    return `
+      <div class="container text-center mt-4">
+        <h1>Welcome to D&D PWA</h1>
+        <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
+        
+        <div class="card card-center">
+          <h2>Get Started</h2>
+          <p>To begin your adventure, you'll need to authenticate with OpenRouter.</p>
+          
+          <div class="mt-3">
+            <button id="auth-btn" class="btn">Connect with OpenRouter</button>
+          </div>
+          
+          <div class="mt-3">
+            <p class="text-secondary text-sm">Or enter your API key directly:</p>
+            <input type="password" id="api-key-input" placeholder="sk-or-..." class="mt-2">
+            <button id="api-key-btn" class="btn-secondary mt-2">Use API Key</button>
+          </div>
+          
+          <div class="mt-3">
+            <p class="text-secondary text-sm">Want to use a different provider?</p>
+            <a href="/settings" class="btn-secondary mt-2">Go to Settings</a>
+          </div>
+        </div>
+        
+        <div class="mt-4 text-secondary text-sm">
+          <p>New to D&D? No problem! This app is beginner-friendly.</p>
+          <p>The AI will guide you through the rules as you play.</p>
+        </div>
+      </div>
+    `
+  } else if (provider === "openai") {
+    return `
+      <div class="container text-center mt-4">
+        <h1>Welcome to D&D PWA</h1>
+        <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
+        
+        <div class="card card-center">
+          <h2>Get Started with ${providerName}</h2>
+          <p>To begin your adventure, configure your OpenAI-compatible API credentials.</p>
+          
+          <div class="mt-3">
+            <p class="text-secondary text-sm">Your OpenAI-compatible API needs to be configured in Settings.</p>
+            <a href="/settings" class="btn mt-2">Go to Settings</a>
+          </div>
+        </div>
+        
+        <div class="mt-4 text-secondary text-sm">
+          <p>New to D&D? No problem! This app is beginner-friendly.</p>
+          <p>The AI will guide you through the rules as you play.</p>
+        </div>
+      </div>
+    `
+  }
+  
+  // This shouldn't happen since LM Studio bypasses auth check, but just in case
   return `
     <div class="container text-center mt-4">
       <h1>Welcome to D&D PWA</h1>
@@ -70,22 +138,8 @@ function renderAuthPrompt() {
       
       <div class="card card-center">
         <h2>Get Started</h2>
-        <p>To begin your adventure, you'll need to authenticate with OpenRouter.</p>
-        
-        <div class="mt-3">
-          <button id="auth-btn" class="btn">Connect with OpenRouter</button>
-        </div>
-        
-        <div class="mt-3">
-          <p class="text-secondary text-sm">Or enter your API key directly:</p>
-          <input type="password" id="api-key-input" placeholder="sk-or-..." class="mt-2">
-          <button id="api-key-btn" class="btn-secondary mt-2">Use API Key</button>
-        </div>
-      </div>
-      
-      <div class="mt-4 text-secondary text-sm">
-        <p>New to D&D? No problem! This app is beginner-friendly.</p>
-        <p>The AI will guide you through the rules as you play.</p>
+        <p>Configure your AI provider in Settings to begin.</p>
+        <a href="/settings" class="btn mt-3">Go to Settings</a>
       </div>
     </div>
   `

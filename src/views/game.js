@@ -1202,7 +1202,7 @@ async function sendMessage(game, userText, data) {
     }
 
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
-    await processGameCommands(gameRef, character, assistantMessage, processedTags)
+    await processGameCommands(gameRef, character, assistantMessage, processedTags, data)
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
     console.log('[flow] sendMessage: final message state', {
@@ -2065,7 +2065,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   return newMessages
 }
 
-async function processGameCommands(game, character, text, processedTags = new Set()) {
+async function processGameCommands(game, character, text, processedTags = new Set(), data = null) {
   // This is a fallback - most processing should happen in real-time
   // NOTE: Do NOT call loadData() here as it would overwrite messages added during streaming
   // Parse location updates

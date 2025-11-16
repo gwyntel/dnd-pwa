@@ -1558,6 +1558,26 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
         initiativeEntries.sort((a, b) => b.total - a.total)
         game.combat.initiative = initiativeEntries
         game.combat.currentTurnIndex = 0
+        
+        // Add ephemeral turn order announcement for AI
+        const firstActor = initiativeEntries[0]
+        const turnOrderMsg = firstActor.type === "player"
+          ? "🎯 TURN ORDER: You go first! Wait for the player to choose their action before narrating further."
+          : `🎯 TURN ORDER: ${firstActor.name} goes first. Narrate their action immediately.`
+        
+        newMessages.push({
+          id: `msg_${Date.now()}_turn_order`,
+          role: "system",
+          content: turnOrderMsg,
+          timestamp: new Date().toISOString(),
+          hidden: true, // Hidden from UI, visible to AI
+          metadata: { 
+            turnOrder: true,
+            firstActor: firstActor.type,
+            firstActorName: firstActor.name,
+            ephemeral: true // Will be cleaned up after AI sees it
+          },
+        })
       } else {
         game.combat.initiative = []
         game.combat.currentTurnIndex = 0

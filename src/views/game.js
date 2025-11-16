@@ -201,6 +201,25 @@ export async function renderGame(state = {}) {
     return
   }
 
+  // Validate that the game's model is available in the current provider
+  // If not, update it to use the default model
+  const provider = await getProvider()
+  try {
+    const models = await provider.fetchModels()
+    const gameModelExists = models.some((m) => m.id === game.narrativeModel)
+    
+    if (!gameModelExists) {
+      console.log(`[v0] Game model ${game.narrativeModel} not found in current provider, updating to default`)
+      game.narrativeModel = data.settings.defaultNarrativeModel
+      saveData(data)
+    }
+  } catch (error) {
+    console.error("[v0] Error validating game model:", error)
+    // If we can't fetch models, use the default model to be safe
+    game.narrativeModel = data.settings.defaultNarrativeModel
+    saveData(data)
+  }
+
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
 

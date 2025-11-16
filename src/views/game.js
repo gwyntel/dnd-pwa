@@ -1113,6 +1113,10 @@ async function sendMessage(game, userText, data) {
     })
 
     console.log('[flow] sendMessage: starting stream processing')
+    let insideThinkTag = false
+    let thinkBuffer = ""
+    let contentOutsideThink = ""
+    
     for await (const chunk of provider.parseStreamingResponse(response)) {
       const choice = chunk.choices?.[0]
       const delta = choice?.delta?.content
@@ -1123,12 +1127,14 @@ async function sendMessage(game, userText, data) {
         lastUsageData = chunk.usage
       }
 
+      // Handle OpenRouter-style reasoning deltas
       if (reasoningDelta) {
         reasoningBuffer += reasoningDelta
         lastReasoningText = reasoningBuffer
         
         // Update message metadata with streaming reasoning
         gameRef.messages[assistantMsgIndex].metadata.reasoning = reasoningBuffer
+        gameRef.messages[assistantMsgIndex].metadata.reasoningType = 'openrouter'
         
         // Update reasoning display in real-time if panel is enabled
         if (reasoningPanelEnabled) {
@@ -1186,12 +1192,117 @@ async function sendMessage(game, userText, data) {
       }
 
       if (delta) {
-        assistantMessage += delta
+        // Parse <think> tags in the delta for real-time reasoning extraction
+        let processedDelta = delta
+        let i = 0
+        
+        while (i < processedDelta.length) {
+          if (!insideThinkTag) {
+            // Look for opening <think> tag
+            const thinkStart = processedDelta.indexOf('<think>', i)
+            if (thinkStart !== -1) {
+              // Add content before <think> to message
+              const beforeThink = processedDelta.substring(i, thinkStart)
+              contentOutsideThink += beforeThink
+              assistantMessage += beforeThink
+              
+              // Enter think tag mode
+              insideThinkTag = true
+              i = thinkStart + 7 // Skip past '<think>'
+              
+              // Mark that we have reasoning and set type
+              gameRef.messages[assistantMsgIndex].metadata.reasoningType = 'think_tags'
+            } else {
+              // No <think> tag found, add rest to message
+              const remaining = processedDelta.substring(i)
+              contentOutsideThink += remaining
+              assistantMessage += remaining
+              break
+            }
+          } else {
+            // Look for closing </think> tag
+            const thinkEnd = processedDelta.indexOf('</think>', i)
+            if (thinkEnd !== -1) {
+              // Add content to think buffer
+              const thinkContent = processedDelta.substring(i, thinkEnd)
+              thinkBuffer += thinkContent
+              
+              // Exit think tag mode
+              insideThinkTag = false
+              i = thinkEnd + 8 // Skip past '</think>'
+            } else {
+              // No closing tag yet, add rest to think buffer
+              const remaining = processedDelta.substring(i)
+              thinkBuffer += remaining
+              break
+            }
+          }
+        }
+        
+        // Update reasoning if we have think content
+        if (thinkBuffer) {
+          lastReasoningText = thinkBuffer
+          gameRef.messages[assistantMsgIndex].metadata.reasoning = thinkBuffer
+          
+          // Update reasoning display in real-time if panel is enabled
+          if (reasoningPanelEnabled) {
+            let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+            
+            if (!streamingMsgElement) {
+              // Create the message element immediately when reasoning starts
+              appendMessage(gameRef.messages[assistantMsgIndex])
+              streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
+              
+              // Open the details element
+              const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
+              if (reasoningDetails) {
+                reasoningDetails.open = true
+              }
+            }
+            
+            if (streamingMsgElement) {
+              let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
+              
+              if (!reasoningBody) {
+                // Create reasoning panel
+                const messageDiv = streamingMsgElement
+                const reasoningPanel = document.createElement("div")
+                reasoningPanel.className = "message-reasoning"
+                reasoningPanel.innerHTML = `
+                  <details class="reasoning-details" open>
+                    <summary class="reasoning-summary">
+                      🧠 Reasoning
+                      <span class="reasoning-tokens"></span>
+                    </summary>
+                    <div class="reasoning-body"></div>
+                  </details>
+                `
+                
+                if (messageDiv.firstChild) {
+                  messageDiv.insertBefore(reasoningPanel, messageDiv.firstChild)
+                } else {
+                  messageDiv.appendChild(reasoningPanel)
+                }
+                
+                reasoningBody = reasoningPanel.querySelector(".reasoning-body")
+              }
+              
+              if (reasoningBody) {
+                reasoningBody.innerHTML = escapeHtml(thinkBuffer).replace(/\n/g, "<br>")
+                reasoningBody.scrollTop = reasoningBody.scrollHeight
+              }
+            }
+          }
+        }
+        
+        // Update the stored content (without think tags)
         gameRef.messages[assistantMsgIndex].content = assistantMessage
 
         console.log('[flow] sendMessage: delta received', {
           deltaLength: delta.length,
           totalContentLength: assistantMessage.length,
+          thinkBufferLength: thinkBuffer.length,
+          insideThinkTag,
           messageId: assistantMsgId
         })
 
@@ -1202,8 +1313,8 @@ async function sendMessage(game, userText, data) {
           streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
         }
         
-        // Collapse reasoning panel when content starts arriving
-        if (assistantMessage.trim() && reasoningPanelEnabled) {
+        // Collapse reasoning panel when actual content (not think) starts arriving
+        if (contentOutsideThink.trim() && reasoningPanelEnabled) {
           const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
           if (reasoningDetails && reasoningDetails.open) {
             reasoningDetails.open = false
@@ -1246,6 +1357,8 @@ async function sendMessage(game, userText, data) {
 
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
     await processGameCommands(gameRef, character, assistantMessage, processedTags, data)
+    
+    // Note: <think> tag extraction is now handled during streaming, no post-processing needed
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
     console.log('[flow] sendMessage: final message state', {

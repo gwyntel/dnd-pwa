@@ -1965,21 +1965,16 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   if (needsUIUpdate) {
-  updateInputContainer(game)
-
-  console.log('[flow] handlePlayerInput: calling sendMessage')
-  // Send to LLM
-  await sendMessage(game, text, data)
-  console.log('[flow] ========== handlePlayerInput END ==========')
-}
+    console.log('[flow] processGameCommandsRealtime: UI update needed')
+    updateInputContainer(game)
+  }
 
   return newMessages
 }
 
 async function processGameCommands(game, character, text, processedTags = new Set()) {
-  const data = loadData()
-
   // This is a fallback - most processing should happen in real-time
+  // NOTE: Do NOT call loadData() here as it would overwrite messages added during streaming
   // Parse location updates
   const locationMatch = text.match(/LOCATION\[([^\]]+)\]/)
   if (locationMatch) {
@@ -2162,7 +2157,7 @@ async function processGameCommands(game, character, text, processedTags = new Se
     }
   }
 
-  saveData(data)
+  // NOTE: Saving is handled by sendMessage() - don't call saveData() here as we no longer have 'data'
 
   // If a semantic roll was just handled, trigger a concise follow-up narration.
   // This happens AFTER all command processing is complete.

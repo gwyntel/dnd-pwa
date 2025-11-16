@@ -137,7 +137,14 @@ function renderProviderConfig(provider) {
         <input type="text" id="lmstudio-url" placeholder="http://localhost:1234/v1" value="http://localhost:1234/v1" class="mb-2">
       </div>
       <button id="lmstudio-save-btn" class="btn btn-block">Save and Continue</button>
-      <p class="text-secondary text-xs mt-2">Make sure LM Studio is running with a local server started</p>
+      <div class="text-secondary text-xs mt-2" style="text-align: left;">
+        <p class="mb-1"><strong>ℹ️ Before testing:</strong></p>
+        <ol style="margin: 0; padding-left: 1.5rem;">
+          <li>Make sure LM Studio is running with a model loaded</li>
+          <li>Start the local server in LM Studio</li>
+          <li>Enable CORS in LM Studio server settings</li>
+        </ol>
+      </div>
     `
   }
   

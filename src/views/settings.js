@@ -103,9 +103,14 @@ export function renderSettings() {
             </p>
           </div>
           <button id="test-lmstudio-btn" class="btn-secondary btn-sm mt-2">Test Connection</button>
-          <p class="text-xs text-secondary mt-2">
-            ℹ️ Make sure LM Studio is running with a model loaded before testing.
-          </p>
+          <div class="text-xs text-secondary mt-2" style="text-align: left;">
+            <p class="mb-1"><strong>ℹ️ Before testing:</strong></p>
+            <ol style="margin: 0 0 0.5rem 0; padding-left: 1.5rem;">
+              <li>Make sure LM Studio is running with a model loaded</li>
+              <li>Start the local server in LM Studio</li>
+              <li>Enable CORS in LM Studio server settings</li>
+            </ol>
+          </div>
         </div>
       </div>
       

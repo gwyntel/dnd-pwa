@@ -1859,7 +1859,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   // INVENTORY_ADD[item|qty]
-  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]||]+)\|?(\d+)?\]/g)
+  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]|]+)\|?(\d+)?\]/g)
   for (const match of invAddMatches) {
     const tagKey = `inv_add_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1881,7 +1881,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   // INVENTORY_REMOVE[item|qty]
-  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]||]+)\|?(\d+)?\]/g)
+  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]|]+)\|?(\d+)?\]/g)
   for (const match of invRemoveMatches) {
     const tagKey = `inv_remove_${match[0]}`
     if (!processedTags.has(tagKey)) {

@@ -5,7 +5,7 @@
 import { loadData, saveData, exportData, getStorageInfo, importData } from "../utils/storage.js"
 import { logout } from "../utils/auth.js"
 import { navigateTo } from "../router.js"
-import { fetchModels } from "../utils/openrouter.js"
+import { getProvider, getCurrentProvider } from "../utils/model-utils.js"
 
 export function renderSettings() {
   const app = document.getElementById("app")
@@ -41,6 +41,72 @@ export function renderSettings() {
           <option value="forest" ${data.settings.theme === "forest" ? "selected" : ""}>Forest</option>
           <option value="midnight" ${data.settings.theme === "midnight" ? "selected" : ""}>Midnight</option>
         </select>
+      </div>
+      
+      <div class="card mb-3">
+        <h2>API Provider</h2>
+        <p class="text-secondary mb-2">Choose your AI model provider</p>
+        <select id="provider-select">
+          <option value="openrouter" ${data.settings.provider === "openrouter" ? "selected" : ""}>OpenRouter</option>
+          <option value="openai" ${data.settings.provider === "openai" ? "selected" : ""}>OpenAI-Compatible</option>
+          <option value="lmstudio" ${data.settings.provider === "lmstudio" ? "selected" : ""}>LM Studio (Local)</option>
+        </select>
+        
+        <!-- OpenRouter config (API key handled by auth.js) -->
+        <div id="provider-config-openrouter" class="mt-3" style="display: none;">
+          <p class="text-xs text-secondary">
+            OpenRouter API key is managed through the authentication system.
+          </p>
+        </div>
+        
+        <!-- OpenAI-Compatible config -->
+        <div id="provider-config-openai" class="mt-3" style="display: none;">
+          <div class="mb-2">
+            <label class="form-label text-sm">Base URL</label>
+            <input 
+              type="text" 
+              id="openai-base-url" 
+              placeholder="https://api.openai.com/v1"
+              value="${data.settings.providers?.openai?.baseUrl || "https://api.openai.com/v1"}"
+            >
+            <p class="text-xs text-secondary mt-1">
+              API endpoint (e.g., https://api.openai.com/v1)
+            </p>
+          </div>
+          <div class="mb-2">
+            <label class="form-label text-sm">API Key</label>
+            <input 
+              type="password" 
+              id="openai-api-key" 
+              placeholder="sk-..."
+              value="${data.settings.providers?.openai?.apiKey || ""}"
+            >
+            <p class="text-xs text-secondary mt-1">
+              Your OpenAI-compatible API key
+            </p>
+          </div>
+          <button id="test-openai-btn" class="btn-secondary btn-sm mt-2">Test Connection</button>
+        </div>
+        
+        <!-- LM Studio config -->
+        <div id="provider-config-lmstudio" class="mt-3" style="display: none;">
+          <div class="mb-2">
+            <label class="form-label text-sm">Base URL</label>
+            <input 
+              type="text" 
+              id="lmstudio-base-url" 
+              placeholder="http://localhost:1234/v1"
+              value="${data.settings.providers?.lmstudio?.baseUrl || "http://localhost:1234/v1"}"
+            >
+            <p class="text-xs text-secondary mt-1">
+              LM Studio server URL (default: http://localhost:1234/v1)
+            </p>
+          </div>
+          <button id="test-lmstudio-btn" class="btn-secondary btn-sm mt-2">Test Connection</button>
+          <p class="text-xs text-secondary mt-2">
+            ℹ️ Make sure LM Studio is running with a model loaded before testing.
+          </p>
+        </div>
       </div>
       
       <div class="card mb-3">
@@ -233,8 +299,137 @@ export function renderSettings() {
     navigateTo("/models")
   })
 
+  // Provider selection and configuration handlers
+  setupProviderHandlers(data)
+
   // Reasoning settings handlers
   setupReasoningSettingsHandlers(data)
+}
+
+/**
+ * Setup provider selection and configuration handlers
+ */
+function setupProviderHandlers(data) {
+  const providerSelect = document.getElementById("provider-select")
+  
+  // Show/hide provider-specific configuration based on selection
+  const updateProviderConfig = () => {
+    const selectedProvider = providerSelect.value
+    
+    // Hide all provider configs
+    document.getElementById("provider-config-openrouter").style.display = "none"
+    document.getElementById("provider-config-openai").style.display = "none"
+    document.getElementById("provider-config-lmstudio").style.display = "none"
+    
+    // Show the selected provider config
+    const configElement = document.getElementById(`provider-config-${selectedProvider}`)
+    if (configElement) {
+      configElement.style.display = "block"
+    }
+  }
+  
+  // Initialize provider config display
+  updateProviderConfig()
+  
+  // Handle provider selection change
+  providerSelect.addEventListener("change", (e) => {
+    const oldProvider = data.settings.provider
+    const newProvider = e.target.value
+    
+    data.settings.provider = newProvider
+    saveData(data)
+    updateProviderConfig()
+    
+    // Clear selected model when switching providers
+    if (oldProvider !== newProvider) {
+      data.settings.defaultNarrativeModel = null
+      saveData(data)
+      document.getElementById("select-model-btn").textContent = "Select Model"
+      showMessage(`Switched to ${newProvider}. Please select a model.`, "success")
+    }
+  })
+  
+  // OpenAI configuration handlers
+  const openaiBaseUrl = document.getElementById("openai-base-url")
+  const openaiApiKey = document.getElementById("openai-api-key")
+  const testOpenAIBtn = document.getElementById("test-openai-btn")
+  
+  if (openaiBaseUrl) {
+    openaiBaseUrl.addEventListener("change", (e) => {
+      if (!data.settings.providers) data.settings.providers = {}
+      if (!data.settings.providers.openai) data.settings.providers.openai = {}
+      data.settings.providers.openai.baseUrl = e.target.value
+      saveData(data)
+    })
+  }
+  
+  if (openaiApiKey) {
+    openaiApiKey.addEventListener("change", (e) => {
+      if (!data.settings.providers) data.settings.providers = {}
+      if (!data.settings.providers.openai) data.settings.providers.openai = {}
+      data.settings.providers.openai.apiKey = e.target.value
+      saveData(data)
+    })
+  }
+  
+  if (testOpenAIBtn) {
+    testOpenAIBtn.addEventListener("click", async () => {
+      testOpenAIBtn.disabled = true
+      testOpenAIBtn.textContent = "Testing..."
+      
+      try {
+        const provider = await getProvider()
+        const success = await provider.testConnection()
+        
+        if (success) {
+          showMessage("✓ OpenAI connection successful!", "success")
+        } else {
+          showMessage("✗ OpenAI connection failed. Check your settings.", "error")
+        }
+      } catch (error) {
+        showMessage(`✗ Connection error: ${error.message}`, "error")
+      } finally {
+        testOpenAIBtn.disabled = false
+        testOpenAIBtn.textContent = "Test Connection"
+      }
+    })
+  }
+  
+  // LM Studio configuration handlers
+  const lmstudioBaseUrl = document.getElementById("lmstudio-base-url")
+  const testLMStudioBtn = document.getElementById("test-lmstudio-btn")
+  
+  if (lmstudioBaseUrl) {
+    lmstudioBaseUrl.addEventListener("change", (e) => {
+      if (!data.settings.providers) data.settings.providers = {}
+      if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
+      data.settings.providers.lmstudio.baseUrl = e.target.value
+      saveData(data)
+    })
+  }
+  
+  if (testLMStudioBtn) {
+    testLMStudioBtn.addEventListener("click", async () => {
+      testLMStudioBtn.disabled = true
+      testLMStudioBtn.textContent = "Testing..."
+      
+      try {
+        const provider = await getProvider()
+        const success = await provider.testConnection()
+        
+        if (success) {
+          showMessage("✓ LM Studio connection successful!", "success")
+        } else {
+          showMessage("✗ LM Studio connection failed. Is LM Studio running?", "error")
+        }
+      } catch (error) {
+        showMessage(`✗ Connection error: ${error.message}`, "error")
+      } finally {
+        testLMStudioBtn.disabled = false
+        testLMStudioBtn.textContent = "Test Connection"
+      }
+    })
+  }
 }
 
 async function initializeReasoningSettings(data) {
@@ -267,11 +462,12 @@ async function initializeReasoningSettings(data) {
   // If not found in cached models, fetch models to get the latest metadata
   if (!model) {
     try {
-      console.log("[Reasoning] Fetching fresh model list from OpenRouter...")
+      console.log("[Reasoning] Fetching fresh model list from provider...")
       
-      // Fetch models to get the latest metadata
-      const fetchedModels = await fetchModels()
-      console.log("[Reasoning] Fetched", fetchedModels.length, "models from OpenRouter")
+      // Fetch models to get the latest metadata from current provider
+      const provider = await getProvider()
+      const fetchedModels = await provider.fetchModels()
+      console.log("[Reasoning] Fetched", fetchedModels.length, "models from provider")
       
       // Update data with fetched models
       data.models = fetchedModels

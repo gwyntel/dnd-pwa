@@ -1,12 +1,11 @@
 /**
  * Model Selector View
- * Browse and select OpenRouter models
+ * Browse and select models from the configured provider
  */
 
-import { fetchModels } from "../utils/openrouter.js"
 import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { isNitroModel } from "../utils/model-utils.js"
+import { isNitroModel, getProvider, getCurrentProvider } from "../utils/model-utils.js"
 
 let allModels = []
 let filteredModels = []
@@ -41,8 +40,9 @@ export async function renderModels() {
   `
 
   try {
-    // Fetch models from OpenRouter
-    allModels = await fetchModels()
+    // Fetch models from the configured provider
+    const provider = await getProvider()
+    allModels = await provider.fetchModels()
     filteredModels = [...allModels]
 
     // Render the model selector UI

@@ -5,7 +5,7 @@
 
 import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { sendChatCompletion, parseStreamingResponse, extractUsage, calculateCost } from "../utils/openrouter.js"
+import { getProvider } from "../utils/model-utils.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
@@ -1067,7 +1067,9 @@ async function sendMessage(game, userText, data) {
       reasoningOptions
     })
 
-    const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
+    // Get the configured provider and send the request
+    const provider = await getProvider()
+    const response = await provider.sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
     
     console.log('[flow] sendMessage: API response received')
 
@@ -1092,7 +1094,7 @@ async function sendMessage(game, userText, data) {
     })
 
     console.log('[flow] sendMessage: starting stream processing')
-    for await (const chunk of parseStreamingResponse(response)) {
+    for await (const chunk of provider.parseStreamingResponse(response)) {
       const choice = chunk.choices?.[0]
       const delta = choice?.delta?.content
       const reasoningDelta = choice?.delta?.reasoning
@@ -1283,7 +1285,7 @@ async function sendMessage(game, userText, data) {
 
     // Update cumulative usage if we have usage data
     if (lastUsageData) {
-      const usage = extractUsage({ usage: lastUsageData })
+      const usage = provider.extractUsage({ usage: lastUsageData })
       
       // Add to cumulative totals
       gameRef.cumulativeUsage.promptTokens += usage.promptTokens
@@ -1307,7 +1309,7 @@ async function sendMessage(game, userText, data) {
       const models = data.models || []
       const currentModel = models.find((m) => m.id === gameRef.narrativeModel)
       if (currentModel && currentModel.pricing) {
-        const cost = calculateCost(usage, currentModel.pricing)
+        const cost = provider.calculateCost(usage, currentModel.pricing)
         gameRef.cumulativeUsage.totalCost += cost
         console.log('[v0] Cost calculated:', {
           usage,

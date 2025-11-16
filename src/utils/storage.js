@@ -21,6 +21,20 @@ const DEFAULT_DATA = {
     diceAnimation: true,
     hasSeenTutorial: false,
     temperature: 1.0,
+    // Provider configuration
+    provider: "openrouter", // "openrouter" | "openai" | "lmstudio"
+    providers: {
+      openrouter: {
+        // API key handled by auth.js
+      },
+      openai: {
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "",
+      },
+      lmstudio: {
+        baseUrl: "http://localhost:1234/v1",
+      },
+    },
   },
   worlds: [
     // Canonical default world used when no worlds exist yet.

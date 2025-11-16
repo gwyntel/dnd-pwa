@@ -1,7 +1,9 @@
 /**
  * Model and Endpoint Utilities
- * Handles model selection, environment variables, and Nitro detection
+ * Handles model selection, environment variables, Nitro detection, and provider factory
  */
+
+import { loadData } from "./storage.js"
 
 /**
  * Detect if endpoint has :nitro suffix for fast throughput
@@ -47,4 +49,34 @@ export function isValidModelId(modelId) {
   // Should have format like "provider/model-name" or "provider/model-name:nitro"
   const cleaned = modelId.replace(":nitro", "")
   return /^[a-z0-9-]+\/[a-z0-9-]+/.test(cleaned)
+}
+
+/**
+ * Get the appropriate provider module based on settings
+ * @returns {Promise<Object>} The provider module (openrouter, openai, or lmstudio)
+ */
+export async function getProvider() {
+  const data = loadData()
+  const provider = data.settings.provider || "openrouter"
+
+  switch (provider) {
+    case "openrouter":
+      return import("./openrouter.js")
+    case "openai":
+      return import("./openai.js")
+    case "lmstudio":
+      return import("./lmstudio.js")
+    default:
+      console.warn(`Unknown provider: ${provider}, defaulting to openrouter`)
+      return import("./openrouter.js")
+  }
+}
+
+/**
+ * Get the current provider name
+ * @returns {string} The current provider name
+ */
+export function getCurrentProvider() {
+  const data = loadData()
+  return data.settings.provider || "openrouter"
 }

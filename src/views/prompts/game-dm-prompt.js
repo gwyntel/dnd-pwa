@@ -253,6 +253,25 @@ Never combine:
    - Format: COMBAT_START[Two goblins leap from the shadows!]
    - Use when enemies attack or player initiates combat
    - Example: "COMBAT_START[A dire wolf growls and attacks!]"
+   
+   **⚠️ CRITICAL - INITIATIVE ORDER RULES:**
+   
+   After initiative is rolled (which happens automatically with COMBAT_START), you MUST check whose turn it is:
+   
+   - **If the ENEMY goes first:**
+     - Immediately narrate the enemy's action in the same message
+     - Use ROLL[attack|...] or other combat tags as appropriate
+     - The enemy takes their full turn before the player can respond
+     - Example: "The goblin wins initiative and strikes! ROLL[attack|scimitar|16]"
+   
+   - **If the PLAYER goes first:**
+     - DO NOT narrate any combat actions yet
+     - END your message after COMBAT_START
+     - Provide ACTION[...] suggestions for what the player might do
+     - WAIT for the player to choose their action
+     - Example: "You react first! COMBAT_START[Goblin attack!] ACTION[Attack with longsword] ACTION[Cast a spell] ACTION[Take defensive stance]"
+   
+   The system message will show you who has initiative. Always respect this order - never narrate player actions when it's the player's turn, and never wait for player input when it's the enemy's turn.
 
 5. **COMBAT_CONTINUE** - Keepalive signal for ongoing combat (CRITICAL)
    - Format: COMBAT_CONTINUE

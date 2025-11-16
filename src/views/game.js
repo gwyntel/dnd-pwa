@@ -1411,7 +1411,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
 
   const upsertItem = (rawName, deltaQty, { equip, unequip } = {}) => {
     ensureInventory()
-    const name = (rawName || "").trim()
+    // Remove line breaks and trim whitespace from item name
+    const name = (rawName || "").replace(/[\r\n]+/g, ' ').trim()
     if (!name) return null
 
     const findIndex = () =>
@@ -1449,13 +1450,15 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
     return { name: item.item, oldQty, newQty, equipped: !!item.equipped }
   }
 
-  const changeGold = (deltaRaw) => {
-    const delta = Number.parseInt(deltaRaw, 10)
+   const changeGold = (deltaRaw) => {
+    const delta = Number.parseFloat(deltaRaw)
     if (Number.isNaN(delta) || delta === 0) return null
     ensureCurrency()
     const before = game.currency.gp
     let after = before + delta
     if (after < 0) after = 0
+    // Round to 2 decimal places to avoid floating point precision issues
+    after = Math.round(after * 100) / 100
     game.currency.gp = after
     return { before, after, applied: after - before }
   }
@@ -1999,7 +2002,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   }
 
   // GOLD_CHANGE[delta]
-  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+)\]/g)
+  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+\.?\d*)\]/g)
   for (const match of goldMatches) {
     const tagKey = `gold_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -2507,9 +2510,9 @@ function updatePlayerStats(game) {
   if (goldStats.length >= 4) {
     const goldDiv = goldStats[3]
     if (goldDiv) {
-      goldDiv.innerHTML = `<strong>Gold</strong><br>${game.currency?.gp ?? 0} gp`
+      goldDiv.innerHTML = `<strong>Gold</strong><br>${Number.isInteger(game.currency?.gp ?? 0) ? (game.currency?.gp ?? 0) : (game.currency?.gp ?? 0).toFixed(2)} gp`
     }
-  }
+ }
 
   // Update inventory display - find the inventory card by searching for all cards with h3 "Inventory"
   const cards = document.querySelectorAll(".card")

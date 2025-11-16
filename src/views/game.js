@@ -2164,19 +2164,23 @@ async function processGameCommands(game, character, text, processedTags = new Se
   // Check for combat end
   const combatEndMatch = text.match(/COMBAT_END\[([^\]]+)\]/)
   if (combatEndMatch) {
-    game.combat.active = false
-    game.combat.round = 0
-    game.combat.initiative = []
-    game.combat.currentTurnIndex = 0
+    const tagKey = `combat_end_${combatEndMatch[0]}`
+    if (!processedTags.has(tagKey)) {
+      game.combat.active = false
+      game.combat.round = 0
+      game.combat.initiative = []
+      game.combat.currentTurnIndex = 0
 
-    game.messages.push({
-      id: `msg_${Date.now()}_combat_end`,
-      role: "system",
-      content: `✓ Combat ended: ${combatEndMatch[1]}`,
-      timestamp: new Date().toISOString(),
-      hidden: false,
-      metadata: { combatEvent: "end" },
-    })
+      game.messages.push({
+        id: `msg_${Date.now()}_combat_end`,
+        role: "system",
+        content: `✓ Combat ended: ${combatEndMatch[1]}`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { combatEvent: "end" },
+      })
+      processedTags.add(tagKey)
+    }
   }
 
   // Check for damage

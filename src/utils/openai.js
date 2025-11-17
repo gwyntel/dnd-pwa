@@ -174,7 +174,7 @@ function detectReasoningType(modelId) {
  */
 export async function fetchModels() {
   try {
-    const response = await makeRequest("/models")
+    const response = await makeRequest("/models", { method: "GET" })
     const data = await response.json()
 
     // OpenAI API returns { data: [...models] }

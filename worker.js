@@ -74,8 +74,11 @@ export default {
  * POST /api/proxy - Proxy OpenAI-compatible API requests
  */
 async function handleProxyRequest(request) {
+  console.log('[handleProxyRequest] Method:', request.method);
+  
   // Handle CORS preflight first
   if (request.method === 'OPTIONS') {
+    console.log('[handleProxyRequest] Handling OPTIONS preflight');
     return new Response(null, {
       status: 204,
       headers: {
@@ -88,6 +91,7 @@ async function handleProxyRequest(request) {
 
   // Only allow POST requests to the proxy endpoint
   if (request.method !== 'POST') {
+    console.log('[handleProxyRequest] Rejecting non-POST method:', request.method);
     return new Response(JSON.stringify({ 
       error: 'Method not allowed',
       detail: `Received ${request.method} request, but /api/proxy only accepts POST`
@@ -102,9 +106,12 @@ async function handleProxyRequest(request) {
     });
   }
 
+  console.log('[handleProxyRequest] Processing POST request');
+  
   try {
     // Parse the proxy request payload
     const payload = await request.json();
+    console.log('[handleProxyRequest] Parsed payload:', { baseUrl: payload.baseUrl, endpoint: payload.endpoint });
     const { baseUrl, apiKey, endpoint, method, headers: customHeaders, body } = payload;
 
     // Validate required fields

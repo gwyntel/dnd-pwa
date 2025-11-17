@@ -78,20 +78,23 @@ async function handleProxyRequest(request) {
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     });
   }
 
-  // Only allow POST and GET requests
-  if (request.method !== 'POST' && request.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+  // Only allow POST requests to the proxy endpoint
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ 
+      error: 'Method not allowed',
+      detail: `Received ${request.method} request, but /api/proxy only accepts POST`
+    }), {
       status: 405,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       },
     });

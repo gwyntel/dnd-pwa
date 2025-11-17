@@ -8,8 +8,10 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Handle API proxy requests - exact match or with trailing content
+    // IMPORTANT: Handle API proxy requests FIRST, before any asset handling
+    // This prevents ASSETS binding from intercepting these requests
     if (url.pathname === '/api/proxy' || url.pathname.startsWith('/api/proxy/')) {
+      console.log('[Worker] Handling proxy request:', request.method, url.pathname);
       return handleProxyRequest(request);
     }
 

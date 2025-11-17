@@ -8,8 +8,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Handle API proxy requests
-    if (url.pathname.startsWith('/api/proxy')) {
+    // Handle API proxy requests - exact match or with trailing content
+    if (url.pathname === '/api/proxy' || url.pathname.startsWith('/api/proxy/')) {
       return handleProxyRequest(request);
     }
 

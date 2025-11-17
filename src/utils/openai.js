@@ -4,6 +4,8 @@
  */
 
 import { loadData } from "./storage.js"
+import { isProxyEnabled, proxyRequest } from "./proxy.js"
+import { detectCorsIssue, enhanceCorsError } from "./cors-detector.js"
 
 /**
  * Get provider configuration from settings
@@ -28,9 +30,11 @@ function getProviderConfig() {
 
 /**
  * Make authenticated request to OpenAI-compatible API
+ * Automatically falls back to proxy if CORS error is detected and proxy is enabled
  */
 async function makeRequest(endpoint, options = {}) {
   const config = getProviderConfig()
+  const useProxy = isProxyEnabled()
   
   const headers = {
     Authorization: `Bearer ${config.apiKey}`,
@@ -38,55 +42,45 @@ async function makeRequest(endpoint, options = {}) {
     ...options.headers,
   }
 
+  // If proxy is enabled, use it directly
+  if (useProxy) {
+    try {
+      console.log(`[Proxy] Making request through proxy: ${endpoint}`)
+      const response = await proxyRequest(config.baseUrl, config.apiKey, endpoint, {
+        method: options.method || 'POST',
+        headers: options.headers || {},
+        body: options.body,
+      })
+      
+      return await handleResponse(response)
+    } catch (error) {
+      console.error("Proxy request error:", error)
+      throw enhanceCorsError(error, true)
+    }
+  }
+
+  // Try direct request first
   try {
     const response = await fetch(`${config.baseUrl}${endpoint}`, {
       ...options,
       headers,
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorCode = response.status
-      const errorMessage = errorData.error?.message || `API request failed`
-
-      let userMessage = errorMessage
-
-      switch (errorCode) {
-        case 400:
-          userMessage = "Bad request: " + errorMessage
-          break
-        case 401:
-          userMessage = "Authentication failed. Please check your API key."
-          break
-        case 402:
-          userMessage = "Insufficient credits. Please add credits to your account."
-          break
-        case 403:
-          userMessage = "Access forbidden: " + errorMessage
-          break
-        case 408:
-          userMessage = "Request timed out. The model took too long to respond. Please try again."
-          break
-        case 429:
-          userMessage = "Rate limited. Please wait a moment and try again."
-          break
-        case 500:
-        case 502:
-        case 503:
-          userMessage = "Server error. Please try again later."
-          break
-        default:
-          userMessage = `Error ${errorCode}: ${errorMessage}`
-      }
-
-      const error = new Error(userMessage)
-      error.code = errorCode
-      error.rawMessage = errorMessage
-      throw error
+    return await handleResponse(response)
+  } catch (error) {
+    // Check if this is a CORS error
+    const corsDetection = detectCorsIssue(error)
+    
+    if (corsDetection.isCors) {
+      console.warn("CORS error detected:", corsDetection.message)
+      console.warn("Suggested action:", corsDetection.suggestedAction)
+      
+      // Provide helpful error message with guidance
+      const enhancedError = enhanceCorsError(error, false)
+      throw enhancedError
     }
 
-    return response
-  } catch (error) {
+    // Not a CORS error, throw original error
     if (error.code) {
       throw error
     }
@@ -94,6 +88,54 @@ async function makeRequest(endpoint, options = {}) {
     console.error("OpenAI API error:", error)
     throw new Error("Network error: Unable to reach API endpoint. Please check your connection and base URL.")
   }
+}
+
+/**
+ * Handle API response and errors
+ */
+async function handleResponse(response) {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    const errorCode = response.status
+    const errorMessage = errorData.error?.message || `API request failed`
+
+    let userMessage = errorMessage
+
+    switch (errorCode) {
+      case 400:
+        userMessage = "Bad request: " + errorMessage
+        break
+      case 401:
+        userMessage = "Authentication failed. Please check your API key."
+        break
+      case 402:
+        userMessage = "Insufficient credits. Please add credits to your account."
+        break
+      case 403:
+        userMessage = "Access forbidden: " + errorMessage
+        break
+      case 408:
+        userMessage = "Request timed out. The model took too long to respond. Please try again."
+        break
+      case 429:
+        userMessage = "Rate limited. Please wait a moment and try again."
+        break
+      case 500:
+      case 502:
+      case 503:
+        userMessage = "Server error. Please try again later."
+        break
+      default:
+        userMessage = `Error ${errorCode}: ${errorMessage}`
+    }
+
+    const error = new Error(userMessage)
+    error.code = errorCode
+    error.rawMessage = errorMessage
+    throw error
+  }
+
+  return response
 }
 
 /**

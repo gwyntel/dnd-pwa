@@ -2,10 +2,16 @@
 // - Serves built assets normally from ASSETS binding
 // - Falls back to /index.html for client routes (no extension)
 // - Critical: correctly strip `/auth` prefix so asset URLs resolve to built paths.
+// - Provides /api/proxy endpoint for server-side API calls (bypasses CORS)
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // Handle API proxy requests
+    if (url.pathname.startsWith('/api/proxy')) {
+      return handleProxyRequest(request);
+    }
 
     // If we're under /auth or /game, normalize paths so assets and manifest load correctly.
     // Example:
@@ -60,6 +66,121 @@ export default {
     return assetResponse;
   },
 };
+
+/**
+ * Handle API proxy requests
+ * POST /api/proxy - Proxy OpenAI-compatible API requests
+ */
+async function handleProxyRequest(request) {
+  // Only allow POST requests
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+
+  try {
+    // Parse the proxy request payload
+    const payload = await request.json();
+    const { baseUrl, apiKey, endpoint, method, headers: customHeaders, body } = payload;
+
+    // Validate required fields
+    if (!baseUrl || !endpoint) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: baseUrl, endpoint' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
+    // Construct the target URL
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    const targetUrl = `${cleanBaseUrl}${endpoint}`;
+
+    // Build request headers
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      ...customHeaders,
+    };
+
+    // Add Authorization header if API key is provided
+    if (apiKey) {
+      requestHeaders['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    // Make the proxied request
+    const targetMethod = method || 'POST';
+    const targetOptions = {
+      method: targetMethod,
+      headers: requestHeaders,
+    };
+
+    // Add body for POST/PUT/PATCH requests
+    if (body && ['POST', 'PUT', 'PATCH'].includes(targetMethod.toUpperCase())) {
+      targetOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
+
+    const response = await fetch(targetUrl, targetOptions);
+
+    // Get response headers to pass through
+    const responseHeaders = {
+      'Content-Type': response.headers.get('Content-Type') || 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    };
+
+    // For streaming responses, pass through the stream
+    if (response.headers.get('Content-Type')?.includes('text/event-stream')) {
+      responseHeaders['Content-Type'] = 'text/event-stream';
+      responseHeaders['Cache-Control'] = 'no-cache';
+      responseHeaders['Connection'] = 'keep-alive';
+      
+      return new Response(response.body, {
+        status: response.status,
+        headers: responseHeaders,
+      });
+    }
+
+    // For non-streaming responses, return the full response
+    const responseBody = await response.text();
+    return new Response(responseBody, {
+      status: response.status,
+      headers: responseHeaders,
+    });
+
+  } catch (error) {
+    console.error('Proxy error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Proxy request failed',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+}
 
 // Treat as SPA route if:
 // - It has no file extension (no '.' in last path segment)

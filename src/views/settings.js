@@ -85,6 +85,15 @@ export function renderSettings() {
               Your OpenAI-compatible API key
             </p>
           </div>
+          <div class="mb-2">
+            <label class="form-check">
+              <span class="form-check-label">Use backend proxy (bypasses CORS restrictions)</span>
+              <input type="checkbox" id="openai-proxy-check" ${data.settings.useProxy ? "checked" : ""}>
+            </label>
+            <p class="text-xs text-secondary mt-1">
+              Enable this if you encounter CORS errors. The proxy routes API requests through your Cloudflare Worker instead of directly from the browser.
+            </p>
+          </div>
           <button id="test-openai-btn" class="btn-secondary btn-sm mt-2">Test Connection</button>
         </div>
         
@@ -389,6 +398,17 @@ function setupProviderHandlers(data) {
       if (!data.settings.providers.openai) data.settings.providers.openai = {}
       data.settings.providers.openai.apiKey = e.target.value
       saveData(data)
+    })
+  }
+  
+  // OpenAI proxy checkbox handler
+  const openaiProxyCheck = document.getElementById("openai-proxy-check")
+  if (openaiProxyCheck) {
+    openaiProxyCheck.addEventListener("change", (e) => {
+      data.settings.useProxy = e.target.checked
+      saveData(data)
+      const status = e.target.checked ? "enabled" : "disabled"
+      showMessage(`Backend proxy ${status}`, "success")
     })
   }
   

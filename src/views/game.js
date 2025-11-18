@@ -684,8 +684,19 @@ function stripTags(text) {
   // Suggested actions - strip ACTION[...] tags but keep surrounding text intact
   cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, "")
 
-  // Collapse excessive newlines
+  // Clean up whitespace artifacts from tag removal
+  // Fix spaces around line breaks created by tag removal
+  cleaned = cleaned.replace(/ +\n/g, "\n") // Remove trailing spaces before newlines
+  cleaned = cleaned.replace(/\n +/g, "\n") // Remove leading spaces after newlines
+  
+  // Collapse multiple spaces into single space
+  cleaned = cleaned.replace(/  +/g, " ")
+  
+  // Collapse excessive newlines (3+ → 2)
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
+  
+  // Clean orphaned spaces at line start/end
+  cleaned = cleaned.split("\n").map(line => line.trim()).filter(line => line.length > 0).join("\n")
 
   return cleaned.trim()
 }

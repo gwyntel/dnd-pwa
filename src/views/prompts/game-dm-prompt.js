@@ -16,6 +16,19 @@ const DND_MECHANICS_EXAMPLES = {
   loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]"
 };
 
+function compressInventoryForPrompt(inventory) {
+  if (!Array.isArray(inventory) || inventory.length === 0) return "(empty)"
+  return inventory
+    .filter(it => it && typeof it.item === "string")
+    .map(it => {
+      const qty = typeof it.quantity === "number" ? it.quantity : 1
+      const equipped = it.equipped ? "*" : ""
+      return `${it.item}:${qty}${equipped}`
+    })
+    .join(',')
+  // Result: "Longsword:1*,Shield:1,Rations:5"
+}
+
 export function buildGameDMPrompt(character, game, world) {
   const diceProfile = buildDiceProfileForPrompt(character)
   const modStr = (stat) => {
@@ -26,16 +39,9 @@ export function buildGameDMPrompt(character, game, world) {
   const data = loadDataForPrompt()
   const gold = game.currency && typeof game.currency.gp === "number" ? game.currency.gp : 0
 
-  // Build FULL inventory list (not truncated)
+  // Compress inventory for prompt (UI displays pretty version separately)
   const inventory = Array.isArray(game.inventory) ? game.inventory : []
-  const inventoryList = inventory
-    .filter((it) => it && typeof it.item === "string")
-    .map((it) => {
-      const qty = typeof it.quantity === "number" ? it.quantity : 1
-      const equipped = it.equipped ? " (equipped)" : ""
-      return `  - ${it.item}: ${qty}${equipped}`
-    })
-    .join("\n")
+  const inventoryCompressed = compressInventoryForPrompt(inventory)
 
   // Normalize conditions into names
   const conditions = Array.isArray(game.conditions) ? game.conditions : []
@@ -62,9 +68,7 @@ export function buildGameDMPrompt(character, game, world) {
   const statusLine =
     statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""
 
-  const inventorySection = inventoryList 
-    ? `\n\n**Current Inventory:**\n${inventoryList}` 
-    : "\n\n**Current Inventory:** (empty)"
+  const inventorySection = `\n\n**Inventory:** ${inventoryCompressed}`
 
   const worldPrompt = world ? `**World Setting:**\n${world.systemPrompt}\n\n` : ""
 

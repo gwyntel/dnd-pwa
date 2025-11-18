@@ -6,6 +6,16 @@
 
 import { TAG_REFERENCE } from './tag-reference.js';
 
+const DND_MECHANICS_EXAMPLES = {
+  attack: "Goblin attacks! ROLL[attack|scimitar|15] → (app rolls d20+mods) → Hit! DAMAGE[player|6]",
+  skill: "You search. ROLL[skill|perception|12] → (app rolls d20+mods) → Success! You find the key.",
+  save: "Dragon breathes fire. ROLL[save|dexterity|14|disadvantage] → (app rolls with disadvantage) → Fail! DAMAGE[player|24]",
+  advantage: "You have the high ground. ROLL[attack|longsword|13|advantage] → (roll 2d20, take higher)",
+  initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
+  healing: "You drink healing potion. INVENTORY_REMOVE[Healing Potion|1] HEAL[player|10]",
+  loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]"
+};
+
 export function buildGameDMPrompt(character, game, world) {
   const diceProfile = buildDiceProfileForPrompt(character)
   const modStr = (stat) => {
@@ -142,6 +152,12 @@ Never combine ROLL[...] and its consequences in same message. Always wait for ap
 ${JSON.stringify(TAG_REFERENCE, null, 2)}
 
 Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant. Consumable items MUST be removed with INVENTORY_REMOVE when used.
+
+**5e Mechanics Pattern Examples:**
+
+${JSON.stringify(DND_MECHANICS_EXAMPLES, null, 2)}
+
+Use these patterns to guide your mechanical interpretations. You don't need to understand D&D rules - just follow these tag patterns when similar situations arise.
 
 **Formatting Rules:**
 - Use **bold** for emphasis: **important text**

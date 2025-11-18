@@ -22,6 +22,7 @@ const DEFAULT_DATA = {
     hasSeenTutorial: false,
     temperature: 1.0,
     maxRelationshipsTracked: 50,
+    maxLocationsTracked: 10,
     // Provider configuration
     provider: "openrouter", // "openrouter" | "openai" | "lmstudio"
     providers: {

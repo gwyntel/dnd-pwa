@@ -985,6 +985,9 @@ function buildApiMessages(gameRef) {
   // no stale relationships sneak into the AI context
   gameRef.relationships = trimRelationships(gameRef)
   
+  // Apply visited locations trimming to keep only the most recent locations
+  gameRef.visitedLocations = trimVisitedLocations(gameRef)
+  
   const base = gameRef?.messages || []
   
   console.log('[flow] buildApiMessages: stored messages', {
@@ -1036,6 +1039,24 @@ function trimRelationships(game) {
   }
   
   return trimmedRelationships
+}
+
+/**
+ * Trim visited locations to stay within the configured limit
+ * Keeps only the most recent N locations in the array
+ * Uses .slice(-cap) to maintain the most recent locations
+ * @param {Object} game - The game object
+ * @returns {Array} - The trimmed visited locations array
+ */
+function trimVisitedLocations(game) {
+  const data = loadData()
+ const cap = data.settings.maxLocationsTracked || 10
+  
+  // Get the visited locations array and slice to keep only the most recent N
+  const visitedLocations = Array.isArray(game.visitedLocations) ? game.visitedLocations : []
+  const trimmedLocations = visitedLocations.slice(-cap)
+  
+  return trimmedLocations
 }
 
 async function sendMessage(game, userText, data) {
@@ -2267,6 +2288,10 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   // Apply relationship trimming after processing all tags
   // This ensures zero-value relationships are removed and cap is enforced
   game.relationships = trimRelationships(game)
+  
+  // Apply visited locations trimming to keep only the most recent locations
+  game.visitedLocations = trimVisitedLocations(game)
+  
   needsUIUpdate = true
 
   // ACTION suggestions

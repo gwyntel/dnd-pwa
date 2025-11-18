@@ -244,6 +244,24 @@ export function renderSettings() {
             Removes relationships at 0 value and older relationships when limit is reached
           </p>
         </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Maximum Locations Tracked</label>
+          <div class="flex align-center gap-2">
+            <input 
+              type="range" 
+              id="max-locations-slider" 
+              min="5" 
+              max="50" 
+              step="5" 
+              value="${data.settings.maxLocationsTracked || 10}"
+            >
+            <span id="max-locations-value" class="text-sm" style="min-width: 3rem; font-weight: 500;">${data.settings.maxLocationsTracked || 10}</span>
+          </div>
+          <p class="text-xs text-secondary mt-1">
+            Keeps only the most recent locations in memory (older locations are automatically removed)
+          </p>
+        </div>
       </div>
       
       <div class="card mb-3">
@@ -306,10 +324,17 @@ export function renderSettings() {
     saveData(data)
   })
 
-  document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
+   document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
     const value = Number.parseInt(e.target.value)
     document.getElementById("max-relationships-value").textContent = value
     data.settings.maxRelationshipsTracked = value
+    saveData(data)
+ })
+
+  document.getElementById("max-locations-slider").addEventListener("input", (e) => {
+    const value = Number.parseInt(e.target.value)
+    document.getElementById("max-locations-value").textContent = value
+    data.settings.maxLocationsTracked = value
     saveData(data)
   })
 

@@ -689,14 +689,14 @@ function stripTags(text) {
   cleaned = cleaned.replace(/ +\n/g, "\n") // Remove trailing spaces before newlines
   cleaned = cleaned.replace(/\n +/g, "\n") // Remove leading spaces after newlines
   
-  // Collapse multiple spaces into single space
+  // Collapse multiple spaces into single space (but preserve intentional line breaks)
   cleaned = cleaned.replace(/  +/g, " ")
   
-  // Collapse excessive newlines (3+ → 2)
+  // Collapse excessive newlines (3+ → 2) but preserve intentional paragraph breaks
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
   
-  // Clean orphaned spaces at line start/end
-  cleaned = cleaned.split("\n").map(line => line.trim()).filter(line => line.length > 0).join("\n")
+  // Trim each line individually to remove orphaned spaces, but keep empty lines
+  cleaned = cleaned.split("\n").map(line => line.trim()).join("\n")
 
   return cleaned.trim()
 }

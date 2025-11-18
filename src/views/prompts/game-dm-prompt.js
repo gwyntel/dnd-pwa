@@ -54,16 +54,18 @@ export function buildGameDMPrompt(character, game, world) {
     })
     .filter(Boolean)
 
-  // Build relationships summary
+  // Compress relationships and conditions for prompt
   const relationships = game.relationships && typeof game.relationships === 'object' ? game.relationships : {}
-  const relationshipEntries = Object.entries(relationships)
-    .map(([entity, value]) => `${entity}: ${value}`)
-    .join(", ")
+  const relationshipsCompressed = Object.entries(relationships)
+    .map(([entity, value]) => `${entity}:${value}`)
+    .join('|') // "Blacksmith:5|Guard:-2|Tavern:3"
+  
+  const conditionsCompressed = conditionNames.join(',') // "Poisoned,Blessed"
 
   const statusLineParts = []
   statusLineParts.push(`Gold: ${gold} gp`)
-  if (conditionNames.length > 0) statusLineParts.push(`Active conditions: ${conditionNames.join(", ")}`)
-  if (relationshipEntries) statusLineParts.push(`Relationships: ${relationshipEntries}`)
+  if (conditionNames.length > 0) statusLineParts.push(`Cond: ${conditionsCompressed}`)
+  if (relationshipsCompressed) statusLineParts.push(`Rel: ${relationshipsCompressed}`)
 
   const statusLine =
     statusLineParts.length > 0 ? `\n\n**Current Resources & Status:** ${statusLineParts.join(" | ")}` : ""

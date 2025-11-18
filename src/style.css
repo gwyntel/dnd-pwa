@@ -986,6 +986,36 @@ a,
   font-size: 0.9em;
 }
 
+/* Inline tag badges - small, subtle tokens embedded inside messages */
+.inline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.inline-badge.location { background-color: rgba(139,69,19,0.06); border-color: rgba(139,69,19,0.12); }
+.inline-badge.inventory { background-color: rgba(34,139,34,0.06); border-color: rgba(34,139,34,0.12); }
+.inline-badge.roll { background-color: rgba(44, 130, 201, 0.06); border-color: rgba(44,130,201,0.12); }
+.inline-badge.damage { background-color: rgba(198,40,40,0.06); border-color: rgba(198,40,40,0.12); }
+.inline-badge.heal { background-color: rgba(76,175,80,0.06); border-color: rgba(76,175,80,0.12); }
+.inline-badge.gold { background-color: rgba(197,156,85,0.06); border-color: rgba(197,156,85,0.12); }
+.inline-badge.combat { background-color: rgba(255,167,38,0.06); border-color: rgba(255,167,38,0.12); }
+.inline-badge.status { background-color: rgba(96,125,139,0.06); border-color: rgba(96,125,139,0.12); }
+.inline-badge.relationship { background-color: rgba(92,107,192,0.06); border-color: rgba(92,107,192,0.12); }
+.inline-badge.action { background-color: rgba(255,235,59,0.06); border-color: rgba(255,235,59,0.12); }
+
+/* Make badges look good on dark theme */
+[data-theme="dark"] .inline-badge { color: var(--text-primary); background-color: rgba(255,255,255,0.04); }
+[data-theme="dark"] .inline-badge.location { box-shadow: 0 1px 0 rgba(0,0,0,0.15) inset; }
+
 .message-user .message-content code,
 .message-damage .message-content code,
 .message-healing .message-content code,

@@ -533,7 +533,7 @@ function renderSingleMessage(msg) {
       `
           : ""
       }
-      <div class="message-content">${iconPrefix}${parseMarkdown(cleanContent)}</div>
+      <div class="message-content">${iconPrefix}${insertInlineBadges(parseMarkdown(cleanContent))}</div>
       ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
       ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
     </div>
@@ -659,40 +659,45 @@ function renderMessages(messages) {
 }
 
 function stripTags(text) {
-  // Remove all game tags but keep the content inside when appropriate
+  // Replace game tags with inline-badge tokens for display
+  // Tag semantics are still processed from the raw message contents
   let cleaned = text
 
-  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, (match, location) => {
-    const icon = getLocationIcon(location)
-    return `${icon} ${location}` // Keep both icon AND location name
+  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, (match, location) => createBadgeToken('location', { name: location.trim() }))
+
+  // ROLL tags - show a small inline roll badge
+  cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, (match, inner) => {
+    const parts = inner.split('|').map(p => p.trim())
+    const kind = (parts[0] || '').toLowerCase()
+    if (kind === 'skill' || kind === 'save' || kind === 'attack') {
+      return createBadgeToken('roll', { kind, key: parts[1] || '', dc: parts[2] ? Number.parseInt(parts[2], 10) : null, targetAC: parts[2] ? Number.parseInt(parts[2], 10) : null })
+    }
+    return createBadgeToken('roll', { notation: parts[0] || '' })
   })
 
-  // ROLL tags - not shown in narrative
-  cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, "")
-
-  // COMBAT tags - not shown directly
-  cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/COMBAT_CONTINUE/g, "")
-  cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, "")
+  // COMBAT tags - show combat badges inline
+  cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, (m, d) => createBadgeToken('combat', { action: 'start', desc: (d || '').trim() }))
+  cleaned = cleaned.replace(/COMBAT_CONTINUE/g, () => createBadgeToken('combat', { action: 'continue' }))
+  cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, (m, d) => createBadgeToken('combat', { action: 'end', desc: (d || '').trim() }))
 
   // HP change tags
-  cleaned = cleaned.replace(/DAMAGE\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/HEAL\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/DAMAGE\[(\w+)\|(\d+)\]/g, (m, target, amount) => createBadgeToken('damage', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
+  cleaned = cleaned.replace(/HEAL\[(\w+)\|(\d+)\]/g, (m, target, amount) => createBadgeToken('heal', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
 
   // Inventory / currency / status tags
-  cleaned = cleaned.replace(/INVENTORY_ADD\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/INVENTORY_REMOVE\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/INVENTORY_EQUIP\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/INVENTORY_UNEQUIP\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/GOLD_CHANGE\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, "")
-  cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/INVENTORY_ADD\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => createBadgeToken('inventory_add', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
+  cleaned = cleaned.replace(/INVENTORY_REMOVE\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => createBadgeToken('inventory_remove', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
+  cleaned = cleaned.replace(/INVENTORY_EQUIP\[([^\]]+)\]/g, (m, item) => createBadgeToken('inventory_equip', { item: (item || '').trim() }))
+  cleaned = cleaned.replace(/INVENTORY_UNEQUIP\[([^\]]+)\]/g, (m, item) => createBadgeToken('inventory_unequip', { item: (item || '').trim() }))
+  cleaned = cleaned.replace(/GOLD_CHANGE\[(-?\d+\.?\d*)\]/g, (m, delta) => createBadgeToken('gold', { delta: Number.parseFloat(delta) }))
+  cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, (m, name) => createBadgeToken('status_add', { name: (name || '').trim() }))
+  cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, (m, name) => createBadgeToken('status_remove', { name: (name || '').trim() }))
 
   // Relationship tags
-  cleaned = cleaned.replace(/RELATIONSHIP\[([^\]]+)\]/g, "")
+  cleaned = cleaned.replace(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g, (m, entity, delta) => createBadgeToken('relationship', { entity: (entity || '').trim(), delta: Number.parseInt(delta, 10) }))
 
-  // Suggested actions - strip ACTION[...] tags but keep surrounding text intact
-  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, "")
+  // Suggested actions - turn into inline badges but keep the raw ACTION tag for bubble UI parsing
+  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, (m, action) => createBadgeToken('action', { action: (action || '').trim() }))
 
   // Clean up whitespace artifacts from tag removal
   // Fix spaces around line breaks created by tag removal
@@ -730,6 +735,141 @@ function parseMarkdown(text) {
   html = html.replace(/\n/g, "<br>")
 
   return html
+}
+
+// Helper: create a unique, parseable token to later render inline badge HTML
+function createBadgeToken(type, data) {
+  const encoded = encodeURIComponent(JSON.stringify(data || {}))
+  return `@@BADGE|${type}|${encoded}@@`
+}
+
+// Helper: render the inline badge HTML for a given type and data
+function renderInlineBadgeHtml(type, data) {
+  try {
+    const badgeData = data || {}
+    const labelEscape = (t) => escapeHtml(String(t || ""))
+    switch (type) {
+      case "location": {
+        const name = badgeData.name || ""
+        const icon = getLocationIcon(name) || "🗺️"
+        return `<span class="inline-badge location" data-tag-type="location">${icon} New Location: ${labelEscape(name)}</span>`
+      }
+      case "inventory_add": {
+        const qty = badgeData.qty ?? 1
+        const item = badgeData.item || ""
+        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 +${labelEscape(qty)} ${labelEscape(item)}</span>`
+      }
+      case "inventory_remove": {
+        const qty = badgeData.qty ?? 1
+        const item = badgeData.item || ""
+        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 -${labelEscape(qty)} ${labelEscape(item)}</span>`
+      }
+      case "inventory_equip": {
+        const item = badgeData.item || ""
+        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Equipped ${labelEscape(item)}</span>`
+      }
+      case "inventory_unequip": {
+        const item = badgeData.item || ""
+        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Unequipped ${labelEscape(item)}</span>`
+      }
+      case "roll": {
+        const kind = (badgeData.kind || "").toLowerCase()
+        if (kind === "skill") {
+          const key = badgeData.key || ""
+          return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${labelEscape(capitalize(key))} Check${badgeData.dc ? ` vs DC ${labelEscape(badgeData.dc)}` : ""}</span>`
+        }
+        if (kind === "save") {
+          const key = badgeData.key || ""
+          return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${labelEscape(capitalize(key))} Save${badgeData.dc ? ` vs DC ${labelEscape(badgeData.dc)}` : ""}</span>`
+        }
+        if (kind === "attack") {
+          const key = badgeData.key || ""
+          return `<span class="inline-badge roll" data-tag-type="roll">🎲 Attack (${labelEscape(key)})${badgeData.targetAC ? ` vs AC ${labelEscape(badgeData.targetAC)}` : ""}</span>`
+        }
+        // Legacy numeric
+        if (badgeData.notation) {
+          return `<span class="inline-badge roll" data-tag-type="roll">🎲 Roll: ${labelEscape(badgeData.notation)}</span>`
+        }
+        return `<span class="inline-badge roll" data-tag-type="roll">🎲 Roll</span>`
+      }
+      case "damage": {
+        const amount = badgeData.amount ?? 0
+        const target = badgeData.target || ""
+        const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
+        return `<span class="inline-badge damage" data-tag-type="damage">💔 ${targetText} -${labelEscape(amount)} HP</span>`
+      }
+      case "heal": {
+        const amount = badgeData.amount ?? 0
+        const target = badgeData.target || ""
+        const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
+        return `<span class="inline-badge heal" data-tag-type="heal">💚 ${targetText} +${labelEscape(amount)} HP</span>`
+      }
+      case "gold": {
+        const delta = badgeData.delta ?? 0
+        const sign = delta > 0 ? "+" : ""
+        return `<span class="inline-badge gold" data-tag-type="gold">💰 ${sign}${labelEscape(delta)} gp</span>`
+      }
+      case "status_add": {
+        const name = badgeData.name || ""
+        const icon = getConditionIcon(name) || "⚕️"
+        return `<span class="inline-badge status" data-tag-type="status">${icon} Status: ${labelEscape(name)}</span>`
+      }
+      case "status_remove": {
+        const name = badgeData.name || ""
+        return `<span class="inline-badge status" data-tag-type="status">✅ Status removed: ${labelEscape(name)}</span>`
+      }
+      case "combat": {
+        const action = badgeData.action || ""
+        if (action === "start") return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat started</span>`
+        if (action === "continue") return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat continues</span>`
+        if (action === "end") return `<span class="inline-badge combat" data-tag-type="combat">✓ Combat ended</span>`
+        return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat</span>`
+      }
+      case "action": {
+        const action = badgeData.action || ""
+        return `<span class="inline-badge action" data-tag-type="action">💡 ${labelEscape(action)}</span>`
+      }
+      case "relationship": {
+        const entity = badgeData.entity || ""
+        const delta = badgeData.delta ?? 0
+        const sign = delta > 0 ? "+" : ""
+        return `<span class="inline-badge relationship" data-tag-type="relationship">🤝 ${labelEscape(entity)} ${sign}${labelEscape(delta)}</span>`
+      }
+      default:
+        return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`
+    }
+  } catch (e) {
+    return `<span class="inline-badge">${escapeHtml(type)}</span>`
+  }
+}
+
+function parseBadgeToken(token) {
+  const match = token.match(/^@@BADGE\|([^|]+)\|([^@]+)@@$/)
+  if (!match) return null
+  const type = match[1]
+  try {
+    const payload = JSON.parse(decodeURIComponent(match[2]))
+    return { type, payload }
+  } catch (e) {
+    return { type, payload: {} }
+  }
+}
+
+function insertInlineBadges(html) {
+  if (!html) return html
+  return html.replace(/@@BADGE\|([^|]+)\|([^@]+)@@/g, (full, ttype, encoded) => {
+    try {
+      const payload = JSON.parse(decodeURIComponent(encoded))
+      return renderInlineBadgeHtml(ttype, payload)
+    } catch (e) {
+      return full
+    }
+  })
+}
+
+function capitalize(str) {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 /**
@@ -1407,9 +1547,9 @@ async function sendMessage(game, userText, data) {
         
         if (streamingMsgElement) {
           const contentElement = streamingMsgElement.querySelector(".message-content")
-          if (contentElement) {
+            if (contentElement) {
             const cleanContent = stripTags(assistantMessage)
-            contentElement.innerHTML = parseMarkdown(cleanContent)
+            contentElement.innerHTML = insertInlineBadges(parseMarkdown(cleanContent))
           }
         }
 

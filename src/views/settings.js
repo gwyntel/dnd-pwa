@@ -226,6 +226,24 @@ export function renderSettings() {
             <input type="checkbox" id="dice-animation-check" ${data.settings.diceAnimation ? "checked" : ""}>
           </label>
         </div>
+        
+        <div class="mb-2">
+          <label class="form-label text-sm">Maximum NPC Relationships Tracked</label>
+          <div class="flex align-center gap-2">
+            <input 
+              type="range" 
+              id="max-relationships-slider" 
+              min="10" 
+              max="100" 
+              step="10" 
+              value="${data.settings.maxRelationshipsTracked || 50}"
+            >
+            <span id="max-relationships-value" class="text-sm" style="min-width: 3rem; font-weight: 500;">${data.settings.maxRelationshipsTracked || 50}</span>
+          </div>
+          <p class="text-xs text-secondary mt-1">
+            Removes relationships at 0 value and older relationships when limit is reached
+          </p>
+        </div>
       </div>
       
       <div class="card mb-3">
@@ -285,6 +303,13 @@ export function renderSettings() {
 
   document.getElementById("dice-animation-check").addEventListener("change", (e) => {
     data.settings.diceAnimation = e.target.checked
+    saveData(data)
+  })
+
+  document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
+    const value = Number.parseInt(e.target.value)
+    document.getElementById("max-relationships-value").textContent = value
+    data.settings.maxRelationshipsTracked = value
     saveData(data)
   })
 

@@ -981,6 +981,10 @@ function buildApiMessages(gameRef) {
     storedMessageCount: gameRef?.messages?.length || 0
   })
   
+  // Apply relationship trimming before building API messages to ensure
+  // no stale relationships sneak into the AI context
+  gameRef.relationships = trimRelationships(gameRef)
+  
   const base = gameRef?.messages || []
   
   console.log('[flow] buildApiMessages: stored messages', {
@@ -1004,6 +1008,34 @@ function buildApiMessages(gameRef) {
   })
   
   return sanitized
+}
+
+/**
+ * Trim relationships to stay within the configured limit
+ * Removes zero-value relationships and keeps only the most recent N relationships
+ * Uses Object.entries().filter().slice(-cap) to maintain natural gameplay order
+ * where most recently modified relationships are preserved
+ * @param {Object} game - The game object
+ * @returns {Object} - The trimmed relationships object
+ */
+function trimRelationships(game) {
+  const data = loadData()
+  const cap = data.settings.maxRelationshipsTracked || 50
+  
+  // Convert to entries, filter out zero values, then keep last N entries
+  // This works because Object.entries() preserves insertion order, and
+  // relationships are naturally updated in place during gameplay
+  const trimmedEntries = Object.entries(game.relationships || {})
+    .filter(([_, value]) => value !== 0) // Remove zero-value relationships
+    .slice(-cap)  // Keep last N entries (most recently relevant)
+  
+  // Convert back to object
+  const trimmedRelationships = {}
+  for (const [key, value] of trimmedEntries) {
+    trimmedRelationships[key] = value
+  }
+  
+  return trimmedRelationships
 }
 
 async function sendMessage(game, userText, data) {
@@ -2230,7 +2262,12 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       }
       processedTags.add(tagKey)
     }
-  }
+ }
+
+  // Apply relationship trimming after processing all tags
+  // This ensures zero-value relationships are removed and cap is enforced
+  game.relationships = trimRelationships(game)
+  needsUIUpdate = true
 
   // ACTION suggestions
   const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g)

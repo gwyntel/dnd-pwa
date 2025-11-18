@@ -21,6 +21,7 @@ const DEFAULT_DATA = {
     diceAnimation: true,
     hasSeenTutorial: false,
     temperature: 1.0,
+    maxRelationshipsTracked: 50,
     // Provider configuration
     provider: "openrouter", // "openrouter" | "openai" | "lmstudio"
     providers: {

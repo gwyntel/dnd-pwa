@@ -197,25 +197,19 @@ A progressive web application for single-player D&D-style text adventures powere
 ## 🚧 Roadmap
 
 ### Short-term (v1.1-v1.2)
-- Enhanced action suggestions with better context awareness
+- Enhanced action suggestions with better context awareness 
 - Improved world system with reusable campaign settings
 - Better mobile touch controls and gesture support
-- Voice input/output integration
 - Character portrait uploads
 
 ### Medium-term (v1.3-v1.4)
 - Google Drive sync for cross-device access
-- Multiplayer session support
-- Custom system prompts per game
-- Sound effects and ambient audio
 - Detailed game statistics and analytics
 
-### Long-term (v1.5+)
-- Community character and world sharing
-- Advanced world generation with procedural content
-- Integration with D&D Beyond for official content
-- VR/AR support for immersive experiences
-- Campaign continuity across multiple sessions
+### Relationship Management Features
+- Add a "pin relationship" feature for important NPCs (exempt from cap)
+- Sort by relationship value instead of recency (keep high-value NPCs)
+- Compress relationship format: {npc: "blacksmith", v: 5} saves tokens vs. full words
 
 ## 🤝 Contributing
 

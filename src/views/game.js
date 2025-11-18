@@ -554,11 +554,21 @@ function appendMessage(msg) {
   const messageHTML = renderSingleMessage(msg)
   if (!messageHTML) return
 
+  // Create a temporary container for the rendered message
   const div = document.createElement("div")
   div.innerHTML = messageHTML
 
-  while (div.firstChild) {
-    messagesContainer.appendChild(div.firstChild)
+  // Check if element with this msg.id already exists (for idempotency during streaming)
+  const existingElement = document.querySelector(`[data-msg-id="${msg.id}"]`)
+  
+  if (existingElement) {
+    // Replace the existing element with the newly rendered one
+    existingElement.replaceWith(div.firstChild)
+  } else {
+    // Append all children from the temporary div
+    while (div.firstChild) {
+      messagesContainer.appendChild(div.firstChild)
+    }
   }
 
   // Keep roll history in sync
@@ -1161,7 +1171,12 @@ async function sendMessage(game, userText, data) {
     let lastUsageData = null
     const assistantMsgId = `msg_${Date.now()}`
     const processedTags = new Set()
+    // Reset rollTagState fresh for this sendMessage call
+    // This ensures ACTION tags are only suppressed within the same streaming response,
+    // not across multiple turns. Each new sendMessage (initial + follow-up narration) gets a fresh flag.
     const rollTagState = { found: false }
+    // Explicitly set to false here to guarantee a clean start even if reused accidentally
+    rollTagState.found = false
 
     gameRef.suggestedActions = []
 
@@ -1371,12 +1386,16 @@ async function sendMessage(game, userText, data) {
           messageId: assistantMsgId
         })
 
+        // Find or create streaming message element only once per streaming session
+        // Subsequent delta chunks should only update the existing element, not re-append
         let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
 
         if (!streamingMsgElement) {
+          // First delta with content: append message to DOM
           appendMessage(gameRef.messages[assistantMsgIndex])
           streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
         }
+        // Note: Do NOT call appendMessage() again in this loop - only update existing element
         
         // Collapse reasoning panel when actual content (not think) starts arriving
         if (contentOutsideThink.trim() && reasoningPanelEnabled) {

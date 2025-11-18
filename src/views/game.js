@@ -1150,6 +1150,7 @@ async function sendMessage(game, userText, data) {
     let lastUsageData = null
     const assistantMsgId = `msg_${Date.now()}`
     const processedTags = new Set()
+    const rollTagState = { found: false }
 
     gameRef.suggestedActions = []
 
@@ -1382,7 +1383,7 @@ async function sendMessage(game, userText, data) {
           }
         }
 
-        const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags)
+        const newMessages = await processGameCommandsRealtime(gameRef, character, assistantMessage, processedTags, rollTagState)
         if (newMessages.length > 0) {
           console.log('[flow] sendMessage: adding new system messages from realtime processing', {
             count: newMessages.length,
@@ -1567,7 +1568,7 @@ async function sendMessage(game, userText, data) {
   }
 }
 
-async function processGameCommandsRealtime(game, character, text, processedTags) {
+async function processGameCommandsRealtime(game, character, text, processedTags, rollTagState) {
   // Process tags as they stream in, but only once per tag
   const newMessages = []
   let needsUIUpdate = false
@@ -1968,6 +1969,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             label: key || "skill check",
             roll: result,
           })
+          rollTagState.found = true
         } else if (kind === "save") {
           const dc = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic save roll", { key, dc, adv, raw: match[0] })
@@ -2001,6 +2003,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             label: (key || "save").toUpperCase(),
             roll: result,
           })
+          rollTagState.found = true
         } else if (kind === "attack") {
           const targetAC = parseDC(third)
           console.debug("[dice][ROLL] Handling semantic attack roll", { key, targetAC, adv, raw: match[0] })
@@ -2044,6 +2047,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
             label: label,
             roll: toHit,
           })
+          rollTagState.found = true
         }
 
         processedTags.add(tagKey)
@@ -2101,6 +2105,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
       },
     })
     processedTags.add(tagKey)
+    rollTagState.found = true
   }
 
   // INVENTORY_ADD[item|qty]
@@ -2300,7 +2305,10 @@ async function processGameCommandsRealtime(game, character, text, processedTags)
   for (const match of actionMatches) {
     const tagKey = `action_${match[0]}`
     if (!processedTags.has(tagKey)) {
-      newActions.push(match[1])
+      // Only collect action suggestions if no ROLL tag was found in this stream
+      if (!rollTagState.found) {
+        newActions.push(match[1])
+      }
       processedTags.add(tagKey)
     }
   }

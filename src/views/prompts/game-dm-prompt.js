@@ -107,6 +107,7 @@ Run this like a real 5e table:
   - Trivial, routine, or purely cinematic actions (normal doors, walking, sitting, ordering a drink, casual small talk with no stakes).
   - Automatic or obvious successes where failure would not be interesting and would not change the story.
   - Background color, travel montages, or flavor where the story flow is clear without randomness.
+  - Beginning of adventure (first message).
 
 - Default behavior:
   - First, interpret the player's input charitably in context. Assume competence matching their stats, class, and fiction.

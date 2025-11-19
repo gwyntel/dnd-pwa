@@ -249,69 +249,25 @@ export async function sendChatCompletion(messages, model, options = {}) {
       temperature,
     }
 
-    // Unified reasoning token controls per OpenRouter API spec.
-    // Different models support different reasoning parameters:
-    // - "effort" models (OpenAI o1/o3/gpt-5, Grok): use reasoning.effort ("low"/"medium"/"high")
-    // - "max_tokens" models (Anthropic, Gemini, DeepSeek, etc.): use reasoning.max_tokens (number)
-    // - All models support reasoning.enabled (boolean) and reasoning.exclude (boolean)
-    const attachReasoning = (() => {
-      // Explicit override: if caller passes `options.reasoning`, assume they know the model supports it.
-      if (options.reasoning) return true
-
-      // If caller provides alias options, check if model supports reasoning
-      if (
-        options.reasoningEffort !== undefined ||
-        options.reasoningMaxTokens !== undefined ||
-        options.reasoningEnabled !== undefined
-      ) {
-        // If options.modelSupportsReasoning is provided by caller, respect it.
-        if (typeof options.modelSupportsReasoning === "boolean") {
-          return options.modelSupportsReasoning
-        }
-
-        // Otherwise, be conservative: do NOT auto-attach for unknown models.
-        // Callers should pass `modelSupportsReasoning` based on fetchModels() metadata.
-        return false
+    // Refactored: Directly construct the reasoning payload from settings
+    if (options.modelSupportsReasoning && options.reasoningEnabled) {
+      const reasoningPayload = {
+        enabled: true, // Always explicitly enable if we're in this block
       }
-
-      return false
-    })()
-
-    if (attachReasoning) {
-      if (options.reasoning) {
-        // Pass through the reasoning object as-is if provided by caller
-        payload.reasoning = options.reasoning
-      } else {
-        // Build reasoning object from alias options according to API spec
-        const reasoning = {}
-        
-        // Only include reasoning parameters if reasoning is enabled (or if no enabled flag is set)
-        const isReasoningEnabled = options.reasoningEnabled !== false
-        
-        if (isReasoningEnabled) {
-          // Determine which reasoning parameter to use based on reasoningType
-          const reasoningType = options.reasoningType || detectReasoningType(model)
-          
-          if (reasoningType === "effort" && options.reasoningEffort) {
-            // API spec: reasoning.effort can be "low", "medium", "high"
-            reasoning.effort = options.reasoningEffort
-          } else if (reasoningType === "max_tokens" && options.reasoningMaxTokens) {
-            // API spec: reasoning.max_tokens for models that support it
-            reasoning.max_tokens = Number(options.reasoningMaxTokens)
-          } else if (reasoningType === "effort" && !options.reasoningEffort) {
-            // Default to medium effort for effort-based models if not specified
-            reasoning.effort = "medium"
-          } else if (reasoningType === "max_tokens" && !options.reasoningMaxTokens) {
-            // For max_tokens models, let the API use its default if not specified
-            // We set enabled: true to explicitly enable reasoning
-            reasoning.enabled = true
-          }
-        }
-
-        if (Object.keys(reasoning).length > 0) {
-          payload.reasoning = reasoning
+      
+      const reasoningType = options.reasoningType || detectReasoningType(model)
+      
+      if (reasoningType === 'effort') {
+        // Use the configured effort, or default to 'medium'
+        reasoningPayload.effort = options.reasoningEffort || 'medium'
+      } else if (reasoningType === 'max_tokens') {
+        // Use the configured max_tokens if available, otherwise let the API use its default
+        if (options.reasoningMaxTokens) {
+          reasoningPayload.max_tokens = Number(options.reasoningMaxTokens)
         }
       }
+      
+      payload.reasoning = reasoningPayload
     }
 
     // Optional system message support (kept for backwards compatibility)

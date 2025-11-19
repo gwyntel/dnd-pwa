@@ -208,17 +208,18 @@ export async function renderGame(state = {}) {
   currentGameId = gameId
   const data = store.get()
 
-  if (!data.settings.defaultNarrativeModel) {
-    console.log("[v0] No default model set in game view, redirecting to model selector")
-    sessionStorage.setItem("redirectAfterModelSelect", `/game/${gameId}`)
-    navigateTo("/models")
-    return
-  }
-
   const game = data.games.find((g) => g.id === gameId)
 
   if (!game) {
     navigateTo("/")
+    return
+  }
+
+  // Check if we have a default model in settings
+  if (!data.settings.defaultNarrativeModel) {
+    console.log("[v0] No default model set in game view, redirecting to model selector")
+    sessionStorage.setItem("redirectAfterModelSelect", `/game/${gameId}`)
+    navigateTo("/models")
     return
   }
 

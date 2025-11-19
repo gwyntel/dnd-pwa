@@ -39,12 +39,33 @@ import { CharacterHUD } from "../components/CharacterHUD.js"
 
 let currentGameId = null
 let isStreaming = false
+let userScrolledUp = false // Track if user has manually scrolled away from bottom
 
 // Roll batching system - collects multiple rolls before triggering follow-up
 let rollBatch = []
 let rollSettlingTimer = null
 let pendingRollBatch = null // Stores batch that was deferred due to streaming
 const ROLL_SETTLING_DELAY_MS = 500 // Wait 500ms after last roll before triggering follow-up
+
+// Helper to check if user is at/near bottom of messages container
+function isScrolledToBottom(container, threshold = 100) {
+  if (!container) return true
+  const { scrollTop, scrollHeight, clientHeight } = container
+  return scrollHeight - scrollTop - clientHeight < threshold
+}
+
+// Smart scroll that respects user's scroll position
+function smartScrollToBottom(container) {
+  if (!container) return
+  
+  // Only auto-scroll if user is already near bottom
+  if (isScrolledToBottom(container)) {
+    container.scrollTop = container.scrollHeight
+    userScrolledUp = false
+  } else {
+    userScrolledUp = true
+  }
+}
 
 export function renderGameList() {
   const app = document.getElementById("app")
@@ -447,9 +468,16 @@ export async function renderGame(state = {}) {
 
   `
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom initially
   const messagesContainer = document.getElementById("messages-container")
   messagesContainer.scrollTop = messagesContainer.scrollHeight
+  userScrolledUp = false
+
+  // Track user scrolling to detect when they scroll away from bottom
+  messagesContainer.addEventListener("scroll", () => {
+    const isAtBottom = isScrolledToBottom(messagesContainer)
+    userScrolledUp = !isAtBottom
+  })
 
   // Form submission
   document.getElementById("chat-form")?.addEventListener("submit", async (e) => {
@@ -1059,7 +1087,7 @@ async function sendMessage(game, userText, data) {
 
       const messagesContainer = document.getElementById("messages-container")
       if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight
+        smartScrollToBottom(messagesContainer)
       }
 
       const gameHeader = document.querySelector(".game-header p")

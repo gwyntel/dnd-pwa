@@ -10,6 +10,25 @@ import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequest
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
 import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
+import { 
+  stripTags, 
+  parseMarkdown, 
+  createBadgeToken, 
+  renderInlineBadgeHtml, 
+  insertInlineBadges 
+} from "../engine/TagProcessor.js"
+import { 
+  startCombat as engineStartCombat, 
+  endCombat as engineEndCombat, 
+  getCurrentTurnDescription 
+} from "../engine/CombatManager.js"
+import { 
+  buildApiMessages, 
+  sanitizeMessagesForModel, 
+  trimRelationships, 
+  trimVisitedLocations, 
+  createRollMetadata 
+} from "../engine/GameLoop.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -541,12 +560,6 @@ function renderSingleMessage(msg) {
   return messageHTML
 }
 
-function createRollMetadata(extra = {}) {
-  const id = `roll_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-  const timestamp = new Date().toISOString()
-  return { rollId: id, timestamp, ...extra }
-}
-
 function appendMessage(msg) {
   const messagesContainer = document.getElementById("messages-container")
   if (!messagesContainer) return
@@ -656,220 +669,6 @@ function renderMessages(messages) {
     return '<div class="text-center text-secondary card-padded-lg">Starting your adventure...</div>'
   }
   return messages.map(renderSingleMessage).join("")
-}
-
-function stripTags(text) {
-  // Replace game tags with inline-badge tokens for display
-  // Tag semantics are still processed from the raw message contents
-  let cleaned = text
-
-  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, (match, location) => createBadgeToken('location', { name: location.trim() }))
-
-  // ROLL tags - show a small inline roll badge
-  cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, (match, inner) => {
-    const parts = inner.split('|').map(p => p.trim())
-    const kind = (parts[0] || '').toLowerCase()
-    if (kind === 'skill' || kind === 'save' || kind === 'attack') {
-      return createBadgeToken('roll', { kind, key: parts[1] || '', dc: parts[2] ? Number.parseInt(parts[2], 10) : null, targetAC: parts[2] ? Number.parseInt(parts[2], 10) : null })
-    }
-    return createBadgeToken('roll', { notation: parts[0] || '' })
-  })
-
-  // COMBAT tags - show combat badges inline
-  cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, (m, d) => createBadgeToken('combat', { action: 'start', desc: (d || '').trim() }))
-  cleaned = cleaned.replace(/COMBAT_CONTINUE/g, () => createBadgeToken('combat', { action: 'continue' }))
-  cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, (m, d) => createBadgeToken('combat', { action: 'end', desc: (d || '').trim() }))
-
-  // HP change tags
-  cleaned = cleaned.replace(/DAMAGE\[(\w+)\|(\d+)\]/g, (m, target, amount) => createBadgeToken('damage', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
-  cleaned = cleaned.replace(/HEAL\[(\w+)\|(\d+)\]/g, (m, target, amount) => createBadgeToken('heal', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
-
-  // Inventory / currency / status tags
-  cleaned = cleaned.replace(/INVENTORY_ADD\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => createBadgeToken('inventory_add', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(/INVENTORY_REMOVE\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => createBadgeToken('inventory_remove', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(/INVENTORY_EQUIP\[([^\]]+)\]/g, (m, item) => createBadgeToken('inventory_equip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(/INVENTORY_UNEQUIP\[([^\]]+)\]/g, (m, item) => createBadgeToken('inventory_unequip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(/GOLD_CHANGE\[(-?\d+\.?\d*)\]/g, (m, delta) => createBadgeToken('gold', { delta: Number.parseFloat(delta) }))
-  cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, (m, name) => createBadgeToken('status_add', { name: (name || '').trim() }))
-  cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, (m, name) => createBadgeToken('status_remove', { name: (name || '').trim() }))
-
-  // Relationship tags
-  cleaned = cleaned.replace(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g, (m, entity, delta) => createBadgeToken('relationship', { entity: (entity || '').trim(), delta: Number.parseInt(delta, 10) }))
-
-  // Suggested actions - turn into inline badges but keep the raw ACTION tag for bubble UI parsing
-  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, (m, action) => createBadgeToken('action', { action: (action || '').trim() }))
-
-  // Clean up whitespace artifacts from tag removal
-  // Fix spaces around line breaks created by tag removal
-  cleaned = cleaned.replace(/ +\n/g, "\n") // Remove trailing spaces before newlines
-  cleaned = cleaned.replace(/\n +/g, "\n") // Remove leading spaces after newlines
-  
-  // Collapse multiple spaces into single space (but preserve intentional line breaks)
-  cleaned = cleaned.replace(/  +/g, " ")
-  
-  // Collapse excessive newlines (3+ → 2) but preserve intentional paragraph breaks
-  cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
-  
-  // Trim each line individually to remove orphaned spaces, but keep empty lines
-  cleaned = cleaned.split("\n").map(line => line.trim()).join("\n")
-
-  return cleaned.trim()
-}
-
-function parseMarkdown(text) {
-  // Escape HTML first
-  let html = escapeHtml(text)
-
-  // Bold: **text** or __text__
-  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-  html = html.replace(/__(.*?)__/g, "<strong>$1</strong>")
-
-  // Italic: *text* or _text_
-  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>")
-  html = html.replace(/_([^_]+)_/g, "<em>$1</em>")
-
-  // Code: `text`
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>")
-
-  // Line breaks
-  html = html.replace(/\n/g, "<br>")
-
-  return html
-}
-
-// Helper: create a unique, parseable token to later render inline badge HTML
-function createBadgeToken(type, data) {
-  const encoded = encodeURIComponent(JSON.stringify(data || {}))
-  return `@@BADGE|${type}|${encoded}@@`
-}
-
-// Helper: render the inline badge HTML for a given type and data
-function renderInlineBadgeHtml(type, data) {
-  try {
-    const badgeData = data || {}
-    const labelEscape = (t) => escapeHtml(String(t || ""))
-    switch (type) {
-      case "location": {
-        const name = badgeData.name || ""
-        const icon = getLocationIcon(name) || "🗺️"
-        return `<span class="inline-badge location" data-tag-type="location">${icon} New Location: ${labelEscape(name)}</span>`
-      }
-      case "inventory_add": {
-        const qty = badgeData.qty ?? 1
-        const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 +${labelEscape(qty)} ${labelEscape(item)}</span>`
-      }
-      case "inventory_remove": {
-        const qty = badgeData.qty ?? 1
-        const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 -${labelEscape(qty)} ${labelEscape(item)}</span>`
-      }
-      case "inventory_equip": {
-        const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Equipped ${labelEscape(item)}</span>`
-      }
-      case "inventory_unequip": {
-        const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Unequipped ${labelEscape(item)}</span>`
-      }
-      case "roll": {
-        const kind = (badgeData.kind || "").toLowerCase()
-        if (kind === "skill") {
-          const key = badgeData.key || ""
-          return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${labelEscape(capitalize(key))} Check${badgeData.dc ? ` vs DC ${labelEscape(badgeData.dc)}` : ""}</span>`
-        }
-        if (kind === "save") {
-          const key = badgeData.key || ""
-          return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${labelEscape(capitalize(key))} Save${badgeData.dc ? ` vs DC ${labelEscape(badgeData.dc)}` : ""}</span>`
-        }
-        if (kind === "attack") {
-          const key = badgeData.key || ""
-          return `<span class="inline-badge roll" data-tag-type="roll">🎲 Attack (${labelEscape(key)})${badgeData.targetAC ? ` vs AC ${labelEscape(badgeData.targetAC)}` : ""}</span>`
-        }
-        // Legacy numeric
-        if (badgeData.notation) {
-          return `<span class="inline-badge roll" data-tag-type="roll">🎲 Roll: ${labelEscape(badgeData.notation)}</span>`
-        }
-        return `<span class="inline-badge roll" data-tag-type="roll">🎲 Roll</span>`
-      }
-      case "damage": {
-        const amount = badgeData.amount ?? 0
-        const target = badgeData.target || ""
-        const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
-        return `<span class="inline-badge damage" data-tag-type="damage">💔 ${targetText} -${labelEscape(amount)} HP</span>`
-      }
-      case "heal": {
-        const amount = badgeData.amount ?? 0
-        const target = badgeData.target || ""
-        const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
-        return `<span class="inline-badge heal" data-tag-type="heal">💚 ${targetText} +${labelEscape(amount)} HP</span>`
-      }
-      case "gold": {
-        const delta = badgeData.delta ?? 0
-        const sign = delta > 0 ? "+" : ""
-        return `<span class="inline-badge gold" data-tag-type="gold">💰 ${sign}${labelEscape(delta)} gp</span>`
-      }
-      case "status_add": {
-        const name = badgeData.name || ""
-        const icon = getConditionIcon(name) || "⚕️"
-        return `<span class="inline-badge status" data-tag-type="status">${icon} Status: ${labelEscape(name)}</span>`
-      }
-      case "status_remove": {
-        const name = badgeData.name || ""
-        return `<span class="inline-badge status" data-tag-type="status">✅ Status removed: ${labelEscape(name)}</span>`
-      }
-      case "combat": {
-        const action = badgeData.action || ""
-        if (action === "start") return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat started</span>`
-        if (action === "continue") return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat continues</span>`
-        if (action === "end") return `<span class="inline-badge combat" data-tag-type="combat">✓ Combat ended</span>`
-        return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat</span>`
-      }
-      case "action": {
-        const action = badgeData.action || ""
-        return `<span class="inline-badge action" data-tag-type="action">💡 ${labelEscape(action)}</span>`
-      }
-      case "relationship": {
-        const entity = badgeData.entity || ""
-        const delta = badgeData.delta ?? 0
-        const sign = delta > 0 ? "+" : ""
-        return `<span class="inline-badge relationship" data-tag-type="relationship">🤝 ${labelEscape(entity)} ${sign}${labelEscape(delta)}</span>`
-      }
-      default:
-        return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`
-    }
-  } catch (e) {
-    return `<span class="inline-badge">${escapeHtml(type)}</span>`
-  }
-}
-
-function parseBadgeToken(token) {
-  const match = token.match(/^@@BADGE\|([^|]+)\|([^@]+)@@$/)
-  if (!match) return null
-  const type = match[1]
-  try {
-    const payload = JSON.parse(decodeURIComponent(match[2]))
-    return { type, payload }
-  } catch (e) {
-    return { type, payload: {} }
-  }
-}
-
-function insertInlineBadges(html) {
-  if (!html) return html
-  return html.replace(/@@BADGE\|([^|]+)\|([^@]+)@@/g, (full, ttype, encoded) => {
-    try {
-      const payload = JSON.parse(decodeURIComponent(encoded))
-      return renderInlineBadgeHtml(ttype, payload)
-    } catch (e) {
-      return full
-    }
-  })
-}
-
-function capitalize(str) {
-  if (!str) return str
-  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 /**
@@ -1040,184 +839,6 @@ async function handlePlayerInput() {
 
   // Send to LLM
   await sendMessage(game, text, data)
-}
-
-function sanitizeMessagesForModel(messages) {
-  console.log('[flow] sanitizeMessagesForModel called', {
-    messageCount: Array.isArray(messages) ? messages.length : 0,
-    messages: messages?.map(m => ({ id: m?.id, role: m?.role, contentLength: m?.content?.length }))
-  })
-  
-  if (!Array.isArray(messages)) {
-    console.log('[flow] sanitizeMessagesForModel: messages not an array, returning empty')
-    return []
-  }
-
-  const lastAssistantIndex = [...messages]
-    .reverse()
-    .findIndex((m) => m && m.role === "assistant")
-
-  const cutoff =
-    lastAssistantIndex === -1
-      ? -1
-      : messages.length - 1 - lastAssistantIndex
-
-  console.log('[flow] sanitizeMessagesForModel: calculated cutoff', {
-    lastAssistantIndex,
-    cutoff,
-    totalMessages: messages.length
-  })
-
-  // Filter out ephemeral system messages that appear before the last assistant message
-  // These are reminders that have already been seen and ingested by the AI
-  return messages.filter((msg, index) => {
-    // Remove ephemeral messages that appear before the last assistant response
-    if (msg?.metadata?.ephemeral && index < cutoff) {
-      console.log('[flow] sanitizeMessagesForModel: removing ephemeral message', {
-        index,
-        id: msg?.id,
-        content: msg?.content?.substring(0, 50)
-      })
-      return false
-    }
-    return true
-  }).map((msg, index) => {
-    // Always keep system + user messages as-is
-    if (!msg || msg.role === "system" || msg.role === "user") {
-      console.log('[flow] sanitizeMessagesForModel: keeping system/user message', {
-        index,
-        id: msg?.id,
-        role: msg?.role
-      })
-      return msg
-    }
-
-    // Keep the latest assistant message (or if none detected) intact
-    if (index === cutoff || cutoff === -1) {
-      console.log('[flow] sanitizeMessagesForModel: keeping latest assistant message', {
-        index,
-        id: msg?.id,
-        role: msg?.role,
-        contentLength: msg?.content?.length
-      })
-      return msg
-    }
-
-    // For older assistant messages, strip ACTION[...] suggestions only.
-    // All canonical tags (LOCATION, ROLL, DAMAGE, etc.) must be preserved.
-    if (msg.role === "assistant" && typeof msg.content === "string") {
-      const trimmed = msg.content.replace(/ACTION\[[^\]]*]/g, "")
-      // If trimming somehow empties the message, keep the original to avoid
-      // breaking any downstream parsing that expects its presence.
-      if (trimmed !== msg.content && trimmed.trim().length > 0) {
-        console.log('[flow] sanitizeMessagesForModel: stripped ACTION tags from old assistant message', {
-          index,
-          id: msg?.id,
-          originalLength: msg.content.length,
-          trimmedLength: trimmed.length
-        })
-        return { ...msg, content: trimmed }
-      }
-    }
-
-    console.log('[flow] sanitizeMessagesForModel: returning message unchanged', {
-      index,
-      id: msg?.id,
-      role: msg?.role
-    })
-    return msg
-  })
-}
-
-/**
- * Build the messages payload for the model.
- * - Preserves full stored history in gameRef.messages.
- * - Returns a derived array where stale ACTION[...] suggestions are removed
- *   from older assistant messages to save context.
- * - Canonical tags (LOCATION, ROLL, DAMAGE, etc.) are never stripped here.
- */
-function buildApiMessages(gameRef) {
-  console.log('[flow] buildApiMessages called', {
-    gameId: gameRef?.id,
-    storedMessageCount: gameRef?.messages?.length || 0
-  })
-  
-  // Apply relationship trimming before building API messages to ensure
-  // no stale relationships sneak into the AI context
-  gameRef.relationships = trimRelationships(gameRef)
-  
-  // Apply visited locations trimming to keep only the most recent locations
-  gameRef.visitedLocations = trimVisitedLocations(gameRef)
-  
-  const base = gameRef?.messages || []
-  
-  console.log('[flow] buildApiMessages: stored messages', {
-    messages: base.map(m => ({
-      id: m?.id,
-      role: m?.role,
-      contentPreview: m?.content?.substring(0, 50),
-      timestamp: m?.timestamp
-    }))
-  })
-  
-  const sanitized = sanitizeMessagesForModel(base)
-  
-  console.log('[flow] buildApiMessages: returning sanitized messages', {
-    count: sanitized.length,
-    messages: sanitized.map(m => ({
-      id: m?.id,
-      role: m?.role,
-      contentPreview: m?.content?.substring(0, 50)
-    }))
-  })
-  
-  return sanitized
-}
-
-/**
- * Trim relationships to stay within the configured limit
- * Removes zero-value relationships and keeps only the most recent N relationships
- * Uses Object.entries().filter().slice(-cap) to maintain natural gameplay order
- * where most recently modified relationships are preserved
- * @param {Object} game - The game object
- * @returns {Object} - The trimmed relationships object
- */
-function trimRelationships(game) {
-  const data = loadData()
-  const cap = data.settings.maxRelationshipsTracked || 50
-  
-  // Convert to entries, filter out zero values, then keep last N entries
-  // This works because Object.entries() preserves insertion order, and
-  // relationships are naturally updated in place during gameplay
-  const trimmedEntries = Object.entries(game.relationships || {})
-    .filter(([_, value]) => value !== 0) // Remove zero-value relationships
-    .slice(-cap)  // Keep last N entries (most recently relevant)
-  
-  // Convert back to object
-  const trimmedRelationships = {}
-  for (const [key, value] of trimmedEntries) {
-    trimmedRelationships[key] = value
-  }
-  
-  return trimmedRelationships
-}
-
-/**
- * Trim visited locations to stay within the configured limit
- * Keeps only the most recent N locations in the array
- * Uses .slice(-cap) to maintain the most recent locations
- * @param {Object} game - The game object
- * @returns {Array} - The trimmed visited locations array
- */
-function trimVisitedLocations(game) {
-  const data = loadData()
- const cap = data.settings.maxLocationsTracked || 10
-  
-  // Get the visited locations array and slice to keep only the most recent N
-  const visitedLocations = Array.isArray(game.visitedLocations) ? game.visitedLocations : []
-  const trimmedLocations = visitedLocations.slice(-cap)
-  
-  return trimmedLocations
 }
 
 async function sendMessage(game, userText, data) {

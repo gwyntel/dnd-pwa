@@ -3,20 +3,21 @@
  * Manage campaign worlds with custom lore and system prompts
  */
 
-import { loadData, saveData } from "../utils/storage.js"
 import { getProvider } from "../utils/model-utils.js"
 import { WORLD_TEMPLATES } from "../data/worlds.js"
+import { store } from "../state/store.js"
 
 let editingWorldId = null
 
 export function renderWorlds() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   if (!data.worlds || data.worlds.length === 0) {
     // Seed with the canonical default world.
     // Must remain in sync with DEFAULT_DATA.worlds[0] in src/utils/storage.js.
-    data.worlds = [
+    store.update((data) => {
+      data.worlds = [
       {
         ...JSON.parse(
           JSON.stringify({
@@ -83,7 +84,7 @@ Use this as the default world context whenever a game uses the default world and
         ),
       },
     ]
-    saveData(data)
+    })
   }
 
   app.innerHTML = `
@@ -124,7 +125,7 @@ Use this as the default world context whenever a game uses the default world and
       e.preventDefault()
       e.stopPropagation()
       editingWorldId = e.target.closest("button").dataset.worldId
-      const data = loadData()
+      const data = store.get()
       renderWorldForm(data.worlds.find((w) => w.id === editingWorldId))
     })
   })
@@ -135,7 +136,7 @@ Use this as the default world context whenever a game uses the default world and
       e.preventDefault()
       e.stopPropagation()
       const worldId = e.target.closest("button").dataset.worldId
-      const data = loadData()
+      const data = store.get()
       const world = data.worlds.find((w) => w.id === worldId)
 
       if (world.isDefault) {
@@ -152,8 +153,9 @@ Use this as the default world context whenever a game uses the default world and
       }
 
       if (confirm(`Delete world "${world.name}"?`)) {
-        data.worlds = data.worlds.filter((w) => w.id !== worldId)
-        saveData(data)
+        store.update((data) => {
+          data.worlds = data.worlds.filter((w) => w.id !== worldId)
+        })
         renderWorlds()
       }
     })
@@ -346,7 +348,7 @@ async function generateWorldWithAI() {
   statusDiv.style.display = "block"
 
   try {
-    const data = loadData()
+    const data = store.get()
     const model = data.settings.defaultNarrativeModel
 
     if (!model) {
@@ -631,7 +633,6 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
 }
 
 function saveWorld(existingWorldId = null) {
-  const data = loadData()
   const name = document.getElementById("world-name").value.trim()
   const briefDescription = document.getElementById("world-description").value.trim()
   const fullDescription = document.getElementById("world-full-description").value.trim()
@@ -646,41 +647,42 @@ function saveWorld(existingWorldId = null) {
     return
   }
 
-  if (existingWorldId || editingWorldId) {
-    // Update existing world
-    const worldId = existingWorldId || editingWorldId
-    const world = data.worlds.find((w) => w.id === worldId)
-    if (world) {
-      world.name = name
-      world.briefDescription = briefDescription
-      world.fullDescription = fullDescription
-      world.tone = tone
-      world.magicLevel = magicLevel
-      world.techLevel = techLevel
-      world.startingLocation = startingLocation
-      world.systemPrompt = systemPrompt
+  store.update((data) => {
+    if (existingWorldId || editingWorldId) {
+      // Update existing world
+      const worldId = existingWorldId || editingWorldId
+      const world = data.worlds.find((w) => w.id === worldId)
+      if (world) {
+        world.name = name
+        world.briefDescription = briefDescription
+        world.fullDescription = fullDescription
+        world.tone = tone
+        world.magicLevel = magicLevel
+        world.techLevel = techLevel
+        world.startingLocation = startingLocation
+        world.systemPrompt = systemPrompt
+      }
+    } else {
+      // Create new world
+      const newWorld = {
+        id: `world_${Date.now()}`,
+        name,
+        settingType: "custom",
+        sourceType: "custom",
+        briefDescription,
+        fullDescription,
+        tone,
+        magicLevel,
+        techLevel,
+        startingLocation,
+        systemPrompt,
+        createdAt: new Date().toISOString(),
+        isDefault: false,
+      }
+      data.worlds.push(newWorld)
     }
-  } else {
-    // Create new world
-    const newWorld = {
-      id: `world_${Date.now()}`,
-      name,
-      settingType: "custom",
-      sourceType: "custom",
-      briefDescription,
-      fullDescription,
-      tone,
-      magicLevel,
-      techLevel,
-      startingLocation,
-      systemPrompt,
-      createdAt: new Date().toISOString(),
-      isDefault: false,
-    }
-    data.worlds.push(newWorld)
-  }
+  })
 
-  saveData(data)
   editingWorldId = null
   renderWorlds()
 }

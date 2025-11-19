@@ -3,17 +3,17 @@
  * List, create, and manage characters
  */
 
-import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { getProvider } from "../utils/model-utils.js"
 import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
 import { validateHitDice } from "../utils/character-validation.js"
+import { store } from "../state/store.js"
 
 export function renderCharacters() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   app.innerHTML = `
     <nav>
@@ -141,9 +141,9 @@ function deleteCharacter(characterId) {
     return
   }
 
-  const data = loadData()
-  data.characters = data.characters.filter((c) => c.id !== characterId)
-  saveData(data)
+  store.update((data) => {
+    data.characters = data.characters.filter((c) => c.id !== characterId)
+  })
 
   // Re-render
   renderCharacters()
@@ -151,7 +151,7 @@ function deleteCharacter(characterId) {
 
 export function renderCharacterCreator(state = {}) {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
   const isEdit = state.params?.id
   const character = isEdit ? data.characters.find((c) => c.id === state.params.id) : null
 
@@ -600,7 +600,7 @@ export function renderCharacterCreator(state = {}) {
 
 async function generateCharacterWithLLM(userPrompt = "") {
   const systemPrompt = IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT
-  const data = loadData()
+  const data = store.get()
   const model = data.settings?.defaultNarrativeModel || "openai/gpt-4o-mini"
 
   // Inspect cached model metadata (populated by Models view) to see if this model supports structured outputs.
@@ -732,7 +732,7 @@ async function generateCharacterWithLLM(userPrompt = "") {
 
 function applyTemplate(templateId) {
   // Look up from shared templates module (BEGINNER_TEMPLATES) or any stored templates in data
-  const data = loadData()
+  const data = store.get()
   const templateFromShared = BEGINNER_TEMPLATES.find((t) => t.id === templateId)
   const templateFromData = (data.characterTemplates || []).find((t) => t.id === templateId)
   const template = templateFromShared || templateFromData
@@ -768,8 +768,6 @@ function applyTemplate(templateId) {
 }
 
 function saveCharacter(existingId = null) {
-  const data = loadData()
-
   const level = Number.parseInt(document.getElementById("char-level").value)
   const profBonus = Math.floor((level - 1) / 4) + 2
 
@@ -781,56 +779,56 @@ function saveCharacter(existingId = null) {
   const customClass = (document.getElementById("char-class-custom")?.value || "").trim()
   const finalClass = selectedClass === "Custom" ? customClass || "Custom" : selectedClass
 
-  const character = {
-    id: existingId || `char_${Date.now()}`,
-    name: document.getElementById("char-name").value.trim(),
-    race: finalRace,
-    class: finalClass,
-    level: level,
-    stats: {
-      strength: Number.parseInt(document.getElementById("stat-strength").value),
-      dexterity: Number.parseInt(document.getElementById("stat-dexterity").value),
-      constitution: Number.parseInt(document.getElementById("stat-constitution").value),
-      intelligence: Number.parseInt(document.getElementById("stat-intelligence").value),
-      wisdom: Number.parseInt(document.getElementById("stat-wisdom").value),
-      charisma: Number.parseInt(document.getElementById("stat-charisma").value),
-    },
-    maxHP: Number.parseInt(document.getElementById("char-hp").value),
-    armorClass: Number.parseInt(document.getElementById("char-ac").value),
-    proficiencyBonus: profBonus,
-    speed: Number.parseInt(document.getElementById("char-speed").value) || 30,
-    hitDice: document.getElementById("char-hitdice").value.trim() || "1d10",
-    savingThrows: existingId ? data.characters.find((c) => c.id === existingId).savingThrows : [],
-    skills: document
-      .getElementById("char-skills")
-      .value.split(",")
-      .map((s) => s.trim())
-      .filter((s) => s),
-    proficiencies: existingId
-      ? data.characters.find((c) => c.id === existingId).proficiencies
-      : { armor: [], weapons: [], tools: [] },
-    features: document
-      .getElementById("char-features")
-      .value.split(",")
-      .map((s) => s.trim())
-      .filter((s) => s),
-    spells: existingId ? data.characters.find((c) => c.id === existingId).spells : [],
-    inventory: existingId ? data.characters.find((c) => c.id === existingId).inventory : [],
-    backstory: document.getElementById("char-backstory").value.trim(),
-    createdAt: existingId ? data.characters.find((c) => c.id === existingId).createdAt : new Date().toISOString(),
-    fromTemplate: null,
-  }
+  store.update((data) => {
+    const character = {
+      id: existingId || `char_${Date.now()}`,
+      name: document.getElementById("char-name").value.trim(),
+      race: finalRace,
+      class: finalClass,
+      level: level,
+      stats: {
+        strength: Number.parseInt(document.getElementById("stat-strength").value),
+        dexterity: Number.parseInt(document.getElementById("stat-dexterity").value),
+        constitution: Number.parseInt(document.getElementById("stat-constitution").value),
+        intelligence: Number.parseInt(document.getElementById("stat-intelligence").value),
+        wisdom: Number.parseInt(document.getElementById("stat-wisdom").value),
+        charisma: Number.parseInt(document.getElementById("stat-charisma").value),
+      },
+      maxHP: Number.parseInt(document.getElementById("char-hp").value),
+      armorClass: Number.parseInt(document.getElementById("char-ac").value),
+      proficiencyBonus: profBonus,
+      speed: Number.parseInt(document.getElementById("char-speed").value) || 30,
+      hitDice: document.getElementById("char-hitdice").value.trim() || "1d10",
+      savingThrows: existingId ? data.characters.find((c) => c.id === existingId).savingThrows : [],
+      skills: document
+        .getElementById("char-skills")
+        .value.split(",")
+        .map((s) => s.trim())
+        .filter((s) => s),
+      proficiencies: existingId
+        ? data.characters.find((c) => c.id === existingId).proficiencies
+        : { armor: [], weapons: [], tools: [] },
+      features: document
+        .getElementById("char-features")
+        .value.split(",")
+        .map((s) => s.trim())
+        .filter((s) => s),
+      spells: existingId ? data.characters.find((c) => c.id === existingId).spells : [],
+      inventory: existingId ? data.characters.find((c) => c.id === existingId).inventory : [],
+      backstory: document.getElementById("char-backstory").value.trim(),
+      createdAt: existingId ? data.characters.find((c) => c.id === existingId).createdAt : new Date().toISOString(),
+      fromTemplate: null,
+    }
 
-  if (existingId) {
-    // Update existing
-    const index = data.characters.findIndex((c) => c.id === existingId)
-    data.characters[index] = character
-  } else {
-    // Add new
-    data.characters.push(character)
-  }
-
-  saveData(data)
+    if (existingId) {
+      // Update existing
+      const index = data.characters.findIndex((c) => c.id === existingId)
+      data.characters[index] = character
+    } else {
+      // Add new
+      data.characters.push(character)
+    }
+  })
 
   // Show success and navigate
   showMessage(existingId ? "Character updated!" : "Character created!", "success")

@@ -15,12 +15,16 @@ import { renderWorlds } from "./views/worlds.js"
 import { startAuth, handleAuthCallback, setApiKey, isAuthenticated, autoLogin } from "./utils/auth.js"
 import { getDefaultModelFromEnv } from "./utils/model-utils.js"
 import { loadData, saveData } from "./utils/storage.js"
+import store from "./state/store.js"
 
 /**
  * Initialize the application
  */
 function init() {
   console.log("D&D PWA - Initializing...")
+
+  // Initialize the centralized store first
+  store.initialize()
 
   // Try auto-login from environment variable
   autoLogin()

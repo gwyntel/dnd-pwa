@@ -3,7 +3,8 @@
  * Main gameplay interface with chat and game state
  */
 
-import { loadData, saveData, debouncedSave, normalizeCharacter } from "../utils/storage.js"
+import { normalizeCharacter } from "../utils/storage.js"
+import store from "../state/store.js"
 import { navigateTo } from "../router.js"
 import { getProvider } from "../utils/model-utils.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
@@ -41,7 +42,7 @@ const ROLL_SETTLING_DELAY_MS = 500 // Wait 500ms after last roll before triggeri
 
 export function renderGameList() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   app.innerHTML = `
     <nav>
@@ -140,7 +141,7 @@ function renderGameCreator(data) {
 }
 
 async function createGame() {
-  const data = loadData()
+  const data = store.get()
   const characterId = document.getElementById("game-character").value
   const title = document.getElementById("game-title").value.trim()
   const worldId = document.getElementById("game-world").value
@@ -190,8 +191,9 @@ async function createGame() {
     totalPlayTime: 0,
   }
 
-  data.games.push(game)
-  saveData(data)
+  await store.update((state) => {
+    state.games.push(game)
+  }, { immediate: true })
 
   navigateTo(`/game/${gameId}`)
 }
@@ -204,7 +206,7 @@ export async function renderGame(state = {}) {
   }
 
   currentGameId = gameId
-  const data = loadData()
+  const data = store.get()
 
   if (!data.settings.defaultNarrativeModel) {
     console.log("[v0] No default model set in game view, redirecting to model selector")
@@ -230,13 +232,19 @@ export async function renderGame(state = {}) {
     if (!gameModelExists) {
       console.log(`[v0] Game model ${game.narrativeModel} not found in current provider, updating to default`)
       game.narrativeModel = data.settings.defaultNarrativeModel
-      saveData(data)
+      await store.update((state) => {
+        const g = state.games.find((g) => g.id === game.id)
+        if (g) g.narrativeModel = data.settings.defaultNarrativeModel
+      }, { immediate: true })
     }
   } catch (error) {
     console.error("[v0] Error validating game model:", error)
     // If we can't fetch models, use the default model to be safe
     game.narrativeModel = data.settings.defaultNarrativeModel
-    saveData(data)
+    await store.update((state) => {
+      const g = state.games.find((g) => g.id === game.id)
+      if (g) g.narrativeModel = data.settings.defaultNarrativeModel
+    }, { immediate: true })
   }
 
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
@@ -481,7 +489,10 @@ export async function renderGame(state = {}) {
 
   // Update last played timestamp
   game.lastPlayedAt = new Date().toISOString()
-  saveData(data)
+  await store.update((state) => {
+    const g = state.games.find((g) => g.id === currentGameId)
+    if (g) g.lastPlayedAt = game.lastPlayedAt
+  })
 }
 
 function renderSingleMessage(msg) {
@@ -587,7 +598,7 @@ function appendMessage(msg) {
   // Keep roll history in sync
   const rollHistoryContainer = document.getElementById("roll-history-container")
   if (rollHistoryContainer) {
-    const data = loadData()
+    const data = store.get()
     const game = data.games.find((g) => g.id === currentGameId)
     if (game) {
       rollHistoryContainer.innerHTML = renderRollHistory(game.messages)
@@ -697,7 +708,7 @@ async function processRollBatch() {
   
   console.log("[dice][batch] Processing roll batch:", rollBatch)
   
-  const data = loadData()
+  const data = store.get()
   const game = data.games.find((g) => g.id === currentGameId)
   if (!game) return
   
@@ -800,7 +811,7 @@ async function handlePlayerInput() {
     submitButton.textContent = "Sending..."
   }
 
-  const data = loadData()
+  const data = store.get()
   const game = data.games.find((g) => g.id === currentGameId)
 
   console.log('[flow] handlePlayerInput: game state before user message', {
@@ -828,7 +839,13 @@ async function handlePlayerInput() {
   game.suggestedActions = []
 
   console.log('[flow] handlePlayerInput: saving user message')
-  saveData(data)
+  await store.update((state) => {
+    const g = state.games.find((g) => g.id === currentGameId)
+    if (g) {
+      g.messages = game.messages
+      g.suggestedActions = game.suggestedActions
+    }
+  })
 
   const messagesContainer = document.getElementById("messages-container")
   if (messagesContainer) {
@@ -1196,7 +1213,13 @@ async function sendMessage(game, userText, data) {
           gameHeader.textContent = `${getLocationIcon(gameRef.currentLocation)} ${gameRef.currentLocation}`
         }
 
-        debouncedSave(data, 100)
+        // Debounced save during streaming via Store
+        await store.update((state) => {
+          const g = state.games.find((g) => g.id === currentGameId)
+          if (g) {
+            Object.assign(g, gameRef)
+          }
+        }, { debounceDelay: 100 })
       }
     }
 
@@ -1276,7 +1299,9 @@ async function sendMessage(game, userText, data) {
         console.warn('[v0] Models not loaded, fetching to enable cost tracking...')
         try {
           data.models = await provider.fetchModels()
-          saveData(data)
+          await store.update((state) => {
+            state.models = data.models
+          })
         } catch (error) {
           console.error('[v0] Failed to fetch models for cost tracking:', error)
         }
@@ -1312,7 +1337,12 @@ async function sendMessage(game, userText, data) {
       gameId: gameRef.id,
       messageCount: gameRef.messages.length
     })
-    saveData(data)
+    await store.update((state) => {
+      const g = state.games.find((g) => g.id === currentGameId)
+      if (g) {
+        Object.assign(g, gameRef)
+      }
+    }, { immediate: true })
     updateInputContainer(gameRef)
     console.log('[flow] ========== sendMessage END (success) ==========')
   } catch (error) {
@@ -1328,7 +1358,12 @@ async function sendMessage(game, userText, data) {
     }
     gameRef.messages.push(errorMsg)
     appendMessage(errorMsg)
-    saveData(data)
+    await store.update((state) => {
+      const g = state.games.find((g) => g.id === currentGameId)
+      if (g) {
+        g.messages = gameRef.messages
+      }
+    })
   } finally {
     console.log('[flow] sendMessage: cleanup in finally block')
     isStreaming = false
@@ -2347,7 +2382,7 @@ async function sendRollResultToAI(game, rollResult, request) {
 }
 
 function buildSystemPrompt(character, game) {
-  const data = loadData()
+  const data = store.get()
   const world = data.worlds.find((w) => w.id === game.worldId)
   return buildGameDMPrompt(character, game, world)
 }
@@ -2422,7 +2457,7 @@ function renderUsageDisplay(game) {
   const hasCost = usage.totalCost > 0
 
   // Get model context length to calculate percentage
-  const data = loadData()
+  const data = store.get()
   const models = data.models || []
   const currentModel = models.find((m) => m.id === game.narrativeModel)
   
@@ -2482,7 +2517,7 @@ function updateLocationHistory(game) {
 }
 
 function updatePlayerStats(game) {
-  const data = loadData()
+  const data = store.get()
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
   

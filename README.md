@@ -154,11 +154,12 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Structured Outputs**: JSON schema support for reliable parsing
 
 ### Game Engine
-- **Dice System**: Full D&D 5e dice mechanics with advantage/disadvantage
-- **State Management**: Real-time game state tracking and updates
-- **Tag Processing**: Automatic parsing of game tags (LOCATION, ROLL, COMBAT, etc.)
-- **Combat Engine**: Initiative tracking, turn management, and battle resolution
-- **Character Sheets**: Dynamic character management with modifier calculation
+- **Modular Design**: Core logic extracted into `TagProcessor`, `CombatManager`, and `GameLoop` modules.
+- **Dice System**: Full D&D 5e dice mechanics with advantage/disadvantage, now in `src/utils/dice.js` and `src/utils/dice5e.js`.
+- **State Management**: Real-time game state tracking and updates, primarily managed by `GameLoop`.
+- **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`.
+- **Combat Engine**: Initiative tracking, turn management, and battle resolution managed by `CombatManager`.
+- **Character Sheets**: Dynamic character management with modifier calculation.
 
 ### Security & Privacy
 - **Local Storage**: All personal data stored locally in browser

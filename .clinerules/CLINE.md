@@ -15,23 +15,23 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **No persistence backend**; all state local to browser
 - Normalization via `normalizeCharacter()` handles legacy character formats
 
-### Game Loop & Message Flow (`src/views/game.js`)
-1. Player sends text input → `handlePlayerInput()` adds user message to game.messages
-2. `sendMessage()` constructs API request:
-   - Sanitizes messages (strips stale ACTION tags from old assistant messages, keeps canonical game tags: LOCATION, ROLL, COMBAT_START, DAMAGE, etc.)
-   - Builds system prompt + message history
-   - Calls OpenRouter chat completion (streaming)
-3. **Real-time streaming** processes chunks as they arrive:
-   - Extracts `<think>` tags for reasoning display (collapsible panel)
-   - Parses game tags on-the-fly and executes side effects (location updates, roll results, combat state changes)
-   - Updates UI immediately; no post-processing lag
-4. `processGameCommands()` extracts and applies tag semantics:
-   - `LOCATION[name]` — Updates `game.currentLocation`, adds to `visitedLocations`
-   - `ROLL[type|key|dc|flag]` — Semantic rolls (skill, save, attack) with D&D modifiers
-   - `COMBAT_START[desc]`, `COMBAT_CONTINUE`, `COMBAT_END[outcome]` — Combat state management
-   - `DAMAGE[target|amount]`, `HEAL[target|amount]` — HP adjustments
-   - `INVENTORY_*`, `STATUS_ADD/REMOVE`, `RELATIONSHIP[npc|value]` — State updates
-   - `ACTION[...]` — Suggested player choices (displayed as quick-action bubbles)
+### Game Loop & Message Flow (`src/engine/GameLoop.js` and `src/views/game.js`)
+1. Player sends text input → `handlePlayerInput()` adds user message to `game.messages` (in `game.js`).
+2. `GameLoop.sendMessage()` (formerly in `game.js`) constructs API request:
+   - Sanitizes messages via `GameLoop.sanitizeMessagesForModel()`.
+   - Builds system prompt + message history.
+   - Calls OpenRouter chat completion (streaming).
+3. **Real-time streaming** processes chunks via `GameLoop.sendMessage()`:
+   - Extracts `<think>` tags for reasoning display.
+   - Delegates game tag parsing and side effects to `TagProcessor.processGameCommandsRealtime()`.
+   - Updates UI immediately; no post-processing lag.
+4. `TagProcessor.processGameCommands()` (formerly in `game.js`) extracts and applies tag semantics:
+   - `LOCATION[name]` — Updates `game.currentLocation`, adds to `visitedLocations`.
+   - `ROLL[type|key|dc|flag]` — Semantic rolls (skill, save, attack) with D&D modifiers.
+   - `COMBAT_START[desc]`, `COMBAT_CONTINUE`, `COMBAT_END[outcome]` — Combat state management via `CombatManager.startCombat()`/`endCombat()`.
+   - `DAMAGE[target|amount]`, `HEAL[target|amount]` — HP adjustments.
+   - `INVENTORY_*`, `STATUS_ADD/REMOVE`, `RELATIONSHIP[npc|value]` — State updates.
+   - `ACTION[...]` — Suggested player choices (displayed as quick-action bubbles).
 
 ### Tag System & Roll Batching
 - **Tags drive game mechanics**: AI generates tags in narrative; system parses and executes

@@ -5,23 +5,64 @@
 
 export const WORLD_TEMPLATES = [
   {
-    id: "template_classic_fantasy",
-    name: "Classic Fantasy",
+    id: "world_default_classic_fantasy",
+    name: "Default: Classic Fantasy Realm",
     settingType: "classic-fantasy",
-    briefDescription: "Villages, dragons, and medieval kingdoms in a traditional high fantasy world.",
+    sourceType: "default",
+    briefDescription:
+      "Beginner-friendly heroic fantasy with clear good vs evil, standard D&D-style races, and straightforward adventure hooks.",
     fullDescription:
-      "A timeless realm of sword and sorcery where brave heroes venture forth from cozy villages to face ancient dragons, explore mysterious dungeons, and navigate the politics of medieval kingdoms. Magic is studied in towers, clerics pray to benevolent gods, and evil lurks in forgotten places.",
-    tone: "Heroic and adventurous with clear good vs evil",
+      "A welcoming, classic fantasy realm designed for quick-start play. Cozy villages, nearby ruins, and local threats provide immediate reasons to adventure without overwhelming lore. Magic exists and is respected but feels special rather than mundane. Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and familiar classes fit naturally. Technology is medieval: swords, bows, armor, ships, no firearms or modern industry unless the user explicitly adds them.",
+    tone:
+      "Heroic, hopeful, and beginner-friendly. Clear stakes, readable consequences, and a focus on fun, fairness, and collaboration.",
     magicLevel: "medium",
     techLevel: "medieval",
-    systemPrompt: `This is a classic high fantasy world inspired by traditional D&D settings. Medieval kingdoms rule the land, with castles, villages, and bustling market towns. Magic is real but not commonplace - wizards study in towers, clerics serve their gods, and magical items are rare treasures. 
+    startingLocation:
+      "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
+    systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
 
-Dragons are ancient and powerful beings. Dungeons hide forgotten treasures and dangers. The world has a clear sense of good vs evil - heroes are called to protect the innocent from dark forces like undead, demons, and evil wizards.
+CORE INTENT:
+- Make it EASY for new players and GMs.
+- Keep tone heroic and inviting, with clear threats and clear ways to be awesome.
+- Provide obvious adventure hooks without heavy lore dumps.
+- Respect player agency and the game's mechanical constraints.
 
-Common races include humans, elves, dwarves, halflings, and occasionally half-orcs or tieflings. Technology is medieval - swords, bows, plate armor, but no gunpowder. Travel is by foot, horse, or ship.
+WORLD OVERVIEW:
+- Baseline: A classic medieval fantasy realm with magic, monsters, and ancient ruins.
+  - Magic exists, studied by wizards and guided by priests, but is not mundane consumer tech.
+  - Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and classes fit smoothly.
+  - Medieval tech level: swords, bows, armor, sailing ships; no guns or modern industry unless the user/world explicitly permits them.
+- Home Base — Greenhollow:
+  - Friendly riverside town and default starting hub.
+  - Key NPCs (examples, adapt as needed):
+    - Mayor Elira Thorne: Capable but overstretched; values practical heroes.
+    - Captain Bram: Town watch leader, honest and blunt.
+    - Sister Maelin: Temple priest and healer; a natural quest-giver.
+    - Old Tamsin: Retired adventurer who shares rumors, maps, and gentle guidance.
+- Nearby Hooks:
+  - Whispering Woods: Goblins, wolves, fey lights, lost shrines, mysterious tracks.
+  - Old Watchtower: Bandits or a small cult; straightforward but dramatic dungeon site.
+  - Crystalford Mine: Miners missing, strange lights and sounds below.
+- Factions (keep simple and readable):
+  - Town Watch (order and safety),
+  - Road Wardens (caravans and travel),
+  - A Hidden Cult or Shadowy Mage (slow-burn villain behind local troubles).
 
-Tone: Heroic adventure with moments of wonder. Players should feel like classic fantasy heroes on an epic quest.`,
-    startingLocation: "The village of Greenhollow, a peaceful farming community on the edge of the Whispering Woods",
+TONE & GENRE:
+- Heroic fantasy with room for wonder, suspense, and light drama.
+- Default to clear good vs evil. Moral nuance is allowed, but do not force grimdark by default.
+- Maintain a welcoming tone suitable for new or cautious groups.
+
+AI DM BEHAVIOR GUIDELINES:
+- Always follow the global system + tool rules, tag formats, and dice/roll semantics.
+- Present 2–3 clear, meaningful options instead of long unfocused lists.
+- When rules or mechanics are involved, explain outcomes and difficulties in plain language.
+- Never remove player agency: offer consequences and choices, do not decide for them.
+- Respect the table's tone preferences while maintaining narrative coherence and mechanical clarity.
+- When uncertain, choose the path that keeps play fun, fair, comprehensible, and grounded in this realm.
+
+Use this as the default world context whenever a game uses the default world and no custom world overrides it.`,
+    isDefault: true,
   },
   {
     id: "template_urban_noir",

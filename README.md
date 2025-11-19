@@ -234,9 +234,10 @@ npm run build
 dnd-pwa/
 ├── public/           # Static assets and manifest
 ├── src/
+│   ├── data/         # Static data (templates, tags, icons)
 │   ├── utils/        # Helper functions (storage, auth, dice, API)
 │   ├── views/        # Page components (characters, game, settings, etc.)
-│   ├── prompts/      # AI system prompts and templates
+│   ├── prompts/      # AI system prompts
 │   ├── main.js       # App entry point and initialization
 │   ├── router.js     # Client-side routing system
 │   └── style.css     # Global styles and themes

@@ -55,7 +55,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **AI-generated worlds** (`generateWorldWithAI()`):
   - Similar structured output pattern; generates world metadata + system prompt
   - System prompt becomes the world's guide for all adventures within it
-- **Templates**: Shared templates in `BEGINNER_TEMPLATES` (characters) and `WORLD_TEMPLATES` (worlds) seed quick-start options
+- **Templates**: Shared templates in `BEGINNER_TEMPLATES` (characters, now in `src/data/archetypes.js`) and `WORLD_TEMPLATES` (worlds, now in `src/data/worlds.js`) seed quick-start options
 
 ### Combat & State Management
 - **Initiative tracking**: `game.combat.initiative[]` sorted by total; `game.combat.currentTurnIndex` tracks active turn
@@ -79,10 +79,10 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Manual testing**: No automated tests; full e2e via browser
 
 ### Adding Features
-- **New game tags**: Add regex + parsing logic in `processGameCommandsRealtime()` + `processGameCommands()` (game.js)
+- **New game tags**: Add regex + parsing logic in `processGameCommandsRealtime()` + `processGameCommands()` (game.js); document in `src/data/tags.js`
 - **New dice mechanics**: Extend `dice5e.js` with skill/save/attack wrappers
-- **New world types**: Add template to `WORLD_TEMPLATES` (worlds.js); system prompt becomes the content
-- **New character templates**: Add to `BEGINNER_TEMPLATES` (characterTemplates.js)
+- **New world types**: Add template to `WORLD_TEMPLATES` in `src/data/worlds.js`
+- **New character templates**: Add to `BEGINNER_TEMPLATES` in `src/data/archetypes.js`
 
 ## Key Architectural Decisions
 
@@ -118,6 +118,11 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ## File Structure Overview
 ```
 src/
+  data/
+    archetypes.js — Character templates (BEGINNER_TEMPLATES)
+    worlds.js — World templates (WORLD_TEMPLATES)
+    tags.js — Game tag reference documentation (TAG_REFERENCE)
+    icons.js — UI icons and emoji utilities
   utils/
     auth.js — PKCE OAuth flow
     storage.js — localStorage interface + normalization
@@ -129,8 +134,7 @@ src/
   views/
     game.js — Main gameplay loop (2900+ lines; all game state & streaming logic)
     characters.js — Character CRUD + AI generation
-    worlds.js — World CRUD + templates + AI generation
-    characterTemplates.js — Beginner character templates
+    worlds.js — World CRUD + AI generation
     prompts/
       game-dm-prompt.js — Builds system prompt for game turns
   router.js — Client-side navigation
@@ -140,7 +144,7 @@ src/
 ## Common Tasks
 
 **Add a new game tag:**
-1. Document format in `tag-reference.js` (prompts/doc)
+1. Document format in `src/data/tags.js` (TAG_REFERENCE)
 2. Add regex + logic to `processGameCommandsRealtime()` in game.js
 3. Add corresponding side effect (state mutation)
 4. Test via console: `rollDice()` or manual tag in AI response

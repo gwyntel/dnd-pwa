@@ -11,6 +11,11 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
   - Methods: `store.get()`, `store.update(updaterFn)`, `store.getGame(id)`, `store.getCharacter(id)`
   - Debounced persistence (default 300ms) prevents excessive writes during streaming
   - Immediate save option: `store.update(..., { immediate: true })`
+  - Used by all views: `game.js`, `characters.js`, `worlds.js`
+- **Low-level storage** (`src/utils/storage.js`): localStorage wrapper used internally by Store
+  - Handles serialization/deserialization
+  - Provides `normalizeCharacter()` for backward compatibility
+  - Store wraps but doesn't replace this layer
 - **Data schema** stored in `localStorage` key `"data"`:
   - `characters[]` — Created character sheets with full D&D 5e stats
   - `worlds[]` — Campaign worlds with system prompts (guides AI behavior)

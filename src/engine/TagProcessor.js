@@ -4,6 +4,7 @@
  */
 
 import { getLocationIcon, getConditionIcon } from "../data/icons.js"
+import { REGEX } from "../data/tags.js"
 import { rollDice, rollAdvantage, rollDisadvantage } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 
@@ -15,10 +16,10 @@ import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from ".
 export function stripTags(text) {
   let cleaned = text
 
-  cleaned = cleaned.replace(/LOCATION\[([^\]]+)\]/g, (match, location) => 
+  cleaned = cleaned.replace(REGEX.LOCATION, (match, location) => 
     createBadgeToken('location', { name: location.trim() }))
 
-  cleaned = cleaned.replace(/ROLL\[([^\]]+)\]/g, (match, inner) => {
+  cleaned = cleaned.replace(REGEX.ROLL, (match, inner) => {
     const parts = inner.split('|').map(p => p.trim())
     const kind = (parts[0] || '').toLowerCase()
     if (kind === 'skill' || kind === 'save' || kind === 'attack') {
@@ -32,39 +33,39 @@ export function stripTags(text) {
     return createBadgeToken('roll', { notation: parts[0] || '' })
   })
 
-  cleaned = cleaned.replace(/COMBAT_START\[([^\]]+)\]/g, (m, d) => 
+  cleaned = cleaned.replace(REGEX.COMBAT_START, (m, d) => 
     createBadgeToken('combat', { action: 'start', desc: (d || '').trim() }))
-  cleaned = cleaned.replace(/COMBAT_CONTINUE/g, () => 
+  cleaned = cleaned.replace(REGEX.COMBAT_CONTINUE, () => 
     createBadgeToken('combat', { action: 'continue' }))
-  cleaned = cleaned.replace(/COMBAT_END\[([^\]]+)\]/g, (m, d) => 
+  cleaned = cleaned.replace(REGEX.COMBAT_END, (m, d) => 
     createBadgeToken('combat', { action: 'end', desc: (d || '').trim() }))
 
-  cleaned = cleaned.replace(/DAMAGE\[(\w+)\|(\d+)\]/g, (m, target, amount) => 
+  cleaned = cleaned.replace(REGEX.DAMAGE, (m, target, amount) => 
     createBadgeToken('damage', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
-  cleaned = cleaned.replace(/HEAL\[(\w+)\|(\d+)\]/g, (m, target, amount) => 
+  cleaned = cleaned.replace(REGEX.HEAL, (m, target, amount) => 
     createBadgeToken('heal', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
 
-  cleaned = cleaned.replace(/INVENTORY_ADD\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => 
+  cleaned = cleaned.replace(REGEX.INVENTORY_ADD, (m, item, qty) => 
     createBadgeToken('inventory_add', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(/INVENTORY_REMOVE\[([^\]|]+)\|?(\d+)?\]/g, (m, item, qty) => 
+  cleaned = cleaned.replace(REGEX.INVENTORY_REMOVE, (m, item, qty) => 
     createBadgeToken('inventory_remove', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(/INVENTORY_EQUIP\[([^\]]+)\]/g, (m, item) => 
+  cleaned = cleaned.replace(REGEX.INVENTORY_EQUIP, (m, item) => 
     createBadgeToken('inventory_equip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(/INVENTORY_UNEQUIP\[([^\]]+)\]/g, (m, item) => 
+  cleaned = cleaned.replace(REGEX.INVENTORY_UNEQUIP, (m, item) => 
     createBadgeToken('inventory_unequip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(/GOLD_CHANGE\[(-?\d+\.?\d*)\]/g, (m, delta) => 
+  cleaned = cleaned.replace(REGEX.GOLD_CHANGE, (m, delta) => 
     createBadgeToken('gold', { delta: Number.parseFloat(delta) }))
-  cleaned = cleaned.replace(/STATUS_ADD\[([^\]]+)\]/g, (m, name) => 
+  cleaned = cleaned.replace(REGEX.STATUS_ADD, (m, name) => 
     createBadgeToken('status_add', { name: (name || '').trim() }))
-  cleaned = cleaned.replace(/STATUS_REMOVE\[([^\]]+)\]/g, (m, name) => 
+  cleaned = cleaned.replace(REGEX.STATUS_REMOVE, (m, name) => 
     createBadgeToken('status_remove', { name: (name || '').trim() }))
 
-  cleaned = cleaned.replace(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g, (m, entity, delta) => 
+  cleaned = cleaned.replace(REGEX.RELATIONSHIP, (m, entity, delta) => 
     createBadgeToken('relationship', { entity: (entity || '').trim(), delta: Number.parseInt(delta, 10) }))
 
   // Remove ACTION tags, especially if they are on their own line
-  cleaned = cleaned.replace(/^\s*ACTION\[[^\]]+\]\s*\n?/gm, '')
-  cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, (m, action) => 
+  cleaned = cleaned.replace(REGEX.ACTION_LINE, '')
+  cleaned = cleaned.replace(REGEX.ACTION, (m, action) => 
     createBadgeToken('action', { action: (action || '').trim() }))
 
   // Clean up whitespace artifacts

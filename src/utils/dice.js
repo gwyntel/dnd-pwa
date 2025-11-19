@@ -16,6 +16,8 @@
  * - formatRoll remains compatible; it only uses new metadata (crit) additively when present.
  */
 
+import { REGEX } from "../data/tags.js"
+
 /**
  * Parse standard dice notation into structured components.
  * Supports: "XdY", "XdY+Z", "XdY-Z"
@@ -380,11 +382,10 @@ export function formatRoll(result) {
  * @returns {Array} Array of roll requests
  */
 export function parseRollRequests(text) {
-  const regex = /ROLL\[([^\]]+)\]/g;
   const requests = [];
   let match;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = REGEX.ROLL.exec(text)) !== null) {
     const parts = match[1].split("|");
     requests.push({
       notation: parts[0],

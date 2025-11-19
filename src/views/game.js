@@ -10,6 +10,7 @@ import { getProvider } from "../utils/model-utils.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../data/icons.js"
+import { REGEX } from "../data/tags.js"
 import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
 import { 
   stripTags, 
@@ -1035,7 +1036,7 @@ async function sendMessage(game, userText, data) {
 
     // Combat reminder system: If combat is still active after AI response, inject reminder
     if (gameRef.combat.active) {
-      const hasCombatEnd = /COMBAT_END\[/.test(assistantMessage)
+      const hasCombatEnd = REGEX.COMBAT_END_TEST.test(assistantMessage)
       
       if (!hasCombatEnd) {
         // Combat is ongoing - add reminder message
@@ -1299,7 +1300,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // LOCATION updates
-  const locationMatches = text.matchAll(/LOCATION\[([^\]]+)\]/g)
+  const locationMatches = text.matchAll(REGEX.LOCATION)
   for (const match of locationMatches) {
     const tagKey = `location_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1319,7 +1320,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // COMBAT_START with initiative
-  const combatStartMatches = text.matchAll(/COMBAT_START\[([^\]]*)\]/g)
+  const combatStartMatches = text.matchAll(REGEX.COMBAT_START)
   for (const match of combatStartMatches) {
     const tagKey = `combat_start_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1443,7 +1444,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // COMBAT_END
-  const combatEndMatches = text.matchAll(/COMBAT_END\[([^\]]+)\]/g)
+  const combatEndMatches = text.matchAll(REGEX.COMBAT_END)
   for (const match of combatEndMatches) {
     const tagKey = `combat_end_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1466,7 +1467,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // DAMAGE
-  const damageMatches = text.matchAll(/DAMAGE\[(\w+)\|(\d+)\]/g)
+  const damageMatches = text.matchAll(REGEX.DAMAGE)
   for (const match of damageMatches) {
     const tagKey = `damage_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1491,7 +1492,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // HEAL
-  const healMatches = text.matchAll(/HEAL\[(\w+)\|(\d+)\]/g)
+  const healMatches = text.matchAll(REGEX.HEAL)
   for (const match of healMatches) {
     const tagKey = `heal_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1517,7 +1518,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // ROLL (numeric + semantic)
-  const rollMatches = text.matchAll(/ROLL\[([^\]]+)\]/g)
+  const rollMatches = text.matchAll(REGEX.ROLL)
   for (const match of rollMatches) {
     const tagKey = `roll_${match[0]}`
     if (processedTags.has(tagKey)) continue
@@ -1729,7 +1730,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // INVENTORY_ADD[item|qty]
-  const invAddMatches = text.matchAll(/INVENTORY_ADD\[([^\]|]+)\|?(\d+)?\]/g)
+  const invAddMatches = text.matchAll(REGEX.INVENTORY_ADD)
   for (const match of invAddMatches) {
     const tagKey = `inv_add_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1751,7 +1752,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // INVENTORY_REMOVE[item|qty]
-  const invRemoveMatches = text.matchAll(/INVENTORY_REMOVE\[([^\]|]+)\|?(\d+)?\]/g)
+  const invRemoveMatches = text.matchAll(REGEX.INVENTORY_REMOVE)
   for (const match of invRemoveMatches) {
     const tagKey = `inv_remove_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1773,7 +1774,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // INVENTORY_EQUIP[item]
-  const invEquipMatches = text.matchAll(/INVENTORY_EQUIP\[([^\]]+)\]/g)
+  const invEquipMatches = text.matchAll(REGEX.INVENTORY_EQUIP)
   for (const match of invEquipMatches) {
     const tagKey = `inv_equip_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1793,7 +1794,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // INVENTORY_UNEQUIP[item]
-  const invUnequipMatches = text.matchAll(/INVENTORY_UNEQUIP\[([^\]]+)\]/g)
+  const invUnequipMatches = text.matchAll(REGEX.INVENTORY_UNEQUIP)
   for (const match of invUnequipMatches) {
     const tagKey = `inv_unequip_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1813,7 +1814,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // GOLD_CHANGE[delta]
-  const goldMatches = text.matchAll(/GOLD_CHANGE\[(-?\d+\.?\d*)\]/g)
+  const goldMatches = text.matchAll(REGEX.GOLD_CHANGE)
   for (const match of goldMatches) {
     const tagKey = `gold_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1834,7 +1835,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // STATUS_ADD[name]
-  const statusAddMatches = text.matchAll(/STATUS_ADD\[([^\]]+)\]/g)
+  const statusAddMatches = text.matchAll(REGEX.STATUS_ADD)
   for (const match of statusAddMatches) {
     const tagKey = `status_add_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1853,7 +1854,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // STATUS_REMOVE[name]
-  const statusRemoveMatches = text.matchAll(/STATUS_REMOVE\[([^\]]+)\]/g)
+  const statusRemoveMatches = text.matchAll(REGEX.STATUS_REMOVE)
   for (const match of statusRemoveMatches) {
     const tagKey = `status_remove_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1872,7 +1873,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   }
 
   // RELATIONSHIP[entity_id:delta]
-  const relationshipMatches = text.matchAll(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g)
+  const relationshipMatches = text.matchAll(REGEX.RELATIONSHIP)
   for (const match of relationshipMatches) {
     const tagKey = `relationship_${match[0]}`
     if (!processedTags.has(tagKey)) {
@@ -1920,7 +1921,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   needsUIUpdate = true
 
   // ACTION suggestions
-  const actionMatches = text.matchAll(/ACTION\[([^\]]+)\]/g)
+  const actionMatches = text.matchAll(REGEX.ACTION)
   const newActions = []
   for (const match of actionMatches) {
     const tagKey = `action_${match[0]}`

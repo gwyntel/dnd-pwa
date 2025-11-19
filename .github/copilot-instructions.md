@@ -113,7 +113,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ## Project-Specific Conventions
 
 ### Message Sanitization
-`sanitizeMessagesForModel()` removes stale `ACTION[...]` suggestions from old assistant messages to save context tokens, but **preserves all canonical game tags** (LOCATION, ROLL, DAMAGE, etc.) so AI can reason about past state.
+`sanitizeMessagesForModel()` removes stale `ACTION[...]` suggestions from old assistant messages to save context tokens, but **preserves all canonical game tags** (LOCATION, ROLL, DAMAGE, etc.) so AI can reason about past state. The `stripTags` function in `TagProcessor.js` also cleans up whitespace from `ACTION` tags to prevent empty lines in the output.
 
 ### HTML Escaping & Markdown Parsing
 - `escapeHtml()` → prevents XSS in user names, item names, etc.

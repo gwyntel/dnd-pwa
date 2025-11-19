@@ -157,7 +157,7 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Modular Design**: Core logic extracted into `TagProcessor`, `CombatManager`, and `GameLoop` modules.
 - **Dice System**: Full D&D 5e dice mechanics with advantage/disadvantage, now in `src/utils/dice.js` and `src/utils/dice5e.js`.
 - **State Management**: Centralized Store (`src/state/store.js`) wraps localStorage with in-memory caching; debounced saves (300ms) prevent race conditions and browser freezing during AI streaming. Low-level storage interface (`src/utils/storage.js`) handles serialization and normalization.
-- **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`.
+- **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`. Whitespace around `ACTION` tags is automatically cleaned to prevent empty lines.
 - **Combat Engine**: Initiative tracking, turn management, and battle resolution managed by `CombatManager`.
 - **Character Sheets**: Dynamic character management with modifier calculation.
 

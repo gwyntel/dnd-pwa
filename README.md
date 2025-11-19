@@ -161,6 +161,7 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`. Whitespace around `ACTION` tags is automatically cleaned to prevent empty lines.
 - **Combat Engine**: Initiative tracking, turn management, and battle resolution managed by `CombatManager`.
 - **Character Sheets**: Dynamic character management with modifier calculation.
+- **Template System**: Single source of truth for templates - `WORLD_TEMPLATES` in `src/data/worlds.js` and `BEGINNER_TEMPLATES` in `src/data/archetypes.js` are imported into storage initialization, eliminating duplication.
 
 ### Security & Privacy
 - **Local Storage**: All personal data stored locally in browser

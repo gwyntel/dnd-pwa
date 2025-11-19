@@ -67,6 +67,9 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
   - Similar structured output pattern; generates world metadata + system prompt
   - System prompt becomes the world's guide for all adventures within it
 - **Templates**: Shared templates in `BEGINNER_TEMPLATES` (characters, now in `src/data/archetypes.js`) and `WORLD_TEMPLATES` (worlds, now in `src/data/worlds.js`) seed quick-start options
+  - **Single source of truth**: Templates are imported and spread into `storage.js` DEFAULT_DATA; no duplication
+  - `WORLD_TEMPLATES[0]` is the canonical default world; `storage.js` and `worlds.js` import it
+  - Character templates removed from `storage.js`; modern code uses `BEGINNER_TEMPLATES` directly
 
 ### Combat & State Management
 - **Initiative tracking**: `game.combat.initiative[]` sorted by total; `game.combat.currentTurnIndex` tracks active turn

@@ -86,6 +86,21 @@ export function renderSettings() {
             </p>
           </div>
           <div class="mb-2">
+            <label class="form-label text-sm">Context Length (tokens)</label>
+            <input 
+              type="number" 
+              id="openai-context-length" 
+              placeholder="8192"
+              min="2048"
+              max="200000"
+              step="1024"
+              value="${data.settings.providers?.openai?.contextLength || ""}"
+            >
+            <p class="text-xs text-secondary mt-1">
+              Maximum context length for your model (e.g., 8192, 32768, 128000). Check your model's documentation.
+            </p>
+          </div>
+          <div class="mb-2">
             <label class="form-check">
               <span class="form-check-label">Use backend proxy (bypasses CORS restrictions)</span>
               <input type="checkbox" id="openai-proxy-check" ${data.settings.useProxy ? "checked" : ""}>
@@ -431,6 +446,7 @@ function setupProviderHandlers(data) {
   // OpenAI configuration handlers
   const openaiBaseUrl = document.getElementById("openai-base-url")
   const openaiApiKey = document.getElementById("openai-api-key")
+  const openaiContextLength = document.getElementById("openai-context-length")
   const testOpenAIBtn = document.getElementById("test-openai-btn")
   
   if (openaiBaseUrl) {
@@ -447,6 +463,16 @@ function setupProviderHandlers(data) {
       if (!data.settings.providers) data.settings.providers = {}
       if (!data.settings.providers.openai) data.settings.providers.openai = {}
       data.settings.providers.openai.apiKey = e.target.value
+      saveData(data)
+    })
+  }
+  
+  if (openaiContextLength) {
+    openaiContextLength.addEventListener("change", (e) => {
+      if (!data.settings.providers) data.settings.providers = {}
+      if (!data.settings.providers.openai) data.settings.providers.openai = {}
+      const value = e.target.value ? parseInt(e.target.value, 10) : null
+      data.settings.providers.openai.contextLength = value
       saveData(data)
     })
   }

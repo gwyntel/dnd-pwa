@@ -18,9 +18,11 @@ export function UsageDisplay(game) {
   const models = data.models || []
   const currentModel = models.find((m) => m.id === game.narrativeModel)
   
-  // For LM Studio, prioritize user-configured context length
+  // Prioritize user-configured context length for OpenAI and LM Studio
   let contextLength = currentModel?.contextLength || 8192 // Default fallback
-  if (data.settings.provider === "lmstudio" && data.settings.providers?.lmstudio?.contextLength) {
+  if (data.settings.provider === "openai" && data.settings.providers?.openai?.contextLength) {
+    contextLength = data.settings.providers.openai.contextLength
+  } else if (data.settings.provider === "lmstudio" && data.settings.providers?.lmstudio?.contextLength) {
     contextLength = data.settings.providers.lmstudio.contextLength
   }
   

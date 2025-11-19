@@ -145,6 +145,7 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Styling**: CSS with custom theming and responsive design
 - **Routing**: Client-side routing with history management
 - **State Management**: Centralized Store (`src/state/store.js`) wrapping localStorage with in-memory caching and debounced persistence
+- **UI Components**: Extracted UI rendering logic into reusable components (`src/components/`) for better maintainability and separation of concerns
 
 ### AI Integration
 - **Provider**: OpenRouter API for model access

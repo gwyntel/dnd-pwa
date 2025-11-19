@@ -129,12 +129,19 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ## File Structure Overview
 ```
 src/
+  components/
+    UsageDisplay.js — Token usage and cost display
+    RollHistory.js — Recent dice rolls panel
+    LocationHistory.js — Visited locations chips
+    RelationshipList.js — NPC relationship tracker
+    ChatMessage.js — Individual message rendering with reasoning support
+    CharacterHUD.js — Character stats display (placeholder for future use)
   data/
     archetypes.js — Character templates (BEGINNER_TEMPLATES)
     worlds.js — World templates (WORLD_TEMPLATES)
     tags.js — Game tag reference documentation (TAG_REFERENCE)
     icons.js — UI icons and emoji utilities
-  engine/
+ engine/
     GameLoop.js — Game loop and AI streaming logic
     TagProcessor.js — Game tag parsing and execution
     CombatManager.js — Combat state and initiative tracking
@@ -155,7 +162,7 @@ src/
     prompts/
       game-dm-prompt.js — Builds system prompt for game turns
   router.js — Client-side navigation
-  main.js — App initialization
+ main.js — App initialization
 ```
 
 ## Common Tasks

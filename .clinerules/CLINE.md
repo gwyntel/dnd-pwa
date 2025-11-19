@@ -156,4 +156,4 @@ Edit the `systemPrompt` field in that world's record (worlds.js template or cust
 ---
 **Key Principle**: Game state lives in `localStorage`; AI context is built dynamically from messages + system prompt. Streaming & tag parsing are real-time; no separate "apply changes" phase.
 
-**Maintenance Note**: As code changes are made, this file and .clinerules/CLINE.md should be updated to reflect new patterns, architectural shifts, or developer workflows so future AI agents remain aligned with the evolving codebase.
+**Maintenance Note**: As code changes are made, this file and .github/copilot-instructions.md should be updated to reflect new patterns, architectural shifts, or developer workflows so future AI agents remain aligned with the evolving codebase.

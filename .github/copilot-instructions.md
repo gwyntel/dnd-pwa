@@ -45,6 +45,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 
 ### Tag System & Roll Batching
 - **Tags drive game mechanics**: AI generates tags in narrative; system parses and executes
+- **Centralized regex patterns** (`src/data/tags.js`): All tag regex exported as `REGEX` object; single source of truth imported by `TagProcessor.js`, `game.js`, `dice.js`
 - **Roll batching** (`ROLL_SETTLING_DELAY_MS = 500ms`): Collects multiple rolls in a message, then triggers a single follow-up narration (avoids spam)
 - **Deferred batch**: If streaming is active when a batch completes, batch is queued and processed after streaming ends
 
@@ -171,10 +172,11 @@ src/
 ## Common Tasks
 
 **Add a new game tag:**
-1. Document format in `src/data/tags.js` (TAG_REFERENCE)
-2. Add regex + logic to `processGameCommandsRealtime()` in game.js
-3. Add corresponding side effect (state mutation)
-4. Test via console: `rollDice()` or manual tag in AI response
+1. Add regex to `REGEX` export in `src/data/tags.js`
+2. Document format in `TAG_REFERENCE` (same file)
+3. Add parsing logic to `processGameCommandsRealtime()` in game.js using `REGEX.YOUR_TAG`
+4. Add corresponding side effect (state mutation)
+5. Test via console: `rollDice()` or manual tag in AI response
 
 **Support new reasoning model:**
 1. Model auto-detected by `detectReasoningType()` in openrouter.js

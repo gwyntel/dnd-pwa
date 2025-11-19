@@ -83,12 +83,24 @@ export function stripTags(text) {
 export function parseMarkdown(text) {
   let html = escapeHtml(text)
 
+  // Protect badge tokens from markdown parsing by temporarily replacing them
+  const badgeTokens = []
+  html = html.replace(/@@BADGE\|[^|]+\|.+?@@/g, (match) => {
+    badgeTokens.push(match)
+    return `§BADGE${badgeTokens.length - 1}§`
+  })
+
   html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
   html = html.replace(/__(.*?)__/g, "<strong>$1</strong>")
   html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>")
   html = html.replace(/_([^_]+)_/g, "<em>$1</em>")
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>")
   html = html.replace(/\n/g, "<br>")
+
+  // Restore badge tokens after markdown processing
+  badgeTokens.forEach((token, index) => {
+    html = html.split(`§BADGE${index}§`).join(token)
+  })
 
   return html
 }
@@ -119,12 +131,12 @@ export function renderInlineBadgeHtml(type, data) {
       case "location": {
         const name = badgeData.name || ""
         const icon = getLocationIcon(name) || "🗺️"
-        return `<span class="inline-badge location" data-tag-type="location">${icon} New Location: ${labelEscape(name)}</span>`
+        return `<span class="inline-badge location" data-tag-type="location">${icon} ${labelEscape(name)}</span>`
       }
       case "inventory_add": {
         const qty = badgeData.qty ?? 1
         const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 +${labelEscape(qty)} ${labelEscape(item)}</span>`
+        return `<span class="inline-badge inventory" data-tag-type="inventory">📦 Added: ${labelEscape(qty)}x ${labelEscape(item)}</span>`
       }
       case "inventory_remove": {
         const qty = badgeData.qty ?? 1
@@ -133,7 +145,7 @@ export function renderInlineBadgeHtml(type, data) {
       }
       case "inventory_equip": {
         const item = badgeData.item || ""
-        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Equipped ${labelEscape(item)}</span>`
+        return `<span class="inline-badge inventory" data-tag-type="inventory">🛡️ Equip: ${labelEscape(item)}</span>`
       }
       case "inventory_unequip": {
         const item = badgeData.item || ""
@@ -192,8 +204,8 @@ export function renderInlineBadgeHtml(type, data) {
         return `<span class="inline-badge combat" data-tag-type="combat">⚔️ Combat</span>`
       }
       case "action": {
-        const action = badgeData.action || ""
-        return `<span class="inline-badge action" data-tag-type="action">💡 ${labelEscape(action)}</span>`
+        // ACTION[] badges are not displayed in chat
+        return ""
       }
       case "relationship": {
         const entity = badgeData.entity || ""
@@ -233,7 +245,7 @@ export function parseBadgeToken(token) {
  */
 export function insertInlineBadges(html) {
   if (!html) return html
-  return html.replace(/@@BADGE\|([^|]+)\|([^@]+)@@/g, (full, ttype, encoded) => {
+  return html.replace(/@@BADGE\|([^|]+)\|(.+?)@@/g, (full, ttype, encoded) => {
     try {
       const payload = JSON.parse(decodeURIComponent(encoded))
       return renderInlineBadgeHtml(ttype, payload)

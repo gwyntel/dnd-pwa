@@ -9,7 +9,7 @@ import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
 import { validateHitDice } from "../utils/character-validation.js"
-import { store } from "../state/store.js"
+import store from "../state/store.js"
 
 export function renderCharacters() {
   const app = document.getElementById("app")

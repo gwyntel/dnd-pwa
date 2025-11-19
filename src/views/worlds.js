@@ -5,7 +5,7 @@
 
 import { getProvider } from "../utils/model-utils.js"
 import { WORLD_TEMPLATES } from "../data/worlds.js"
-import { store } from "../state/store.js"
+import store from "../state/store.js"
 
 let editingWorldId = null
 

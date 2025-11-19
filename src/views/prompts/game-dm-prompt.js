@@ -4,7 +4,7 @@
  * Defines tone, mechanics, roll handling, and all game tags
  */
 
-import { TAG_REFERENCE } from './tag-reference.js';
+import { TAG_REFERENCE } from '../../data/tags.js';
 
 const DND_MECHANICS_EXAMPLES = {
   attack: "Goblin attacks! ROLL[attack|scimitar|15] → (app rolls d20+mods) → Hit! DAMAGE[player|6]",

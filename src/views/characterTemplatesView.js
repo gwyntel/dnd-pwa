@@ -5,7 +5,7 @@
 
 import { loadData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
-import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
+import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 
 function escapeHtml(text) {
   const div = document.createElement("div")

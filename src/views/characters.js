@@ -7,7 +7,7 @@ import { loadData, saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { getProvider } from "../utils/model-utils.js"
 import { isAuthenticated } from "../utils/auth.js"
-import { BEGINNER_TEMPLATES } from "./characterTemplates.js"
+import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
 import { validateHitDice } from "../utils/character-validation.js"
 

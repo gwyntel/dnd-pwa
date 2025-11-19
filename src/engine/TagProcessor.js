@@ -3,7 +3,7 @@
  * Extracted from game.js to separate game logic from UI concerns
  */
 
-import { getLocationIcon, getConditionIcon } from "../utils/ui-icons.js"
+import { getLocationIcon, getConditionIcon } from "../data/icons.js"
 import { rollDice, rollAdvantage, rollDisadvantage } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 

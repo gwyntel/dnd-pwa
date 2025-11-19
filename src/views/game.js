@@ -8,7 +8,7 @@ import { navigateTo } from "../router.js"
 import { getProvider } from "../utils/model-utils.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
-import { getLocationIcon, getConditionIcon, Icons } from "../utils/ui-icons.js"
+import { getLocationIcon, getConditionIcon, Icons } from "../data/icons.js"
 import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
 import { 
   stripTags, 

@@ -10,7 +10,7 @@ export const Icons = {
   CLOSE: "✕",
   MENU: "☰",
 
-  // Characters & Creation
+ // Characters & Creation
   CHARACTER: "🧙",
   CREATE: "✎",
   DUPLICATE: "📋",
@@ -69,7 +69,7 @@ export const Icons = {
   REWARD: "🏆",
 
   // General
-  SETTINGS: "⚙️",
+ SETTINGS: "⚙️",
   INFO: "ℹ️",
   WARNING: "⚠️",
   ERROR: "❌",
@@ -84,7 +84,7 @@ export const Icons = {
  * Get icon for a status/condition
  */
 export function getConditionIcon(conditionName) {
-  const normalized = (conditionName || "").toLowerCase()
+ const normalized = (conditionName || "").toLowerCase()
 
   const iconMap = {
     poisoned: Icons.POISON,
@@ -138,7 +138,7 @@ export function getLocationIcon(locationName) {
 
   for (const [key, icon] of Object.entries(iconMap)) {
     if (normalized.includes(key)) return icon
-  }
+ }
 
   return Icons.LOCATION // default
 }

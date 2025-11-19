@@ -30,6 +30,12 @@ import {
   trimVisitedLocations, 
   createRollMetadata 
 } from "../engine/GameLoop.js"
+import { UsageDisplay } from "../components/UsageDisplay.js"
+import { RollHistory } from "../components/RollHistory.js"
+import { LocationHistory } from "../components/LocationHistory.js"
+import { RelationshipList } from "../components/RelationshipList.js"
+import { ChatMessage } from "../components/ChatMessage.js"
+import { CharacterHUD } from "../components/CharacterHUD.js"
 
 let currentGameId = null
 let isStreaming = false
@@ -261,7 +267,7 @@ export async function renderGame(state = {}) {
               </p>
             </div>
             <div id="usage-display" class="usage-display">
-              ${renderUsageDisplay(game)}
+              ${UsageDisplay(game)}
             </div>
           </div>
 
@@ -419,21 +425,21 @@ export async function renderGame(state = {}) {
         <div class="card">
           <h3 class="rolls-title">Recent Rolls</h3>
           <div id="roll-history-container" class="roll-history-container">
-            ${renderRollHistory(game.messages)}
+            ${RollHistory(game.messages)}
           </div>
         </div>
 
         <div class="card">
           <h3>Locations Visited</h3>
           <div id="location-history-container" class="location-history-container">
-            ${renderLocationHistory(game)}
+            ${LocationHistory(game)}
           </div>
         </div>
 
         <div class="card">
           <h3>Relationships</h3>
           <div id="relationships-container" class="relationships-container">
-            ${renderRelationships(game)}
+            ${RelationshipList(game)}
           </div>
         </div>
       </div>
@@ -481,87 +487,12 @@ export async function renderGame(state = {}) {
   })
 }
 
-function renderSingleMessage(msg) {
-  if (msg.hidden) return ""
-
-  let className = "message"
-  let iconPrefix = ""
-
-  if (msg.role === "user") {
-    className += " message-user"
-    iconPrefix = "👤 "
-  } else if (msg.role === "assistant") {
-    className += " message-assistant"
-    iconPrefix = "🎭 "
-  } else if (msg.role === "system") {
-    className += " message-system"
-
-    if (msg.metadata?.diceRoll) {
-      className += " message-dice"
-      iconPrefix = Icons.DICE + " "
-    } else if (msg.metadata?.damage) {
-      className += " message-damage"
-      iconPrefix = Icons.DAMAGE + " "
-    } else if (msg.metadata?.healing) {
-      className += " message-healing"
-      iconPrefix = Icons.HEAL + " "
-    } else if (msg.metadata?.combatEvent === "start") {
-      className += " message-combat"
-      iconPrefix = Icons.COMBAT + " "
-    } else if (msg.metadata?.combatEvent === "end") {
-      className += " message-combat"
-      iconPrefix = "✓ "
-    }
-  }
-
-  const cleanContent = stripTags(msg.content || "")
-
-  // Do not render empty assistant messages unless they have dice roll metadata or reasoning
-  if (msg.role === "assistant" && !cleanContent.trim() && !msg.metadata?.diceRoll && !msg.metadata?.reasoning) {
-    return ""
-  }
-
-  // Check if this message has reasoning content
-  const hasReasoning = msg.role === "assistant" && msg.metadata?.reasoning
-  const reasoning = hasReasoning ? msg.metadata.reasoning : ""
-  const reasoningTokens = msg.metadata?.reasoningTokens || 0
-
-  const messageHTML = `
-    <div class="${className}" data-msg-id="${msg.id}">
-      ${
-        hasReasoning
-          ? `
-      <div class="message-reasoning">
-        <details class="reasoning-details">
-          <summary class="reasoning-summary">
-            🧠 Reasoning
-            ${
-              reasoningTokens
-                ? `<span class="reasoning-tokens">(${reasoningTokens} tokens)</span>`
-                : ""
-            }
-          </summary>
-          <div class="reasoning-body">
-            ${escapeHtml(reasoning).replace(/\n/g, "<br>")}
-          </div>
-        </details>
-      </div>
-      `
-          : ""
-      }
-      <div class="message-content">${iconPrefix}${insertInlineBadges(parseMarkdown(cleanContent))}</div>
-      ${msg.metadata?.diceRoll ? `<div class="dice-result">${formatRoll(msg.metadata.diceRoll)}</div>` : ""}
-      ${msg.metadata?.rollId ? `<div class="dice-meta">id: ${msg.metadata.rollId} • ${msg.metadata.timestamp || ""}</div>` : ""}
-    </div>
-  `
-  return messageHTML
-}
 
 function appendMessage(msg) {
   const messagesContainer = document.getElementById("messages-container")
   if (!messagesContainer) return
 
-  const messageHTML = renderSingleMessage(msg)
+  const messageHTML = ChatMessage(msg)
   if (!messageHTML) return
 
   // Create a temporary container for the rendered message
@@ -587,85 +518,16 @@ function appendMessage(msg) {
     const data = store.get()
     const game = data.games.find((g) => g.id === currentGameId)
     if (game) {
-      rollHistoryContainer.innerHTML = renderRollHistory(game.messages)
+      rollHistoryContainer.innerHTML = RollHistory(game.messages)
     }
   }
-}
-
-function renderRollHistory(messages) {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return '<div class="roll-history-empty text-secondary">No rolls yet.</div>'
-  }
-
-  // Take last 20 messages that have diceRoll metadata
-  const rolls = messages.filter((m) => m?.metadata?.diceRoll).slice(-20)
-
-  if (rolls.length === 0) {
-    return '<div class="roll-history-empty text-secondary">No rolls yet.</div>'
-  }
-
-  return `
-    <ul class="roll-history-list">
-      ${rolls
-        .map((m) => {
-          const meta = m.metadata || {}
-          const labelParts = []
-
-          if (meta.type === "attack") {
-            labelParts.push("Attack")
-            if (meta.key) labelParts.push(meta.key)
-            if (meta.targetAC) labelParts.push(`vs AC ${meta.targetAC}`)
-            if (meta.success === true) labelParts.push("✓")
-            if (meta.success === false) labelParts.push("✗")
-          } else if (meta.type === "save") {
-            labelParts.push("Save")
-            if (meta.key) labelParts.push(meta.key.toUpperCase())
-            if (meta.dc) labelParts.push(`DC ${meta.dc}`)
-            if (meta.success === true) labelParts.push("✓")
-            if (meta.success === false) labelParts.push("✗")
-          } else if (meta.type === "skill") {
-            labelParts.push("Skill")
-            if (meta.key) labelParts.push(meta.key)
-            if (meta.dc) labelParts.push(`DC ${meta.dc}`)
-            if (meta.success === true) labelParts.push("✓")
-            if (meta.success === false) labelParts.push("✗")
-          } else {
-            labelParts.push("Roll")
-          }
-
-          const label = labelParts.join(" ")
-
-          const id = meta.rollId || ""
-          const ts = meta.timestamp || ""
-          const total =
-            typeof meta.diceRoll?.total === "number"
-              ? meta.diceRoll.total
-              : (meta.diceRoll?.toHit?.total ?? meta.diceRoll?.damage?.total ?? "")
-
-          return `
-            <li class="roll-history-item">
-              <div class="roll-history-main">
-                <span class="roll-history-label-text">${label || "Roll"}</span>
-                ${total !== "" ? `<span class="roll-history-total">${total}</span>` : ""}
-              </div>
-              <div class="roll-history-meta">
-                ${id ? `<span class="roll-history-id">${id}</span>` : ""}
-                ${ts ? `<span class="roll-history-ts">${ts}</span>` : ""}
-                ${meta.source ? `<span class="roll-history-source">${meta.source}</span>` : ""}
-              </div>
-            </li>
-          `
-        })
-        .join("")}
-    </ul>
-  `
 }
 
 function renderMessages(messages) {
   if (messages.length === 0) {
     return '<div class="text-center text-secondary card-padded-lg">Starting your adventure...</div>'
   }
-  return messages.map(renderSingleMessage).join("")
+  return messages.map(ChatMessage).join("")
 }
 
 /**
@@ -2378,51 +2240,6 @@ function buildSystemPrompt(character, game) {
   return buildGameDMPrompt(character, game, world)
 }
 
-function renderLocationHistory(game) {
-  if (!Array.isArray(game.visitedLocations) || game.visitedLocations.length === 0) {
-    return '<p class="text-secondary text-sm">No locations recorded yet.</p>'
-  }
-
-  return `
-    <div class="location-chips">
-      ${game.visitedLocations
-        .map((loc) => {
-          const icon = getLocationIcon(loc)
-          const safe = escapeHtml(loc)
-          return `<button class="location-chip" data-location="${safe}">${icon} ${safe}</button>`
-        })
-        .join("")}
-    </div>
-  `
-}
-
-function renderRelationships(game) {
-  const relationships = game.relationships && typeof game.relationships === 'object' ? game.relationships : {}
-  const entries = Object.entries(relationships)
-
-  if (entries.length === 0) {
-    return '<p class="text-secondary text-sm">No relationships tracked yet.</p>'
-  }
-
-  return `
-    <ul class="relationship-list">
-      ${entries
-        .map(([entity, value]) => {
-          const numValue = typeof value === 'number' ? value : 0
-          const sentiment = numValue > 0 ? 'positive' : numValue < 0 ? 'negative' : 'neutral'
-          const icon = numValue > 0 ? '😊' : numValue < 0 ? '😠' : '😐'
-          return `
-            <li class="relationship-item relationship-${sentiment}">
-              <span class="relationship-entity">${icon} ${escapeHtml(entity)}</span>
-              <span class="relationship-value">${numValue > 0 ? '+' : ''}${numValue}</span>
-            </li>
-          `
-        })
-        .join("")}
-    </ul>
-  `
-}
-
 function renderCurrentTurn(game) {
   if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
     return ""
@@ -2439,51 +2256,10 @@ function renderCurrentTurn(game) {
   return ` • ${turnText}`
 }
 
-function renderUsageDisplay(game) {
-  if (!game.cumulativeUsage || game.cumulativeUsage.totalTokens === 0) {
-    return ""
-  }
-
-  const usage = game.cumulativeUsage
-  const hasCost = usage.totalCost > 0
-
-  // Get model context length to calculate percentage
-  const data = store.get()
-  const models = data.models || []
-  const currentModel = models.find((m) => m.id === game.narrativeModel)
-  
-  // For LM Studio, prioritize user-configured context length
-  let contextLength = currentModel?.contextLength || 8192 // Default fallback
-  if (data.settings.provider === "lmstudio" && data.settings.providers?.lmstudio?.contextLength) {
-    contextLength = data.settings.providers.lmstudio.contextLength
-  }
-  
-  const contextPercent = ((usage.totalTokens / contextLength) * 100).toFixed(1)
-
-  return `
-    <div class="usage-stats">
-      <div class="usage-stat">
-        <span class="usage-stat-label">Context</span>
-        <span class="usage-stat-value">${contextPercent}%</span>
-      </div>
-      ${
-        hasCost
-          ? `
-      <div class="usage-stat usage-cost-stat">
-        <span class="usage-stat-label">Cost</span>
-        <span class="usage-stat-value">$${usage.totalCost.toFixed(4)}</span>
-      </div>
-      `
-          : ""
-      }
-    </div>
-  `
-}
-
 function updateUsageDisplay(game) {
   const usageDisplay = document.getElementById("usage-display")
   if (usageDisplay) {
-    usageDisplay.innerHTML = renderUsageDisplay(game)
+    usageDisplay.innerHTML = UsageDisplay(game)
   }
 }
 
@@ -2496,13 +2272,13 @@ function escapeHtml(text) {
 function updateRollHistory(game) {
   const rollHistoryContainer = document.getElementById("roll-history-container")
   if (!rollHistoryContainer) return
-  rollHistoryContainer.innerHTML = renderRollHistory(game.messages || [])
+  rollHistoryContainer.innerHTML = RollHistory(game.messages || [])
 }
 
 function updateLocationHistory(game) {
   const locationHistoryContainer = document.getElementById("location-history-container")
   if (!locationHistoryContainer) return
-  locationHistoryContainer.innerHTML = renderLocationHistory(game)
+  locationHistoryContainer.innerHTML = LocationHistory(game)
   // Re-attach fast travel handlers after updating DOM
   setupLocationFastTravel(game)
 }
@@ -2607,7 +2383,7 @@ function updatePlayerStats(game) {
 function updateRelationshipsDisplay(game) {
   const relationshipsContainer = document.getElementById("relationships-container")
   if (!relationshipsContainer) return
-  relationshipsContainer.innerHTML = renderRelationships(game)
+  relationshipsContainer.innerHTML = RelationshipList(game)
 }
 
 function setupRollHistoryToggle() {

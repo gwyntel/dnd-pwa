@@ -53,6 +53,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Reasoning support detection** (`detectReasoningType()`):
   - `"effort"` models (OpenAI o1/o3/gpt-5, Grok): use `reasoning.effort` ("low"/"medium"/"high")
   - `"max_tokens"` models (Anthropic Claude, Gemini, DeepSeek): use `reasoning.max_tokens`
+  - **Hybrid models** (DeepSeek, etc.): streaming refactored to handle reasoning-only chunks; message element created in DOM when either reasoning or content arrives
 - **Structured outputs** via JSON schema (if model supports `"structured_outputs"` in `supportedParameters`)
 - **Streaming**: SSE parser yields chunks; client handles errors mid-stream with legible messages
 - **Error handling**: HTTP status codes mapped to user-friendly messages (402=credits, 429=rate limit, 502=provider down, etc.)

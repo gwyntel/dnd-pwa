@@ -28,7 +28,7 @@ A progressive web application for single-player D&D-style text adventures powere
 
 ### Advanced Features
 - **Model Selection**: Choose from 100+ AI models on OpenRouter with detailed information
-- **Reasoning Tokens**: Advanced reasoning capabilities with configurable effort and verbosity
+- **Reasoning Tokens**: Advanced reasoning capabilities with configurable effort and verbosity. Now supports hybrid models (DeepSeek, etc.) that stream reasoning before content.
 - **Temperature Control**: Adjust AI creativity from focused (0) to creative (2)
 - **Multiple Themes**: 6 different color themes (auto, light, dark, warm, cool, forest, midnight)
 - **Usage Tracking**: Real-time token usage, cost calculation, and context length monitoring

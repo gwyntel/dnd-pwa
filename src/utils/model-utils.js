@@ -52,24 +52,11 @@ export function isValidModelId(modelId) {
 }
 
 /**
- * Get the appropriate provider module based on settings
- * @returns {Promise<Object>} The provider module (openrouter, openai, or lmstudio)
+ * Get the provider module (Unified)
  */
 export async function getProvider() {
-  const data = loadData()
-  const provider = data.settings.provider || "openrouter"
-
-  switch (provider) {
-    case "openrouter":
-      return import("./openrouter.js")
-    case "openai":
-      return import("./openai.js")
-    case "lmstudio":
-      return import("./lmstudio.js")
-    default:
-      console.warn(`Unknown provider: ${provider}, defaulting to openrouter`)
-      return import("./openrouter.js")
-  }
+  // No switch case needed anymore!
+  return import("./ai-provider.js");
 }
 
 /**

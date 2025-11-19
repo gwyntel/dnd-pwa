@@ -222,24 +222,9 @@ export async function renderGame(state = {}) {
     return
   }
 
-  // Validate that the game's model is available in the current provider
-  // If not, update it to use the default model
-  const provider = await getProvider()
-  try {
-    const models = await provider.fetchModels()
-    const gameModelExists = models.some((m) => m.id === game.narrativeModel)
-    
-    if (!gameModelExists) {
-      console.log(`[v0] Game model ${game.narrativeModel} not found in current provider, updating to default`)
-      game.narrativeModel = data.settings.defaultNarrativeModel
-      await store.update((state) => {
-        const g = state.games.find((g) => g.id === game.id)
-        if (g) g.narrativeModel = data.settings.defaultNarrativeModel
-      }, { immediate: true })
-    }
-  } catch (error) {
-    console.error("[v0] Error validating game model:", error)
-    // If we can't fetch models, use the default model to be safe
+  // Always use the model from settings (user may have switched models)
+  if (game.narrativeModel !== data.settings.defaultNarrativeModel) {
+    console.log(`[v0] Updating game model from ${game.narrativeModel} to settings model ${data.settings.defaultNarrativeModel}`)
     game.narrativeModel = data.settings.defaultNarrativeModel
     await store.update((state) => {
       const g = state.games.find((g) => g.id === game.id)

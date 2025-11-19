@@ -62,6 +62,8 @@ export function stripTags(text) {
   cleaned = cleaned.replace(/RELATIONSHIP\[([^:]+):([+-]?\d+)\]/g, (m, entity, delta) => 
     createBadgeToken('relationship', { entity: (entity || '').trim(), delta: Number.parseInt(delta, 10) }))
 
+  // Remove ACTION tags, especially if they are on their own line
+  cleaned = cleaned.replace(/^\s*ACTION\[[^\]]+\]\s*\n?/gm, '')
   cleaned = cleaned.replace(/ACTION\[([^\]]+)\]/g, (m, action) => 
     createBadgeToken('action', { action: (action || '').trim() }))
 

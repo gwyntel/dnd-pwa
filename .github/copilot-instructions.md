@@ -6,7 +6,12 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ## Core Architecture
 
 ### Data Model & Storage
-- **Single `data` object** stored in `localStorage` (see `src/utils/storage.js`):
+- **Centralized Store** (`src/state/store.js`): In-memory state cache wrapping `localStorage`
+  - Single source of truth for all app state
+  - Methods: `store.get()`, `store.update(updaterFn)`, `store.getGame(id)`, `store.getCharacter(id)`
+  - Debounced persistence (default 300ms) prevents excessive writes during streaming
+  - Immediate save option: `store.update(..., { immediate: true })`
+- **Data schema** stored in `localStorage` key `"data"`:
   - `characters[]` — Created character sheets with full D&D 5e stats
   - `worlds[]` — Campaign worlds with system prompts (guides AI behavior)
   - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage
@@ -123,6 +128,12 @@ src/
     worlds.js — World templates (WORLD_TEMPLATES)
     tags.js — Game tag reference documentation (TAG_REFERENCE)
     icons.js — UI icons and emoji utilities
+  engine/
+    GameLoop.js — Game loop and AI streaming logic
+    TagProcessor.js — Game tag parsing and execution
+    CombatManager.js — Combat state and initiative tracking
+  state/
+    store.js — Centralized state management (in-memory cache + localStorage)
   utils/
     auth.js — PKCE OAuth flow
     storage.js — localStorage interface + normalization
@@ -132,7 +143,7 @@ src/
     model-utils.js — Model metadata & provider selection
     proxy.js — Proxy abstraction (unused in current deployment)
   views/
-    game.js — Main gameplay loop (2900+ lines; all game state & streaming logic)
+    game.js — Main gameplay UI and event handling
     characters.js — Character CRUD + AI generation
     worlds.js — World CRUD + AI generation
     prompts/

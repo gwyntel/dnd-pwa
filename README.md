@@ -144,7 +144,7 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Build Tool**: Vite for fast development and optimized builds
 - **Styling**: CSS with custom theming and responsive design
 - **Routing**: Client-side routing with history management
-- **Storage**: localStorage for data persistence
+- **State Management**: Centralized Store (`src/state/store.js`) wrapping localStorage with in-memory caching and debounced persistence
 
 ### AI Integration
 - **Provider**: OpenRouter API for model access
@@ -156,7 +156,7 @@ A progressive web application for single-player D&D-style text adventures powere
 ### Game Engine
 - **Modular Design**: Core logic extracted into `TagProcessor`, `CombatManager`, and `GameLoop` modules.
 - **Dice System**: Full D&D 5e dice mechanics with advantage/disadvantage, now in `src/utils/dice.js` and `src/utils/dice5e.js`.
-- **State Management**: Real-time game state tracking and updates, primarily managed by `GameLoop`.
+- **State Management**: Centralized Store pattern prevents race conditions; debounced saves (300ms) avoid browser freezing during AI streaming.
 - **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`.
 - **Combat Engine**: Initiative tracking, turn management, and battle resolution managed by `CombatManager`.
 - **Character Sheets**: Dynamic character management with modifier calculation.
@@ -236,6 +236,8 @@ dnd-pwa/
 ├── public/           # Static assets and manifest
 ├── src/
 │   ├── data/         # Static data (templates, tags, icons)
+│   ├── engine/       # Game logic (GameLoop, TagProcessor, CombatManager)
+│   ├── state/        # Centralized Store (in-memory cache + localStorage)
 │   ├── utils/        # Helper functions (storage, auth, dice, API)
 │   ├── views/        # Page components (characters, game, settings, etc.)
 │   ├── prompts/      # AI system prompts

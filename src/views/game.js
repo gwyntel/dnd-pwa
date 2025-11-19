@@ -332,95 +332,8 @@ export async function renderGame(state = {}) {
 
       <!-- Character + Rolls below chat for fullscreen chat-first layout -->
       <div class="game-below-chat">
-        <div class="card">
-          <div class="character-header">
-            <div class="character-header-left">
-              <h3>${character.name}</h3>
-              <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
-            </div>
-            ${
-              game.conditions && game.conditions.length > 0
-                ? `
-              <div class="character-header-right">
-                <div class="status-chips">
-                  ${game.conditions
-                    .map((c) => {
-                      const name = typeof c === "string" ? c : c.name
-                      return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-                    })
-                    .join("")}
-                </div>
-              </div>
-              `
-                : ""
-            }
-          </div>
-          
-          <div class="stat-bar mt-2">
-            <div class="flex justify-between mb-1">
-              <span style="font-weight: 500;">HP</span>
-              <span>${game.currentHP}/${character.maxHP}</span>
-            </div>
-            <div class="progress-bar progress-bar-lg">
-              <div
-                class="progress-fill"
-                style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${
-                  game.currentHP > character.maxHP * 0.5
-                    ? "var(--success-color, #4caf50)"
-                    : game.currentHP > character.maxHP * 0.25
-                    ? "var(--warning-color, #ff9800)"
-                    : "var(--error-color, #f44336)"
-                };"
-              ></div>
-            </div>
-          </div>
-          
-          <div class="flex justify-between mb-3 key-stats">
-            <div><strong>AC</strong><br>${character.armorClass}</div>
-            <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
-            <div><strong>SPD</strong><br>${character.speed}ft</div>
-            <div><strong>Gold</strong><br>${game.currency?.gp ?? 0} gp</div>
-          </div>
-          
-          <div class="stats-grid mt-3">
-            <div class="stat-item">
-              <span class="stat-label">STR</span>
-              <span class="stat-value">${character.stats.strength}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">DEX</span>
-              <span class="stat-value">${character.stats.dexterity}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">CON</span>
-              <span class="stat-value">${character.stats.constitution}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">INT</span>
-              <span class="stat-value">${character.stats.intelligence}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">WIS</span>
-              <span class="stat-value">${character.stats.wisdom}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">CHA</span>
-              <span class="stat-value">${character.stats.charisma}</span>
-            </div>
-          </div>
-
-          ${
-            game.combat.active
-              ? `
-            <div class="combat-indicator mt-2">
-              <strong>⚔️ IN COMBAT</strong>
-              <p class="text-secondary" style="font-size: 0.875rem; margin: 0.25rem 0 0; opacity: 0.9;">
-                ${renderCurrentTurn(game)}
-              </p>
-            </div>
-          `
-              : ""
-          }
+        <div class="card" id="character-card">
+          ${CharacterHUD(game, character)}
         </div>
 
         <div class="card">
@@ -2268,22 +2181,6 @@ function buildSystemPrompt(character, game) {
   return buildGameDMPrompt(character, game, world)
 }
 
-function renderCurrentTurn(game) {
-  if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
-    return ""
-  }
-  
-  const currentIndex = game.combat.currentTurnIndex || 0
-  const current = game.combat.initiative[currentIndex]
-  
-  if (!current) {
-    return ""
-  }
-  
-  const turnText = current.type === "player" ? "Your turn" : `${current.name}'s turn`
-  return ` • ${turnText}`
-}
-
 function updateUsageDisplay(game) {
   const usageDisplay = document.getElementById("usage-display")
   if (usageDisplay) {
@@ -2318,31 +2215,11 @@ function updatePlayerStats(game) {
   
   if (!character) return
 
-  // Update HP bar
-  const hpBar = document.querySelector(".progress-fill")
-  const hpText = document.querySelector(".stat-bar .flex.justify-between span:last-child")
-  
-  if (hpBar && hpText) {
-    const hpPercent = (game.currentHP / character.maxHP) * 100
-    const hpColor = game.currentHP > character.maxHP * 0.5
-      ? "var(--success-color, #4caf50)"
-      : game.currentHP > character.maxHP * 0.25
-      ? "var(--warning-color, #ff9800)"
-      : "var(--error-color, #f44336)"
-    
-    hpBar.style.width = `${hpPercent}%`
-    hpBar.style.backgroundColor = hpColor
-    hpText.textContent = `${game.currentHP}/${character.maxHP}`
+  // Find the character card container and re-render using CharacterHUD
+  const characterCard = document.getElementById("character-card")
+  if (characterCard) {
+    characterCard.innerHTML = CharacterHUD(game, character)
   }
-
-  // Update gold display
-  const goldStats = document.querySelectorAll(".key-stats div")
-  if (goldStats.length >= 4) {
-    const goldDiv = goldStats[3]
-    if (goldDiv) {
-      goldDiv.innerHTML = `<strong>Gold</strong><br>${Number.isInteger(game.currency?.gp ?? 0) ? (game.currency?.gp ?? 0) : (game.currency?.gp ?? 0).toFixed(2)} gp`
-    }
- }
 
   // Update inventory display - find the inventory card by searching for all cards with h3 "Inventory"
   const cards = document.querySelectorAll(".card")
@@ -2370,40 +2247,6 @@ function updatePlayerStats(game) {
       
       card.innerHTML = inventoryHTML
       break
-    }
-  }
-
-  // Update status effects in character header (top right)
-  const characterHeaderRight = document.querySelector(".character-header-right")
-  
-  if (game.conditions && game.conditions.length > 0) {
-    const statusChipsHTML = game.conditions
-      .map((c) => {
-        const name = typeof c === "string" ? c : c.name
-        return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-      })
-      .join("")
-    
-    if (characterHeaderRight) {
-      // Update existing status chips
-      const statusChipsContainer = characterHeaderRight.querySelector(".status-chips")
-      if (statusChipsContainer) {
-        statusChipsContainer.innerHTML = statusChipsHTML
-      }
-    } else {
-      // Create new character-header-right section
-      const characterHeader = document.querySelector(".character-header")
-      if (characterHeader) {
-        const newHeaderRight = document.createElement("div")
-        newHeaderRight.className = "character-header-right"
-        newHeaderRight.innerHTML = `<div class="status-chips">${statusChipsHTML}</div>`
-        characterHeader.appendChild(newHeaderRight)
-      }
-    }
-  } else {
-    // Remove character-header-right if no conditions
-    if (characterHeaderRight) {
-      characterHeaderRight.remove()
     }
   }
 }

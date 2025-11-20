@@ -109,13 +109,11 @@ function renderWorldCard(world, games) {
         <div class="flex-1">
           <h3>${world.name} ${world.isDefault ? '<span class="badge">Default</span>' : ""}</h3>
           <p class="text-secondary text-sm">${world.briefDescription}</p>
-          ${
-            gamesUsingWorld > 0
-              ? `<p class="text-secondary text-xs mt-1">Used in ${gamesUsingWorld} game${
-                  gamesUsingWorld > 1 ? "s" : ""
-                }</p>`
-              : ""
-          }
+          ${gamesUsingWorld > 0
+      ? `<p class="text-secondary text-xs mt-1">Used in ${gamesUsingWorld} game${gamesUsingWorld > 1 ? "s" : ""
+      }</p>`
+      : ""
+    }
         </div>
         <div class="flex gap-1">
           <button class="btn-icon edit-world-btn" data-world-id="${world.id}" title="Edit">
@@ -124,9 +122,8 @@ function renderWorldCard(world, games) {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
           </button>
-          ${
-            !world.isDefault
-              ? `
+          ${!world.isDefault
+      ? `
             <button class="btn-icon delete-world-btn" data-world-id="${world.id}" title="Delete">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -134,14 +131,28 @@ function renderWorldCard(world, games) {
               </svg>
             </button>
           `
-              : ""
-          }
+      : ""
+    }
         </div>
       </div>
       
       <div class="mt-1 system-prompt-box">
-        <strong class="text-sm">System Prompt:</strong>
-        <p class="text-secondary text-sm system-prompt-content">${world.systemPrompt}</p>
+        ${world.coreIntent
+      ? `<strong class="text-sm">Core Intent:</strong>
+               <ul class="text-secondary text-sm pl-3 mt-0 mb-1">
+                 ${(Array.isArray(world.coreIntent) ? world.coreIntent : [])
+        .slice(0, 3)
+        .map((i) => `<li>${i}</li>`)
+        .join("")}
+               </ul>`
+      : ""
+    }
+        ${world.worldOverview
+      ? `<strong class="text-sm">Overview:</strong>
+               <p class="text-secondary text-sm mt-0 mb-1">${Array.isArray(world.worldOverview) ? world.worldOverview[0] : "No overview available."
+      }</p>`
+      : ""
+    }
       </div>
     </div>
   `
@@ -199,7 +210,7 @@ function renderTemplateSelection() {
       
       <div class="grid gap-2">
         ${WORLD_TEMPLATES.map(
-          (template) => `
+    (template) => `
           <div class="card template-card" data-template-id="${template.id}">
             <h3>${template.name}</h3>
             <p class="text-secondary text-sm mb-1">${template.briefDescription}</p>
@@ -211,7 +222,7 @@ function renderTemplateSelection() {
             </div>
           </div>
         `,
-        ).join("")}
+  ).join("")}
       </div>
     </div>
   `
@@ -309,8 +320,11 @@ async function generateWorldWithAI() {
         "tone",
         "magicLevel",
         "techLevel",
-        "systemPrompt",
         "startingLocation",
+        "coreIntent",
+        "worldOverview",
+        "coreLocations",
+        "coreFactions",
       ],
       properties: {
         name: { type: "string" },
@@ -325,8 +339,11 @@ async function generateWorldWithAI() {
           type: "string",
           enum: ["primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", "mixed"],
         },
-        systemPrompt: { type: "string" },
         startingLocation: { type: "string" },
+        coreIntent: { type: "array", items: { type: "string" } },
+        worldOverview: { type: "array", items: { type: "string" } },
+        coreLocations: { type: "array", items: { type: "string" } },
+        coreFactions: { type: "array", items: { type: "string" } },
       },
     }
 
@@ -337,20 +354,13 @@ You MUST:
 - Output ONLY a single valid JSON object. NO markdown, NO code fences, NO commentary.
 - Design settings that are directly usable as AI DM system prompts, consistent with structured patterns:
   - Clearly state: genre, tech level, magic level, core tone.
-  - Provide a strong \"briefDescription\" hook (1 sentence).
-  - Provide a concise but rich \"fullDescription\" (2-4 paragraphs max).
-  - Specify a clear \"startingLocation\" that works as a session-0 hub.
-  - Write a \"systemPrompt\" that:
-    - Begins with \"You are running adventures in ...\" or similar.
-    - Summarizes key lore anchors (regions/cities/factions/terrain) without excessive bloat.
-    - Clearly states tech/magic constraints (e.g., no modern guns unless user idea demands it).
-    - Defines a coherent tone (heroic, noir, grim, etc.) and content boundaries.
-    - Includes concrete AI DM guidelines:
-      - Always follow the platform's global system/tool/tag/dice rules (no custom mechanics that conflict).
-      - Present 2–3 clear, meaningful options instead of sprawling lists.
-      - Keep player agency: never dictate character thoughts, choices, or irreversible corruption without consent.
-      - Make consequences legible and grounded in the setting's logic.
-      - Respect the table's content preferences: describe violence, horror, and mature themes in a way that fits the requested tone without assuming restrictions.
+  - Provide a strong "briefDescription" hook (1 sentence).
+  - Provide a concise but rich "fullDescription" (2-4 paragraphs max).
+  - Specify a clear "startingLocation" that works as a session-0 hub.
+  - **coreIntent**: 3-5 bullet points on what the GM should prioritize (e.g., "Focus on political intrigue", "Make combat deadly").
+  - **worldOverview**: 3-5 bullet points summarizing the setting's history, geography, or unique features.
+  - **coreLocations**: 3-5 key locations with brief descriptions (e.g., "Ironhold: A dwarven fortress city").
+  - **coreFactions**: 3-5 key factions with brief descriptions (e.g., "The Silver Hand: Monster hunters").
 
 When using the user's idea:
 - Respect their pitch and genre.
@@ -375,12 +385,12 @@ Respond ONLY with the JSON object.`
 
     const requestOptions = supportsStructuredOutputs
       ? {
-          jsonSchema: {
-            name: "world",
-            strict: true,
-            schema: worldSchema,
-          },
-        }
+        jsonSchema: {
+          name: "world",
+          strict: true,
+          schema: worldSchema,
+        },
+      }
       : {}
 
     const provider = await getProvider()
@@ -421,7 +431,7 @@ Respond ONLY with the JSON object.`
       !generatedWorld ||
       typeof generatedWorld.name !== "string" ||
       typeof generatedWorld.briefDescription !== "string" ||
-      typeof generatedWorld.systemPrompt !== "string"
+      !Array.isArray(generatedWorld.coreIntent)
     ) {
       throw new Error(
         "Generated world JSON is missing required fields. Ensure the model follows the expected schema.",
@@ -441,6 +451,10 @@ Respond ONLY with the JSON object.`
       techLevel: generatedWorld.techLevel || "medieval",
       systemPrompt: generatedWorld.systemPrompt,
       startingLocation: generatedWorld.startingLocation || "",
+      coreIntent: generatedWorld.coreIntent || [],
+      worldOverview: generatedWorld.worldOverview || [],
+      coreLocations: generatedWorld.coreLocations || [],
+      coreFactions: generatedWorld.coreFactions || [],
     }
 
     renderWorldForm(worldTemplate, false, true)
@@ -465,8 +479,11 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
     tone: "",
     magicLevel: "medium",
     techLevel: "medieval",
-    systemPrompt: "",
     startingLocation: "",
+    coreIntent: [],
+    worldOverview: [],
+    coreLocations: [],
+    coreFactions: [],
   }
 
   let headerText = "Create New World"
@@ -535,17 +552,43 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
         </div>
         
         <div class="mb-3">
-          <label class="form-label">System Prompt *</label>
+          <label class="form-label">Core Intent (GM Guidelines) *</label>
           <textarea 
-            id="world-system-prompt" 
+            id="world-core-intent" 
             required 
-            rows="10"
-            placeholder="Describe the world's lore, rules, tone, magic system, technology level, major factions, etc. This will guide the AI DM during adventures in this world."
-            style="resize: vertical;"
-          >${formData.systemPrompt}</textarea>
-          <p class="text-secondary mt-1 text-sm">
-            This is the most important field - it sets the context for all adventures in this world.
-          </p>
+            rows="4"
+            placeholder="One item per line. E.g.:&#10;Make combat deadly&#10;Focus on political intrigue"
+          >${(Array.isArray(formData.coreIntent) ? formData.coreIntent : []).join('\n')}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">World Overview *</label>
+          <textarea 
+            id="world-overview" 
+            required 
+            rows="4"
+            placeholder="One item per line. E.g.:&#10;The kingdom is at war&#10;Magic is fading"
+          >${(Array.isArray(formData.worldOverview) ? formData.worldOverview : []).join('\n')}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Key Locations *</label>
+          <textarea 
+            id="world-locations" 
+            required 
+            rows="4"
+            placeholder="One item per line. E.g.:&#10;Ironhold: A dwarven fortress&#10;The Whispering Woods"
+          >${(Array.isArray(formData.coreLocations) ? formData.coreLocations : []).join('\n')}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Key Factions *</label>
+          <textarea 
+            id="world-factions" 
+            required 
+            rows="4"
+            placeholder="One item per line. E.g.:&#10;The Silver Hand: Monster hunters&#10;The Thieves Guild"
+          >${(Array.isArray(formData.coreFactions) ? formData.coreFactions : []).join('\n')}</textarea>
         </div>
         
         <div class="flex gap-1">
@@ -578,9 +621,14 @@ function saveWorld(existingWorldId = null) {
   const techLevel = document.getElementById("world-tech-level").value
   const tone = document.getElementById("world-tone").value.trim()
   const startingLocation = document.getElementById("world-starting-location").value.trim()
-  const systemPrompt = document.getElementById("world-system-prompt").value.trim()
 
-  if (!name || !briefDescription || !systemPrompt) {
+  // Parse lists
+  const coreIntent = document.getElementById("world-core-intent").value.trim().split('\n').filter(l => l.trim())
+  const worldOverview = document.getElementById("world-overview").value.trim().split('\n').filter(l => l.trim())
+  const coreLocations = document.getElementById("world-locations").value.trim().split('\n').filter(l => l.trim())
+  const coreFactions = document.getElementById("world-factions").value.trim().split('\n').filter(l => l.trim())
+
+  if (!name || !briefDescription) {
     alert("Please fill in all required fields.")
     return
   }
@@ -598,7 +646,12 @@ function saveWorld(existingWorldId = null) {
         world.magicLevel = magicLevel
         world.techLevel = techLevel
         world.startingLocation = startingLocation
-        world.systemPrompt = systemPrompt
+        world.coreIntent = coreIntent
+        world.worldOverview = worldOverview
+        world.coreLocations = coreLocations
+        world.coreFactions = coreFactions
+        // Remove legacy field if present
+        delete world.systemPrompt
       }
     } else {
       // Create new world
@@ -613,7 +666,10 @@ function saveWorld(existingWorldId = null) {
         magicLevel,
         techLevel,
         startingLocation,
-        systemPrompt,
+        coreIntent,
+        worldOverview,
+        coreLocations,
+        coreFactions,
         createdAt: new Date().toISOString(),
         isDefault: false,
       }

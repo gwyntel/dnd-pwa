@@ -4,9 +4,10 @@
  */
 
 import { WORLD_TEMPLATES } from "../data/worlds.js"
+import { showMigrationPopup, hideMigrationPopup } from "../components/MigrationPopup.js"
 
 const STORAGE_KEY = "dnd_pwa_data"
-const SCHEMA_VERSION = "1.0.0"
+const SCHEMA_VERSION = "1.1.0"
 
 // Default data structure
 const DEFAULT_DATA = {
@@ -71,8 +72,8 @@ export function normalizeCharacter(character) {
       character.spellcasting && typeof character.spellcasting === "object"
         ? character.spellcasting
         : {
-            // kept intentionally minimal; real structure can evolve in v1.5+
-          },
+          // kept intentionally minimal; real structure can evolve in v1.5+
+        },
   }
 }
 
@@ -87,12 +88,77 @@ export function loadData() {
       return { ...DEFAULT_DATA }
     }
 
-    const data = JSON.parse(stored)
+    let data = JSON.parse(stored)
+    let migrated = false
 
-    // Validate schema version
+    // Migration Logic
     if (data.version !== SCHEMA_VERSION) {
-      console.warn(`Schema version mismatch. Expected ${SCHEMA_VERSION}, got ${data.version}`)
-      // TODO: Implement migration logic in future versions
+      console.log(`Migrating data from ${data.version || "unknown"} to ${SCHEMA_VERSION}`)
+
+      // Show popup if we are in a browser environment
+      if (typeof document !== 'undefined') {
+        showMigrationPopup()
+      }
+
+      // 1.1.0 Migration: World Schema Update
+      if (!data.version || data.version < "1.1.0") {
+        // Migrate Worlds
+        if (Array.isArray(data.worlds)) {
+          data.worlds = data.worlds.map(world => {
+            // Find matching template
+            const template = WORLD_TEMPLATES.find(t => t.id === world.id)
+            if (template) {
+              // Overwrite with new template data but preserve user fields
+              return {
+                ...template,
+                createdAt: world.createdAt || new Date().toISOString(),
+                // Preserve any other custom fields if they exist, but ensure systemPrompt is gone/overwritten
+                // by template (which doesn't have it anymore)
+              }
+            }
+            // For custom worlds, we can't do much but ensuring they don't break
+            // We could try to parse systemPrompt into new fields but that's risky AI work
+            // For now, we leave them as is, but maybe add empty fields to avoid crashes
+            return {
+              ...world,
+              coreIntent: world.coreIntent || [],
+              worldOverview: world.worldOverview || [],
+              coreLocations: world.coreLocations || [],
+              coreFactions: world.coreFactions || [],
+            }
+          })
+        }
+
+        // Migrate Games (update embedded world data)
+        if (Array.isArray(data.games)) {
+          data.games = data.games.map(game => {
+            if (game.world) {
+              const template = WORLD_TEMPLATES.find(t => t.id === game.world.id)
+              if (template) {
+                return {
+                  ...game,
+                  world: {
+                    ...template,
+                    createdAt: game.world.createdAt || new Date().toISOString()
+                  }
+                }
+              }
+            }
+            return game
+          })
+        }
+
+        migrated = true
+      }
+
+      data.version = SCHEMA_VERSION
+
+      if (migrated) {
+        saveData(data)
+        if (typeof document !== 'undefined') {
+          hideMigrationPopup()
+        }
+      }
     }
 
     // Ensure we always have at least one robust default world.

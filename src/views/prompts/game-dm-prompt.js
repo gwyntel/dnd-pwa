@@ -59,7 +59,7 @@ export function buildGameDMPrompt(character, game, world) {
   const relationshipsCompressed = Object.entries(relationships)
     .map(([entity, value]) => `${entity}:${value}`)
     .join('|') // "Blacksmith:5|Guard:-2|Tavern:3"
-  
+
   const conditionsCompressed = conditionNames.join(',') // "Poisoned,Blessed"
 
   const statusLineParts = []
@@ -72,9 +72,23 @@ export function buildGameDMPrompt(character, game, world) {
 
   const inventorySection = `\n\n**Inventory:** ${inventoryCompressed}`
 
-  const worldPrompt = world ? `**World Setting:**\n${world.systemPrompt}\n\n` : ""
+  let worldPrompt = "";
+  if (world) {
+    const sections = [
+      `**World Setting:** ${world.name}`,
+      `**Tone & Genre:** ${world.tone}`,
+      world.magicLevel ? `**Magic Level:** ${world.magicLevel}` : null,
+      world.techLevel ? `**Tech Level:** ${world.techLevel}` : null,
+      world.startingLocation ? `**Starting Location:** ${world.startingLocation}` : null,
+      world.coreIntent ? `**Core Intent:**\n${formatList(world.coreIntent)}` : null,
+      world.worldOverview ? `**World Overview:**\n${formatList(world.worldOverview)}` : null,
+      world.coreLocations ? `**Key Locations:**\n${formatList(world.coreLocations)}` : null,
+      world.coreFactions ? `**Key Factions:**\n${formatList(world.coreFactions)}` : null,
+    ].filter(Boolean).join('\n\n');
+    worldPrompt = `${sections}\n\n`;
+  }
 
-  return `${worldPrompt}You are the Game Master for a fantasy roleplaying game that must emulate the mechanics and feel of Dungeons & Dragons 5th Edition (5e) without assuming prior knowledge of any proprietary rulebooks.
+  return `You are the Game Master for a fantasy roleplaying game that must emulate the mechanics and feel of Dungeons & Dragons 5th Edition (5e) without assuming prior knowledge of any proprietary rulebooks.
 
 When interpreting "5e" rules, follow these principles:
 - Characters have ability scores (STR/DEX/CON/INT/WIS/CHA) that provide modifiers.
@@ -174,19 +188,9 @@ Use these patterns to guide your mechanical interpretations. You don't need to u
 - Always include tags inline in your narrative text, not isolated on their own lines.
 - Never invent dice outcomes; always request them via ROLL[...] tags and then react to the app's displayed results on subsequent turns.
 
-**Example Response:**
-"You push open the creaking door and step into the LOCATION[Abandoned Chapel]. Dust motes dance in shafts of moonlight streaming through broken windows. In the center of the room, you spot a **glowing artifact** resting on an altar.
-
-As you approach, you hear a low growl. A **skeletal guardian** rises from the shadows! COMBAT_START[Skeletal guardian attacks!]
-
-Roll for initiative: ROLL[1d20+2|normal|0]
-
-ACTION[Attack the skeleton]
-ACTION[Grab the artifact and run]
-ACTION[Try to reason with the guardian]
 ACTION[Search for another exit]"
 
-Current location: ${game.currentLocation}
+${worldPrompt}Current location: ${game.currentLocation}
 ${game.combat.active ? `Currently in combat (${getCurrentTurnDescription(game)})` : ""}
 
 Begin the adventure!`
@@ -216,16 +220,22 @@ function getCurrentTurnDescription(game) {
   if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
     return "combat active"
   }
-  
+
   // Simple turn tracking: if last action was by player, it's enemy turn; otherwise player turn
   const lastActor = game.combat.lastActor || "enemy"
   const currentTurn = lastActor === "player" ? "enemy" : "player"
-  
+
   if (currentTurn === "player") {
     return "Your turn"
   }
-  
+
   // Find first enemy in initiative for display
   const firstEnemy = game.combat.initiative.find(i => i.type === "npc")
   return firstEnemy ? `${firstEnemy.name}'s turn` : "Enemy turn"
+}
+
+function formatList(list) {
+  if (!list) return ""
+  if (Array.isArray(list)) return list.map(i => `- ${i}`).join('\n')
+  return list
 }

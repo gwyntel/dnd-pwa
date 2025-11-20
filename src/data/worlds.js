@@ -19,49 +19,29 @@ export const WORLD_TEMPLATES = [
     techLevel: "medieval",
     startingLocation:
       "The riverside town of Greenhollow, with an inn, a market, a small temple, a town watch, and rumors of trouble in the nearby woods.",
-    systemPrompt: `You are running adventures in the Default Classic Fantasy Realm — a streamlined, beginner-friendly high fantasy setting.
-
-CORE INTENT:
-- Make it EASY for new players and GMs.
-- Keep tone heroic and inviting, with clear threats and clear ways to be awesome.
-- Provide obvious adventure hooks without heavy lore dumps.
-- Respect player agency and the game's mechanical constraints.
-
-WORLD OVERVIEW:
-- Baseline: A classic medieval fantasy realm with magic, monsters, and ancient ruins.
-  - Magic exists, studied by wizards and guided by priests, but is not mundane consumer tech.
-  - Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and classes fit smoothly.
-  - Medieval tech level: swords, bows, armor, sailing ships; no guns or modern industry unless the user/world explicitly permits them.
-- Home Base — Greenhollow:
-  - Friendly riverside town and default starting hub.
-  - Key NPCs (examples, adapt as needed):
-    - Mayor Elira Thorne: Capable but overstretched; values practical heroes.
-    - Captain Bram: Town watch leader, honest and blunt.
-    - Sister Maelin: Temple priest and healer; a natural quest-giver.
-    - Old Tamsin: Retired adventurer who shares rumors, maps, and gentle guidance.
-- Nearby Hooks:
-  - Whispering Woods: Goblins, wolves, fey lights, lost shrines, mysterious tracks.
-  - Old Watchtower: Bandits or a small cult; straightforward but dramatic dungeon site.
-  - Crystalford Mine: Miners missing, strange lights and sounds below.
-- Factions (keep simple and readable):
-  - Town Watch (order and safety),
-  - Road Wardens (caravans and travel),
-  - A Hidden Cult or Shadowy Mage (slow-burn villain behind local troubles).
-
-TONE & GENRE:
-- Heroic fantasy with room for wonder, suspense, and light drama.
-- Default to clear good vs evil. Moral nuance is allowed, but do not force grimdark by default.
-- Maintain a welcoming tone suitable for new or cautious groups.
-
-AI DM BEHAVIOR GUIDELINES:
-- Always follow the global system + tool rules, tag formats, and dice/roll semantics.
-- Present 2–3 clear, meaningful options instead of long unfocused lists.
-- When rules or mechanics are involved, explain outcomes and difficulties in plain language.
-- Never remove player agency: offer consequences and choices, do not decide for them.
-- Respect the table's tone preferences while maintaining narrative coherence and mechanical clarity.
-- When uncertain, choose the path that keeps play fun, fair, comprehensible, and grounded in this realm.
-
-Use this as the default world context whenever a game uses the default world and no custom world overrides it.`,
+    coreIntent: [
+      "Make it EASY for new players and GMs.",
+      "Keep tone heroic and inviting, with clear threats and clear ways to be awesome.",
+      "Provide obvious adventure hooks without heavy lore dumps.",
+      "Respect player agency and the game's mechanical constraints."
+    ],
+    worldOverview: [
+      "Baseline: A classic medieval fantasy realm with magic, monsters, and ancient ruins.",
+      "Magic exists, studied by wizards and guided by priests, but is not mundane consumer tech.",
+      "Standard fantasy ancestries (humans, elves, dwarves, halflings, etc.) and classes fit smoothly.",
+      "Medieval tech level: swords, bows, armor, sailing ships; no guns or modern industry unless the user/world explicitly permits them."
+    ],
+    coreLocations: [
+      "Home Base — Greenhollow: Friendly riverside town and default starting hub.",
+      "Whispering Woods: Goblins, wolves, fey lights, lost shrines, mysterious tracks.",
+      "Old Watchtower: Bandits or a small cult; straightforward but dramatic dungeon site.",
+      "Crystalford Mine: Miners missing, strange lights and sounds below."
+    ],
+    coreFactions: [
+      "Town Watch (order and safety)",
+      "Road Wardens (caravans and travel)",
+      "A Hidden Cult or Shadowy Mage (slow-burn villain behind local troubles)"
+    ],
     isDefault: true,
   },
   {
@@ -74,27 +54,31 @@ Use this as the default world context whenever a game uses the default world and
     tone: "Dark, mysterious, morally grey with political intrigue",
     magicLevel: "low",
     techLevel: "renaissance",
-    systemPrompt: `You are running adventures in an Urban Noir fantasy setting centered on the city of Shadowhaven — a dense metropolis of stone, smoke, and secrets.
-
-WORLD & GENRE:
-- Renaissance-adjacent tech: rapiers, crossbows, early gunpowder, printing presses, carriages; no modern firearms or electronics.
-- Magic exists but is subtle, restricted, or illegal. Hedge mages, back-alley charms, sanctioned court wizards.
-- Factions and neighborhoods define the city more than wilderness; politics, crime, and reputation matter.
-
-KEY FACTIONS & ELEMENTS:
-- The Silver Council: Noble houses ruling from gilded halls; public order hides private corruption.
-- The Black Hand: Chartered Thieves Guild balancing crime and "order" in the underworld.
-- The Greycoats: Overworked city watch; individually honest or corrupt as fits the scene.
-- The Veil: Spy network trading in secrets, blackmail, and whispers.
-- The Burned: Fire-obsessed cult or movement, dangerous and unpredictable.
-- Districts: Lamplight District (taverns, informants), Noble Quarter, Docks, Warrens, Old Temple Row.
-Use these as flexible tools, not rigid canon.
-
-TONE:
-- Noir: moral ambiguity, hard choices, compromises. Information is power.
-- Keep it grounded: small details (rain on cobblestones, flickering lamps, hushed threats) sell the mood.
-- Do not force grimdark torture porn; imply more than you show; keep it playable.`,
     startingLocation: "The Lamplight District, where taverns glow warmly but danger lurks in every shadow",
+    coreIntent: [
+      "Focus on intrigue, secrets, and social maneuvering.",
+      "Combat is deadly and often a fail state; stealth and talk are key.",
+      "Moral ambiguity is central; no clear good guys."
+    ],
+    worldOverview: [
+      "Renaissance-adjacent tech: rapiers, crossbows, early gunpowder, printing presses, carriages.",
+      "Magic exists but is subtle, restricted, or illegal. Hedge mages, back-alley charms, sanctioned court wizards.",
+      "Factions and neighborhoods define the city more than wilderness; politics, crime, and reputation matter."
+    ],
+    coreLocations: [
+      "Lamplight District (taverns, informants)",
+      "Noble Quarter (gilded halls, private corruption)",
+      "Docks (smugglers, trade)",
+      "Warrens (poverty, crime)",
+      "Old Temple Row (forgotten gods, secrets)"
+    ],
+    coreFactions: [
+      "The Silver Council: Noble houses ruling from gilded halls.",
+      "The Black Hand: Chartered Thieves Guild balancing crime and 'order'.",
+      "The Greycoats: Overworked city watch; individually honest or corrupt.",
+      "The Veil: Spy network trading in secrets, blackmail, and whispers.",
+      "The Burned: Fire-obsessed cult or movement, dangerous and unpredictable."
+    ]
   },
   {
     id: "template_high_seas",
@@ -106,26 +90,30 @@ TONE:
     tone: "Adventurous and swashbuckling with nautical flavor",
     magicLevel: "medium",
     techLevel: "renaissance",
-    systemPrompt: `You are running adventures in a High Seas setting centered on the Shattered Isles — a vast archipelago of ports, coves, and uncharted waters.
-
-WORLD & GENRE:
-- Age-of-sail tech: tall ships, cannons, cutlasses, flintlock pistols; no modern engines or radio.
-- Magic is real and often tied to the sea, storms, stars, and ancient ruins.
-- The Shattered Isles are diverse: jungle islands, volcanic chains, haunted reefs, fog-shrouded atolls, frozen northern holds.
-- Sea monsters (krakens, dragon turtles, sahuagin, sirens) and supernatural storms are credible threats.
-
-KEY FACTIONS:
-- Merchant Navy: Trade powers, convoys, monopolies, private security.
-- Free Captains: Pirate confederation with shifting codes and grudges.
-- Storm Lords: Indigenous island leaders and shamans, guardians of local seas and spirits.
-- Tidecaller Cult: Fanatics devoted to a sea deity; can be ally, threat, or both.
-Use factions to create choices at sea, not just random encounters.
-
-TONE:
-- Swashbuckling, adventurous, cinematic.
-- Emphasize exploration, daring plans, boarding actions, treasure maps, and moral choices at sea.
-- Allow both heroic pirates and principled navy officers; do not assume pure villainy unless players lean into it.`,
     startingLocation: "Port Meridian, a bustling harbor city serving as the gateway to the Shattered Isles",
+    coreIntent: [
+      "Swashbuckling, adventurous, cinematic.",
+      "Emphasize exploration, daring plans, boarding actions, treasure maps, and moral choices at sea.",
+      "Allow both heroic pirates and principled navy officers."
+    ],
+    worldOverview: [
+      "Age-of-sail tech: tall ships, cannons, cutlasses, flintlock pistols.",
+      "Magic is real and often tied to the sea, storms, stars, and ancient ruins.",
+      "The Shattered Isles are diverse: jungle islands, volcanic chains, haunted reefs, fog-shrouded atolls, frozen northern holds.",
+      "Sea monsters (krakens, dragon turtles, sahuagin, sirens) and supernatural storms are credible threats."
+    ],
+    coreLocations: [
+      "Port Meridian: Bustling harbor city and gateway.",
+      "The Shattered Isles: Vast archipelago of diverse islands.",
+      "Forgotten Atolls: Buried ancient treasures.",
+      "The Deep: Home to sea monsters and mysteries."
+    ],
+    coreFactions: [
+      "Merchant Navy: Trade powers, convoys, monopolies, private security.",
+      "Free Captains: Pirate confederation with shifting codes and grudges.",
+      "Storm Lords: Indigenous island leaders and shamans.",
+      "Tidecaller Cult: Fanatics devoted to a sea deity."
+    ]
   },
   {
     id: "template_dungeon_crawler",
@@ -137,28 +125,28 @@ TONE:
     tone: "Tense and atmospheric dungeon exploration",
     magicLevel: "high",
     techLevel: "mixed",
-    systemPrompt: `You are running a Dungeon Crawler campaign focused on the Endless Delve — a sprawling underworld megastructure beneath a fragile surface world.
-
-WORLD & STRUCTURE:
-- The surface is dangerous, fading, or politically unstable; the true frontier is below.
-- The Endless Delve: layered dungeons, ruins, caverns, fungal forests, lost cities, aberrant domains.
-- The deeper the level, the higher the threat and the greater the reward.
-
-ANCHOR:
-- The Last Sanctuary: fortified hub at the Delve's mouth.
-  - Safe rest, gear, rumors, quest givers, faction reps.
-  - Treat it as a stable base loop between expeditions.
-
-MECHANICAL FOCUS:
-- Resource pressure: light, food, spells, hit points, conditions.
-- Spatial awareness: chokepoints, verticality, secret doors, shortcuts.
-- Monsters as ecosystems: patrols, lairs, reactions; not static bags of XP.
-
-TONE:
-- Tense, atmospheric exploration; not pure slaughter.
-- Telegraph danger; let players opt into deeper risk.
-- Victories feel earned when they extract alive with maps, loot, and scars.`,
     startingLocation: "The Last Sanctuary, the only safe haven at the entrance to the Endless Delve",
+    coreIntent: [
+      "Tense, atmospheric exploration; not pure slaughter.",
+      "Telegraph danger; let players opt into deeper risk.",
+      "Victories feel earned when they extract alive with maps, loot, and scars."
+    ],
+    worldOverview: [
+      "The surface is dangerous, fading, or politically unstable; the true frontier is below.",
+      "The Endless Delve: layered dungeons, ruins, caverns, fungal forests, lost cities, aberrant domains.",
+      "The deeper the level, the higher the threat and the greater the reward.",
+      "Resource pressure: light, food, spells, hit points, conditions.",
+      "Spatial awareness: chokepoints, verticality, secret doors, shortcuts."
+    ],
+    coreLocations: [
+      "The Last Sanctuary: Fortified hub at the Delve's mouth (safe rest, gear, rumors).",
+      "The Endless Delve: The main dungeon complex."
+    ],
+    coreFactions: [
+      "Sanctuary Guard: Defenders of the last safe haven.",
+      "Delver's Guild: Explorers and map-makers.",
+      "Cult of the Deep: Worshippers of the things below."
+    ]
   },
   {
     id: "template_dark_fantasy",
@@ -170,24 +158,27 @@ TONE:
     tone: "Dark, gritty, morally complex with horror elements",
     magicLevel: "medium",
     techLevel: "medieval",
-    systemPrompt: `You are running a Dark Fantasy setting in the dying Old Kingdom — a world of curses, plagues, and fallen oaths.
-
-WORLD & MAGIC:
-- The sun wanes; harvests fail; undead and horrors slip into the world.
-- Magic is potent but tainted; bargains, blood, and forbidden texts leave marks.
-- Holy power may exist but feels distant, conditional, or compromised.
-- Cities are paranoid; countryside is monster-haunted.
-
-TONE:
-- Grim, weighty, morally complex — but not edge-lord shock for its own sake.
-- Victories are costly; survival and small mercies matter.
-- Show horror elements (body horror, cosmic dread, tragedy) with care and consent; allow fade-to-black.
-
-FACTIONS & THEMES:
-- Fragmented nobles clinging to power.
-- Cults, inquisitions, heretical orders, desperate commoners.
-- Themes: corruption, sacrifice, faith vs nihilism, what it costs to protect others.`,
     startingLocation: "Ashenmoor, a walled town barely holding back the encroaching darkness",
+    coreIntent: [
+      "Grim, weighty, morally complex — but not edge-lord shock for its own sake.",
+      "Victories are costly; survival and small mercies matter.",
+      "Show horror elements (body horror, cosmic dread, tragedy) with care and consent."
+    ],
+    worldOverview: [
+      "The sun wanes; harvests fail; undead and horrors slip into the world.",
+      "Magic is potent but tainted; bargains, blood, and forbidden texts leave marks.",
+      "Holy power may exist but feels distant, conditional, or compromised.",
+      "Cities are paranoid; countryside is monster-haunted."
+    ],
+    coreLocations: [
+      "Ashenmoor: Walled town holding back the darkness.",
+      "The Old Kingdom: A dying land of ash and shadow."
+    ],
+    coreFactions: [
+      "Fragmented Nobles: Clinging to power.",
+      "Cults and Inquisitions: Heretical orders and desperate commoners.",
+      "The Undead: Not a faction per se, but a constant organized threat."
+    ]
   },
   {
     id: "template_wilderness",
@@ -199,22 +190,27 @@ FACTIONS & THEMES:
     tone: "Survival-focused with naturalistic danger",
     magicLevel: "low",
     techLevel: "primitive",
-    systemPrompt: `You are running a Wilderness Survival setting beyond the Last Wall — an Untamed Wild of primordial forests, peaks, and monsters.
-
-WORLD:
-- Sparse outposts (like Outpost Seven) cling to the edge of an endless wild.
-- Between havens: days of difficult travel through trackless forests, bogs, cliffs, tundra.
-- Predators and monsters hunt, migrate, defend territory; nature is an active force.
-
-MECHANICAL FOCUS:
-- Emphasize survival elements: food, water, shelter, weather, navigation.
-- Do not micromanage every ration roll, but make these factors matter at key moments.
-- Travel choices (route, pace, caution) should influence encounters and risk.
-
-TONE:
-- Harsh but awe-inspiring: beauty and danger intertwined.
-- "Survival horror meets exploration" without constant hopelessness.`,
     startingLocation: "Outpost Seven, a palisaded settlement on the edge of the Untamed Wilds",
+    coreIntent: [
+      "Harsh but awe-inspiring: beauty and danger intertwined.",
+      "Survival horror meets exploration without constant hopelessness.",
+      "Emphasize survival elements: food, water, shelter, weather, navigation."
+    ],
+    worldOverview: [
+      "Sparse outposts (like Outpost Seven) cling to the edge of an endless wild.",
+      "Between havens: days of difficult travel through trackless forests, bogs, cliffs, tundra.",
+      "Predators and monsters hunt, migrate, defend territory; nature is an active force."
+    ],
+    coreLocations: [
+      "Outpost Seven: Palisaded settlement on the edge.",
+      "The Untamed Wilds: Primordial forest and savage mountains.",
+      "The Last Wall: The border of civilization."
+    ],
+    coreFactions: [
+      "Rangers of the Wall: Protectors of the frontier.",
+      "Druidic Circles: Guardians of the wild.",
+      "Beast Clans: Intelligent monster tribes."
+    ]
   },
   {
     id: "template_planar",
@@ -226,22 +222,26 @@ TONE:
     tone: "Surreal and fantastical with reality-bending elements",
     magicLevel: "high",
     techLevel: "mixed",
-    systemPrompt: `You are running a Planar Adventure campaign where travel between planes is central to play.
-
-FRAME:
-- The Material Plane is only one stop; countless planes exist with distinct laws, cultures, and dangers.
-- Examples: Feywild, Shadowfell, Elemental Planes, Astral Sea, Mechanus, Far Realm, plus original planes.
-- Portals, rituals, relics, and cosmic events enable movement; routes and keys are precious information.
-
-DESIGN PRINCIPLES:
-- Each plane must feel mechanically and thematically distinct:
-  - Change gravity, time, magic behavior, social norms, hazards.
-  - Telegraphed clearly so players can reason about them.
-- Reuse some anchors (planar hubs, guides, factions) so the campaign stays navigable.
-
-TONE:
-- High fantasy meets weird fiction; wondrous, dangerous, occasionally surreal.
-- Avoid incoherent randomness: each scene should follow from the established rules of its plane.`,
     startingLocation: "Sigil, the City of Doors - a planar hub where portals to all realities converge",
+    coreIntent: [
+      "High fantasy meets weird fiction; wondrous, dangerous, occasionally surreal.",
+      "Avoid incoherent randomness: each scene should follow from the established rules of its plane.",
+      "Each plane must feel mechanically and thematically distinct."
+    ],
+    worldOverview: [
+      "The Material Plane is only one stop; countless planes exist with distinct laws, cultures, and dangers.",
+      "Examples: Feywild, Shadowfell, Elemental Planes, Astral Sea, Mechanus, Far Realm.",
+      "Portals, rituals, relics, and cosmic events enable movement."
+    ],
+    coreLocations: [
+      "Sigil: The City of Doors, a planar hub.",
+      "The Astral Sea: Crystalline cities and thought-space.",
+      "Elemental Planes: Pure manifestations of fire, water, earth, air."
+    ],
+    coreFactions: [
+      "Planar Trade Consortium: Interdimensional merchants.",
+      "The Keepers of the Veil: Monitoring planar breaches.",
+      "Githyanki Raiders: Astral pirates."
+    ]
   },
 ]

@@ -17,10 +17,12 @@ import { getDefaultModelFromEnv } from "./utils/model-utils.js"
 import { loadData, saveData } from "./utils/storage.js"
 import store from "./state/store.js"
 
+import { runPendingMigrations } from "./utils/ai-migration.js"
+
 /**
  * Initialize the application
  */
-function init() {
+async function init() {
   console.log("D&D PWA - Initializing...")
 
   // Initialize the centralized store first
@@ -59,6 +61,13 @@ function init() {
   initRouter()
 
   console.log("D&D PWA - Ready!")
+
+  // Run background migrations (AI-powered)
+  // We do this after the app is ready so it doesn't block initial render,
+  // but the popup will overlay if needed.
+  setTimeout(() => {
+    runPendingMigrations().catch(err => console.error("Migration failed:", err))
+  }, 1000)
 }
 
 /**

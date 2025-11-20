@@ -540,7 +540,34 @@ async function processRollBatch() {
   // Clear batch
   rollBatch = []
   
+  // Create system message with roll results
+  const rollSystemMessage = {
+    id: `msg_${Date.now()}_roll_result`,
+    role: "system",
+    content: followupPrompt,
+    timestamp: new Date().toISOString(),
+    hidden: true, // Hidden from UI but visible to AI
+    metadata: { 
+      rollResult: true,
+      ephemeral: true 
+    }
+  }
+
+  // Add to game state so it's included in the API request
+  game.messages.push(rollSystemMessage)
+  
+  // Optional: Append to UI if we wanted to show it (but it's hidden)
+  // appendMessage(rollSystemMessage) 
+
   try {
+    // Save state before sending to ensure message is persisted
+    await store.update((state) => {
+      const g = state.games.find((g) => g.id === currentGameId)
+      if (g) {
+        g.messages = game.messages
+      }
+    })
+
     await sendMessage(game, followupPrompt, data)
   } catch (e) {
     console.error("[dice][batch] Error during roll follow-up narration:", e)

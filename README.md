@@ -270,4 +270,4 @@ For issues or questions:
 
 ---
 
-*Dedicated to my in-laws, which love DND. Made by Gwyneth, Claude 4.5, Qwen Code, and GPT-5.1.*
+*Dedicated to my in-laws, which love DND. Made by Gwyneth, Claude 4.5, Qwen Code, GPT-5.1, and Gemini 3 Pro.*

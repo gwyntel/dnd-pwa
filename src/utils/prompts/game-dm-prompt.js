@@ -214,6 +214,22 @@ ${JSON.stringify(TAG_REFERENCE, null, 2)}
 - Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant.
 - Consumable items MUST be removed with INVENTORY_REMOVE when used.
 
+**REWARDS & PROGRESSION (XP CURVE):**
+Use standard 5e XP thresholds. Award XP generously for milestones and combat.
+- Level 1 -> 2: 300 XP
+- Level 2 -> 3: 900 XP (Total)
+- Level 3 -> 4: 2,700 XP (Total)
+- Level 4 -> 5: 6,500 XP (Total)
+
+**Reward Guidelines:**
+- **XP**: Use XP_GAIN[amount|reason] (e.g., XP_GAIN[50|Defeating Goblins]).
+  - Easy Encounter: 25-50 XP
+  - Medium Encounter: 100-200 XP
+  - Hard Encounter: 300+ XP
+  - Major Milestone: 500+ XP
+- **Spells**: Use LEARN_SPELL[spell_name] when player finds scrolls or ancient tomes.
+- **Level Up**: The engine handles the actual level up process when XP threshold is met.
+
 **5e Mechanics Pattern Examples:**
 
 ${JSON.stringify(DND_MECHANICS_EXAMPLES, null, 2)}

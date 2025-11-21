@@ -176,12 +176,26 @@ export const TAG_REFERENCE = {
     required: true,
     note: "8 hour rest. Full HP, all spell slots, all resources."
   },
-  HIT_DIE_ROLL: {
-    pattern: "HIT_DIE_ROLL[count]",
-    examples: ["HIT_DIE_ROLL[2]"],
+  XP_GAIN: {
+    pattern: "XP_GAIN[amount|reason]",
+    examples: ["XP_GAIN[50|Defeating the Goblins]", "XP_GAIN[100|Reaching the Crystal Cave]"],
     required: true,
-    note: "Spend hit dice during short rest for healing."
-  }
+    note: "Award XP for combat victories or milestones."
+  },
+
+  LEARN_SPELL: {
+    pattern: "LEARN_SPELL[spell_name]",
+    examples: ["LEARN_SPELL[Fireball]", "LEARN_SPELL[Identify]"],
+    required: false,
+    note: "Grant a new known spell (e.g. from a scroll)."
+  },
+
+  LEVEL_UP: {
+    pattern: "LEVEL_UP[level]",
+    examples: ["LEVEL_UP[2]"],
+    required: false,
+    note: "System tag triggered when XP threshold is met."
+  },
 };
 
 /**
@@ -246,5 +260,8 @@ export const REGEX = {
   SHORT_REST: /SHORT_REST\[(\d+)\]/g,
   LONG_REST: /LONG_REST\[(\d+)\]/g,
   HIT_DIE_ROLL: /HIT_DIE_ROLL\[(\d+)\]/g,
+  XP_GAIN: /XP_GAIN\[(\d+)\|([^\]]+)\]/g,
+  LEARN_SPELL: /LEARN_SPELL\[([^\]]+)\]/g,
+  LEVEL_UP: /LEVEL_UP\[(\d+)\]/g,
   DEATH_SAVE: /DEATH_SAVE\[(\d+)\]/g,
 };

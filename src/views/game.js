@@ -39,10 +39,12 @@ import { LocationHistory } from "../components/LocationHistory.js"
 import { RelationshipList } from "../components/RelationshipList.js"
 import { ChatMessage } from "../components/ChatMessage.js"
 import { CharacterHUD } from "../components/CharacterHUD.js"
+import { renderLevelUpModal, attachLevelUpHandlers } from "../components/LevelUpModal.js"
 
 let currentGameId = null
 let isStreaming = false
 let userScrolledUp = false // Track if user has manually scrolled away from bottom
+let levelUpModalOpen = false
 
 // Roll batching system - collects multiple rolls before triggering follow-up
 let rollBatch = []
@@ -408,7 +410,32 @@ export async function renderGame(state = {}) {
       </div>
     </div>
 
+    ${levelUpModalOpen ? `
+      <div class="modal-overlay" onclick="if(event.target === this) window.closeLevelUp()">
+        <div class="modal-container">
+          ${renderLevelUpModal(character, window.closeLevelUp)}
+        </div>
+      </div>
+    ` : ''}
   `
+
+  // Attach Level Up Handlers if modal is open
+  if (levelUpModalOpen) {
+    attachLevelUpHandlers(game, character, () => {
+      renderGame(store.get()) // Re-render on change
+    })
+  }
+
+  // Window handlers for Level Up
+  window.openLevelUpModal = () => {
+    levelUpModalOpen = true
+    renderGame(store.get())
+  }
+
+  window.closeLevelUp = () => {
+    levelUpModalOpen = false
+    renderGame(store.get())
+  }
 
   // Auto-scroll to bottom initially
   const messagesContainer = document.getElementById("messages-container")
@@ -2236,6 +2263,110 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           metadata: { concentrationEnded: true }
         })
         needsUIUpdate = true
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // XP_GAIN[amount|reason]
+  const xpGainMatches = text.matchAll(REGEX.XP_GAIN)
+  for (const match of xpGainMatches) {
+    const tagKey = `xp_gain_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const amount = parseInt(match[1], 10)
+      const reason = match[2]
+
+      if (character && character.xp) {
+        character.xp.current += amount
+        character.xp.history.push({
+          amount,
+          reason,
+          date: new Date().toISOString()
+        })
+
+        newMessages.push({
+          id: `msg_${Date.now()}_xp_gain`,
+          role: "system",
+          content: `🌟 Gained ${amount} XP: ${reason} (Total: ${character.xp.current}/${character.xp.max})`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { xpGain: true, amount, reason }
+        })
+
+        // Check for Level Up
+        if (character.xp.current >= character.xp.max) {
+          newMessages.push({
+            id: `msg_${Date.now()}_level_up_ready`,
+            role: "system",
+            content: `🎉 **LEVEL UP AVAILABLE!** You have reached enough XP to advance to Level ${character.level + 1}. Check your character sheet to level up!`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { levelUpReady: true }
+          })
+        }
+
+        // Persist changes
+        store.update(state => {
+          const char = state.characters.find(c => c.id === character.id)
+          if (char) char.xp = character.xp
+        })
+
+        needsUIUpdate = true
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // LEARN_SPELL[spell_name]
+  const learnSpellMatches = text.matchAll(REGEX.LEARN_SPELL)
+  for (const match of learnSpellMatches) {
+    const tagKey = `learn_spell_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const spellName = match[1]
+
+      if (character) {
+        // Add to known spells if not already there
+        const knownSpells = character.knownSpells || []
+        const alreadyKnown = knownSpells.some(s => s.name.toLowerCase() === spellName.toLowerCase())
+
+        if (!alreadyKnown) {
+          // We don't know the level/school from just the name, so we add a placeholder
+          // The user can edit it later or we can look it up if we had a full DB
+          const newSpell = {
+            id: spellName.toLowerCase().replace(/\s+/g, '-'),
+            name: spellName,
+            level: 1, // Default to 1, user can fix
+            source: "reward"
+          }
+
+          if (!character.knownSpells) character.knownSpells = []
+          character.knownSpells.push(newSpell)
+
+          newMessages.push({
+            id: `msg_${Date.now()}_learn_spell`,
+            role: "system",
+            content: `✨ Learned new spell: **${spellName}**!`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { spellLearned: true, spellName }
+          })
+
+          // Persist changes
+          store.update(state => {
+            const char = state.characters.find(c => c.id === character.id)
+            if (char) char.knownSpells = character.knownSpells
+          })
+
+          needsUIUpdate = true
+        } else {
+          newMessages.push({
+            id: `msg_${Date.now()}_spell_known`,
+            role: "system",
+            content: `(You already know the spell ${spellName})`,
+            timestamp: new Date().toISOString(),
+            hidden: false
+          })
+        }
       }
       processedTags.add(tagKey)
     }

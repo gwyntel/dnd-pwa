@@ -100,6 +100,13 @@ export function normalizeCharacter(character) {
       ? character.classResources
       : [],
 
+    // XP & Leveling
+    xp: character.xp || {
+      current: 0,
+      max: 300, // Level 1 -> 2
+      history: []
+    },
+
     // Prepared spells (for classes that prepare)
     preparedSpells: Array.isArray(character.preparedSpells)
       ? character.preparedSpells

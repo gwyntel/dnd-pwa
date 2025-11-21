@@ -1613,9 +1613,15 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
       const target = match[1]
       const amount = Number.parseInt(match[2], 10)
 
-      if (target.toLowerCase() === "player") {
+      if (target.toLowerCase() === "player" && character) {
+        // Ensure currentHP is initialized
+        if (typeof game.currentHP !== 'number') {
+          game.currentHP = 0
+        }
+
+        const maxHP = character.maxHP || 10
         const oldHP = game.currentHP
-        game.currentHP = Math.min(character.maxHP, game.currentHP + amount)
+        game.currentHP = Math.min(maxHP, Math.max(0, oldHP + amount))
         const actualHealing = game.currentHP - oldHP
 
         newMessages.push({
@@ -2301,9 +2307,15 @@ async function processGameCommands(game, character, text, processedTags = new Se
     const target = healMatch[1]
     const amount = Number.parseInt(healMatch[2])
 
-    if (target.toLowerCase() === "player") {
+    if (target.toLowerCase() === "player" && character) {
+      // Ensure currentHP is initialized
+      if (typeof game.currentHP !== 'number') {
+        game.currentHP = 0
+      }
+
+      const maxHP = character.maxHP || 10
       const oldHP = game.currentHP
-      game.currentHP = Math.min(character.maxHP, game.currentHP + amount)
+      game.currentHP = Math.min(maxHP, Math.max(0, oldHP + amount))
       const actualHealing = game.currentHP - oldHP
 
       // Add system message

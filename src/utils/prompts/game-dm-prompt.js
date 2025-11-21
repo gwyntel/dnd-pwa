@@ -13,7 +13,11 @@ const DND_MECHANICS_EXAMPLES = {
   advantage: "You have the high ground. ROLL[attack|longsword|13|advantage] → (roll 2d20, take higher)",
   initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
   healing: "You drink healing potion. INVENTORY_REMOVE[Healing Potion|1] HEAL[player|10]",
-  loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]"
+  loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]",
+  cast_spell: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10]",
+  concentration: "You cast Bless. CAST_SPELL[Bless|1] CONCENTRATION_START[Bless]",
+  short_rest: "You take a short rest. SHORT_REST[60] You spend hit dice. HIT_DIE_ROLL[2]",
+  long_rest: "You camp for the night. LONG_REST[8]"
 };
 
 function compressInventoryForPrompt(inventory) {
@@ -144,16 +148,21 @@ The player is:
 - INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(", ")}
 - Features: ${character.features ? character.features.join(", ") : "None"}
-${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}
+${character.preparedSpells && character.preparedSpells.length > 0
+      ? `- Prepared Spells: ${character.preparedSpells.map((s) => s.name).join(", ")}`
+      : (character.knownSpells && character.knownSpells.length > 0
+        ? `- Known Spells: ${character.knownSpells.map((s) => s.name).join(", ")}`
+        : (character.spells && character.spells.length > 0
+          ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}`
+          : "")
+      )
+    }
 ${character.spellSlots && Object.values(character.spellSlots).some(s => s.max > 0) ? `
 Spell Slots Available:
 ${Object.entries(character.spellSlots)
         .filter(([_, s]) => s.max > 0)
         .map(([lvl, s]) => `  Level ${lvl}: ${s.current}/${s.max}`)
         .join('\n')}
-` : ''}
-${character.preparedSpells?.length > 0 ? `
-Prepared Spells: ${character.preparedSpells.map(s => s.name).join(', ')}
 ` : ''}
 ${game.concentration ? `
 CONCENTRATING ON: ${game.concentration.spellName}

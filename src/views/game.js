@@ -1621,6 +1621,43 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           hidden: false,
           metadata: { damage: amount },
         })
+
+        // Concentration Check
+        if (game.concentration) {
+          const dc = Math.max(10, Math.floor(amount / 2))
+          const saveResult = rollSavingThrow(character, 'con', { dc })
+
+          const saveMsg = {
+            id: `msg_${Date.now()}_conc_save`,
+            role: "system",
+            content: `🧠 Concentration Check (DC ${dc}): ${formatRoll(saveResult)} - ${saveResult.success ? "✓ Maintained" : "✗ Broken"}`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: {
+              type: "save",
+              key: "con",
+              dc,
+              success: saveResult.success,
+              concentrationCheck: true
+            }
+          }
+          newMessages.push(saveMsg)
+
+          if (!saveResult.success) {
+            const endResult = endConcentration(game)
+            if (endResult) {
+              newMessages.push({
+                id: `msg_${Date.now()}_conc_end`,
+                role: "system",
+                content: `❌ ${endResult.message}`,
+                timestamp: new Date().toISOString(),
+                hidden: false,
+                metadata: { concentrationEnded: true }
+              })
+            }
+          }
+        }
+
         processedTags.add(tagKey)
       }
     }

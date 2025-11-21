@@ -1443,9 +1443,11 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
 
       // Check End States
       if (game.deathSaves.successes >= 3) {
-        msg += " - **STABILIZED**"
+        msg += " - **STABILIZED** and return to life with 1 HP!"
         status = "stabilized"
         game.deathSaves.isStable = true
+        game.currentHP = 1
+        game.deathSaves = { successes: 0, failures: 0 }
       } else if (game.deathSaves.failures >= 3) {
         msg += " - ☠️ **CHARACTER DIED**"
         status = "dead"

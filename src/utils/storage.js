@@ -202,6 +202,23 @@ export function loadData() {
           })
         }
 
+        // Migrate Characters: Add XP field if missing
+        if (Array.isArray(data.characters)) {
+          data.characters = data.characters.map(char => {
+            if (!char.xp) {
+              return {
+                ...char,
+                xp: {
+                  current: 0,
+                  max: 300, // Level 1 -> 2
+                  history: []
+                }
+              }
+            }
+            return char
+          })
+        }
+
         migrated = true
       }
 
@@ -214,6 +231,7 @@ export function loadData() {
         }
       }
     }
+
 
     // Ensure we always have at least one robust default world.
     try {
@@ -254,6 +272,35 @@ export function loadData() {
     } catch (e) {
       console.warn("Worlds normalization failed; using stored worlds as-is.", e)
     }
+
+    // Runtime check: Ensure all characters have XP field (for existing saves)
+    try {
+      if (Array.isArray(data.characters)) {
+        let needsSave = false
+        data.characters = data.characters.map(char => {
+          if (!char.xp) {
+            needsSave = true
+            return {
+              ...char,
+              xp: {
+                current: 0,
+                max: 300, // Level 1 -> 2
+                history: []
+              }
+            }
+          }
+          return char
+        })
+
+        if (needsSave) {
+          console.log("Initialized XP field for existing characters")
+          saveData(data)
+        }
+      }
+    } catch (e) {
+      console.warn("Character XP initialization failed", e)
+    }
+
 
     return data
   } catch (error) {

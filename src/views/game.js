@@ -439,25 +439,9 @@ export async function renderGame(state = {}) {
   // Setup location fast travel click handlers
   setupLocationFastTravel(game)
 
-  // Rest button handlers
-  document.getElementById('short-rest-btn')?.addEventListener('click', async () => {
+  // Rest button handlers - prefill input for AI narration
+  document.getElementById('short-rest-btn')?.addEventListener('click', () => {
     if (isStreaming) return
-    const result = shortRest(game, character)
-    result.messages.forEach(msg => {
-      game.messages.push(msg)
-      appendMessage(msg)
-    })
-    await store.update(state => {
-      const g = state.games.find(g => g.id === currentGameId)
-      if (g) {
-        g.messages = game.messages
-        g.restState = game.restState
-        const c = state.characters.find(c => c.id === game.characterId)
-        if (c) c.classResources = character.classResources
-      }
-    })
-
-    // Prefill input for user to confirm/edit
     const input = document.getElementById('player-input')
     if (input) {
       input.value = "I take a short rest."
@@ -465,31 +449,8 @@ export async function renderGame(state = {}) {
     }
   })
 
-  document.getElementById('long-rest-btn')?.addEventListener('click', async () => {
+  document.getElementById('long-rest-btn')?.addEventListener('click', () => {
     if (isStreaming) return
-    if (!confirm("Take a long rest? This will restore full HP and spell slots.")) return
-    const result = longRest(game, character)
-    result.messages.forEach(msg => {
-      game.messages.push(msg)
-      appendMessage(msg)
-    })
-    await store.update(state => {
-      const g = state.games.find(g => g.id === currentGameId)
-      if (g) {
-        g.messages = game.messages
-        g.restState = game.restState
-        g.currentHP = game.currentHP
-        g.concentration = null
-        const c = state.characters.find(c => c.id === game.characterId)
-        if (c) {
-          c.spellSlots = character.spellSlots
-          c.hitDice = character.hitDice
-          c.classResources = character.classResources
-        }
-      }
-    })
-
-    // Prefill input for user to confirm/edit
     const input = document.getElementById('player-input')
     if (input) {
       input.value = "I take a long rest."
@@ -497,31 +458,12 @@ export async function renderGame(state = {}) {
     }
   })
 
-  document.getElementById('spend-hit-dice-btn')?.addEventListener('click', async () => {
+  document.getElementById('spend-hit-dice-btn')?.addEventListener('click', () => {
     if (isStreaming) return
-    const result = spendHitDice(game, character, 1)
-    if (result.success) {
-      result.messages.forEach(msg => {
-        game.messages.push(msg)
-        appendMessage(msg)
-      })
-      await store.update(state => {
-        const g = state.games.find(g => g.id === currentGameId)
-        if (g) {
-          g.messages = game.messages
-          g.currentHP = game.currentHP
-          const c = state.characters.find(c => c.id === game.characterId)
-          if (c) c.hitDice = character.hitDice
-        }
-      })
-      // Re-render HUD to show updated HP/Hit Dice
-      const charCard = document.getElementById("character-card")
-      if (charCard) charCard.innerHTML = CharacterHUD(game, character)
-
-      // Update rest controls to show correct hit dice count
-      renderGame(store.get()) // Full re-render to update button state
-    } else {
-      alert(result.message)
+    const input = document.getElementById('player-input')
+    if (input) {
+      input.value = "I spend a hit die to heal."
+      input.focus()
     }
   })
 
@@ -2039,6 +1981,122 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
       }
       processedTags.add(tagKey)
       needsUIUpdate = true
+    }
+  }
+
+  // CAST_SPELL[spell_name|level]
+  const castSpellMatches = text.matchAll(REGEX.CAST_SPELL)
+  for (const match of castSpellMatches) {
+    const tagKey = `cast_spell_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const spellName = (match[1] || '').trim()
+      const spellLevel = Number.parseInt(match[2], 10)
+
+      if (character && spellName) {
+        const result = castSpell(game, character, spellName, spellLevel)
+        if (result.success) {
+          newMessages.push({
+            id: `msg_${Date.now()}_cast_spell`,
+            role: "system",
+            content: result.message,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { spellCast: true }
+          })
+          needsUIUpdate = true
+        }
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // CONCENTRATION_START[spell_name]
+  const concentrationStartMatches = text.matchAll(REGEX.CONCENTRATION_START)
+  for (const match of concentrationStartMatches) {
+    const tagKey = `concentration_start_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const spellName = (match[1] || '').trim()
+      if (spellName) {
+        const result = startConcentration(game, spellName)
+        if (result) {
+          newMessages.push({
+            id: `msg_${Date.now()}_concentration_start`,
+            role: "system",
+            content: result.message,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { concentrationStarted: true }
+          })
+          needsUIUpdate = true
+        }
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // CONCENTRATION_END[spell_name]
+  const concentrationEndMatches = text.matchAll(REGEX.CONCENTRATION_END)
+  for (const match of concentrationEndMatches) {
+    const tagKey = `concentration_end_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const result = endConcentration(game)
+      if (result) {
+        newMessages.push({
+          id: `msg_${Date.now()}_concentration_end`,
+          role: "system",
+          content: result.message,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { concentrationEnded: true }
+        })
+        needsUIUpdate = true
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // SHORT_REST[duration_minutes]
+  const shortRestMatches = text.matchAll(REGEX.SHORT_REST)
+  for (const match of shortRestMatches) {
+    const tagKey = `short_rest_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      if (character) {
+        const result = shortRest(game, character)
+        result.messages.forEach(msg => newMessages.push(msg))
+        needsUIUpdate = true
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // LONG_REST[duration_hours]
+  const longRestMatches = text.matchAll(REGEX.LONG_REST)
+  for (const match of longRestMatches) {
+    const tagKey = `long_rest_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      if (character) {
+        const result = longRest(game, character)
+        result.messages.forEach(msg => newMessages.push(msg))
+        needsUIUpdate = true
+      }
+      processedTags.add(tagKey)
+    }
+  }
+
+  // HIT_DIE_ROLL[count]
+  const hitDieRollMatches = text.matchAll(REGEX.HIT_DIE_ROLL)
+  for (const match of hitDieRollMatches) {
+    const tagKey = `hit_die_roll_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const count = Number.parseInt(match[1], 10) || 1
+      if (character) {
+        const result = spendHitDice(game, character, count)
+        if (result.success) {
+          result.messages.forEach(msg => newMessages.push(msg))
+          needsUIUpdate = true
+        }
+      }
+      processedTags.add(tagKey)
     }
   }
 

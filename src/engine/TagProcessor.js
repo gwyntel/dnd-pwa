@@ -72,6 +72,15 @@ export function stripTags(text) {
   cleaned = cleaned.replace(REGEX.LONG_REST, (m, duration) =>
     createBadgeToken('long_rest', { duration: Number.parseInt(duration, 10) }))
 
+  cleaned = cleaned.replace(REGEX.CONCENTRATION_START, (m, spell) =>
+    createBadgeToken('concentration_start', { spell: (spell || '').trim() }))
+
+  cleaned = cleaned.replace(REGEX.CONCENTRATION_END, (m, spell) =>
+    createBadgeToken('concentration_end', { spell: (spell || '').trim() }))
+
+  cleaned = cleaned.replace(REGEX.HIT_DIE_ROLL, (m, count) =>
+    createBadgeToken('hit_die_roll', { count: Number.parseInt(count, 10) }))
+
   // Remove ACTION tags, especially if they are on their own line
   cleaned = cleaned.replace(REGEX.ACTION_LINE, '')
   cleaned = cleaned.replace(REGEX.ACTION, (m, action) =>
@@ -236,6 +245,18 @@ export function renderInlineBadgeHtml(type, data) {
       }
       case "long_rest": {
         return `<span class="inline-badge rest" data-tag-type="rest">🛏️ Long Rest (${badgeData.duration}hr)</span>`
+      }
+      case "concentration_start": {
+        const spell = badgeData.spell || ""
+        return `<span class="inline-badge spell" data-tag-type="spell">🧠 Concentrating: ${labelEscape(spell)}</span>`
+      }
+      case "concentration_end": {
+        const spell = badgeData.spell || ""
+        return `<span class="inline-badge spell" data-tag-type="spell">❌ Concentration ended: ${labelEscape(spell)}</span>`
+      }
+      case "hit_die_roll": {
+        const count = badgeData.count ?? 1
+        return `<span class="inline-badge rest" data-tag-type="rest">🎲 Spent ${count} Hit ${count === 1 ? 'Die' : 'Dice'}</span>`
       }
       default:
         return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`

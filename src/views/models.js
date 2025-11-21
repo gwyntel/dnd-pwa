@@ -3,9 +3,9 @@
  * Browse and select models from the configured provider
  */
 
-import { loadData, saveData } from "../utils/storage.js"
+import store from "../state/store.js"
 import { navigateTo } from "../router.js"
-import { isNitroModel, getProvider, getCurrentProvider } from "../utils/model-utils.js"
+import { isNitroModel, getProvider } from "../utils/model-utils.js"
 
 let allModels = []
 let filteredModels = []
@@ -15,7 +15,7 @@ let searchQuery = ""
 
 export async function renderModels() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   // Show loading state
   app.innerHTML = `
@@ -81,10 +81,13 @@ function renderModelSelector(data) {
   const app = document.getElementById("app")
 
   // Persist fetched models so other views (characters/worlds) can inspect supportedParameters.
-  data.models = allModels
-  saveData(data)
+  store.update((state) => {
+    state.models = allModels
+  })
 
-  const currentModel = data.settings.defaultNarrativeModel
+  // Get fresh state after update
+  const currentState = store.get()
+  const currentModel = currentState.settings.defaultNarrativeModel
 
   // Get unique providers for filter
   const providers = [...new Set(allModels.map((m) => m.provider))].sort()
@@ -266,10 +269,10 @@ function renderModelsList(currentModel) {
 function updateModelsList(currentModel = null) {
   // If no currentModel provided, load from storage to get latest selection
   if (currentModel === null) {
-    const data = loadData()
+    const data = store.get()
     currentModel = data.settings.defaultNarrativeModel
   }
-  
+
   const listContainer = document.getElementById("models-list")
   listContainer.innerHTML = renderModelsList(currentModel)
 
@@ -363,10 +366,10 @@ function applyFiltersAndSort() {
   }
 }
 
-function selectModel(modelId) {
-  const data = loadData()
-  data.settings.defaultNarrativeModel = modelId
-  saveData(data)
+async function selectModel(modelId) {
+  await store.update((state) => {
+    state.settings.defaultNarrativeModel = modelId
+  }, { immediate: true })
 
   // Update the UI immediately to reflect the selection
   updateModelsList(modelId)

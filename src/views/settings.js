@@ -2,14 +2,15 @@
  * Settings view
  */
 
-import { loadData, saveData, exportData, getStorageInfo, importData } from "../utils/storage.js"
+import store from "../state/store.js"
+import { exportData, getStorageInfo, importData } from "../utils/storage.js"
 import { logout } from "../utils/auth.js"
 import { navigateTo } from "../router.js"
-import { getProvider, getCurrentProvider } from "../utils/model-utils.js"
+import { getProvider } from "../utils/model-utils.js"
 
 export function renderSettings() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
   const storageInfo = getStorageInfo()
 
   app.innerHTML = `
@@ -312,42 +313,45 @@ export function renderSettings() {
 
   // Event listeners
   document.getElementById("theme-select").addEventListener("change", (e) => {
-    data.settings.theme = e.target.value
-    saveData(data)
+    store.update((state) => {
+      state.settings.theme = e.target.value
+    })
     applyTheme(e.target.value)
   })
 
   document.getElementById("temperature-slider").addEventListener("input", (e) => {
     const value = Number.parseFloat(e.target.value)
     document.getElementById("temperature-value").textContent = value.toFixed(1)
-    data.settings.temperature = value
-    saveData(data)
+    store.update((state) => {
+      state.settings.temperature = value
+    }, { debounceDelay: 500 })
   })
 
-
-
   document.getElementById("dice-animation-check").addEventListener("change", (e) => {
-    data.settings.diceAnimation = e.target.checked
-    saveData(data)
+    store.update((state) => {
+      state.settings.diceAnimation = e.target.checked
+    })
   })
 
   document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
     const value = Number.parseInt(e.target.value)
     document.getElementById("max-relationships-value").textContent = value
-    data.settings.maxRelationshipsTracked = value
-    saveData(data)
+    store.update((state) => {
+      state.settings.maxRelationshipsTracked = value
+    }, { debounceDelay: 500 })
   })
 
   document.getElementById("max-locations-slider").addEventListener("input", (e) => {
     const value = Number.parseInt(e.target.value)
     document.getElementById("max-locations-value").textContent = value
-    data.settings.maxLocationsTracked = value
-    saveData(data)
+    store.update((state) => {
+      state.settings.maxLocationsTracked = value
+    }, { debounceDelay: 500 })
   })
 
   document.getElementById("export-btn").addEventListener("click", () => {
     try {
-      exportData(data)
+      exportData(store.get())
       showMessage("Data exported successfully!", "success")
     } catch (error) {
       showMessage("Failed to export data: " + error.message, "error")
@@ -364,7 +368,11 @@ export function renderSettings() {
 
     try {
       const importedData = await importData(file)
-      saveData(importedData)
+      store.update((state) => {
+        // Replace state with imported data
+        Object.assign(state, importedData)
+      }, { immediate: true })
+
       showMessage("Data imported successfully!", "success")
       setTimeout(() => {
         navigateTo("/")
@@ -422,14 +430,18 @@ function setupProviderHandlers(data) {
     const oldProvider = data.settings.provider
     const newProvider = e.target.value
 
-    data.settings.provider = newProvider
-    saveData(data)
+    store.update((state) => {
+      state.settings.provider = newProvider
+
+      // Clear selected model when switching providers
+      if (oldProvider !== newProvider) {
+        state.settings.defaultNarrativeModel = null
+      }
+    })
+
     updateProviderConfig()
 
-    // Clear selected model when switching providers
     if (oldProvider !== newProvider) {
-      data.settings.defaultNarrativeModel = null
-      saveData(data)
       document.getElementById("select-model-btn").textContent = "Select Model"
       showMessage(`Switched to ${newProvider}. Please select a model.`, "success")
     }
@@ -443,29 +455,32 @@ function setupProviderHandlers(data) {
 
   if (openaiBaseUrl) {
     openaiBaseUrl.addEventListener("change", (e) => {
-      if (!data.settings.providers) data.settings.providers = {}
-      if (!data.settings.providers.openai) data.settings.providers.openai = {}
-      data.settings.providers.openai.baseUrl = e.target.value
-      saveData(data)
+      store.update((state) => {
+        if (!state.settings.providers) state.settings.providers = {}
+        if (!state.settings.providers.openai) state.settings.providers.openai = {}
+        state.settings.providers.openai.baseUrl = e.target.value
+      })
     })
   }
 
   if (openaiApiKey) {
     openaiApiKey.addEventListener("change", (e) => {
-      if (!data.settings.providers) data.settings.providers = {}
-      if (!data.settings.providers.openai) data.settings.providers.openai = {}
-      data.settings.providers.openai.apiKey = e.target.value
-      saveData(data)
+      store.update((state) => {
+        if (!state.settings.providers) state.settings.providers = {}
+        if (!state.settings.providers.openai) state.settings.providers.openai = {}
+        state.settings.providers.openai.apiKey = e.target.value
+      })
     })
   }
 
   if (openaiContextLength) {
     openaiContextLength.addEventListener("change", (e) => {
-      if (!data.settings.providers) data.settings.providers = {}
-      if (!data.settings.providers.openai) data.settings.providers.openai = {}
       const value = e.target.value ? parseInt(e.target.value, 10) : null
-      data.settings.providers.openai.contextLength = value
-      saveData(data)
+      store.update((state) => {
+        if (!state.settings.providers) state.settings.providers = {}
+        if (!state.settings.providers.openai) state.settings.providers.openai = {}
+        state.settings.providers.openai.contextLength = value
+      })
     })
   }
 
@@ -473,8 +488,9 @@ function setupProviderHandlers(data) {
   const openaiProxyCheck = document.getElementById("openai-proxy-check")
   if (openaiProxyCheck) {
     openaiProxyCheck.addEventListener("change", (e) => {
-      data.settings.useProxy = e.target.checked
-      saveData(data)
+      store.update((state) => {
+        state.settings.useProxy = e.target.checked
+      })
       const status = e.target.checked ? "enabled" : "disabled"
       showMessage(`Backend proxy ${status}`, "success")
     })
@@ -510,20 +526,22 @@ function setupProviderHandlers(data) {
 
   if (lmstudioBaseUrl) {
     lmstudioBaseUrl.addEventListener("change", (e) => {
-      if (!data.settings.providers) data.settings.providers = {}
-      if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
-      data.settings.providers.lmstudio.baseUrl = e.target.value
-      saveData(data)
+      store.update((state) => {
+        if (!state.settings.providers) state.settings.providers = {}
+        if (!state.settings.providers.lmstudio) state.settings.providers.lmstudio = {}
+        state.settings.providers.lmstudio.baseUrl = e.target.value
+      })
     })
   }
 
   if (lmstudioContextLength) {
     lmstudioContextLength.addEventListener("change", (e) => {
-      if (!data.settings.providers) data.settings.providers = {}
-      if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
       const value = e.target.value ? parseInt(e.target.value, 10) : null
-      data.settings.providers.lmstudio.contextLength = value
-      saveData(data)
+      store.update((state) => {
+        if (!state.settings.providers) state.settings.providers = {}
+        if (!state.settings.providers.lmstudio) state.settings.providers.lmstudio = {}
+        state.settings.providers.lmstudio.contextLength = value
+      })
     })
   }
 
@@ -589,8 +607,9 @@ async function initializeReasoningSettings(data) {
       console.log("[Reasoning] Fetched", fetchedModels.length, "models from provider")
 
       // Update data with fetched models
-      data.models = fetchedModels
-      saveData(data)
+      store.update((state) => {
+        state.models = fetchedModels
+      })
 
       model = fetchedModels.find((m) => m.id === selectedId)
       if (model) {
@@ -684,10 +703,11 @@ function setupReasoningSettingsHandlers(data) {
 
     // Always save the reasoning object (even if just { enabled: false })
     // This ensures we preserve the user's choice to disable reasoning
-    data.settings.reasoning = reasoning
+    store.update((state) => {
+      state.settings.reasoning = reasoning
+    })
 
     console.log("[Reasoning] Saved settings:", reasoning)
-    saveData(data)
   }
 
   enabledCheck.addEventListener("change", persist)

@@ -32,14 +32,15 @@ async function init() {
   autoLogin()
 
   // Apply saved theme and set default model if provided
-  const data = loadData()
+  const data = store.get()
 
   // Set default model from environment variable if not already set
   const envDefaultModel = getDefaultModelFromEnv()
   if (envDefaultModel && !data.settings.defaultNarrativeModel) {
     console.log("[v0] Setting default model from environment variable:", envDefaultModel)
-    data.settings.defaultNarrativeModel = envDefaultModel
-    saveData(data)
+    store.update((state) => {
+      state.settings.defaultNarrativeModel = envDefaultModel
+    })
   }
 
   applyTheme(data.settings.theme)
@@ -175,7 +176,7 @@ function applyTheme(theme) {
  * Handle new character route - shows creation options
  */
 function handleNewCharacter(state) {
-  const data = loadData()
+  const data = store.get()
   if (!data.settings.defaultNarrativeModel) {
     console.log("[v0] No default model set, redirecting to model selector")
     navigateTo("/models")

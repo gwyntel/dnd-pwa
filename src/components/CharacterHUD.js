@@ -52,7 +52,6 @@ export function CharacterHUD(game, character) {
         ></div>
       </div>
       </div>
-    </div>
 
     ${renderDeathSaves(game)}
     

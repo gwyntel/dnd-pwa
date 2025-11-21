@@ -195,7 +195,14 @@ Never combine ROLL[...] and its consequences in same message. Always wait for ap
 
 ${JSON.stringify(TAG_REFERENCE, null, 2)}
 
-Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant. Consumable items MUST be removed with INVENTORY_REMOVE when used.
+**CRITICAL TAG FORMAT RULES:**
+- Tags MUST use EXACT bracket syntax: TAG_NAME[parameter1|parameter2]
+- NEVER write tags as plain text or with emojis mixed in
+- NEVER write "HITDIE 🎲 Roll: 1" - ALWAYS write "HIT_DIE_ROLL[1]"
+- NEVER write "LONG_REST" alone - ALWAYS write "LONG_REST[8]"
+- NEVER write "CAST_SPELL Magic Missile" - ALWAYS write "CAST_SPELL[Magic Missile|1]"
+- Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant.
+- Consumable items MUST be removed with INVENTORY_REMOVE when used.
 
 **5e Mechanics Pattern Examples:**
 

@@ -1341,7 +1341,14 @@ async function sendMessage(game, userText, data) {
 function buildSystemPrompt(character, game) {
   const data = store.get()
   const world = data.worlds.find((w) => w.id === game.worldId)
-  return buildGameDMPrompt(character, game, world)
+  const prompt = buildGameDMPrompt(character, game, world)
+
+  // Log the system prompt for debugging
+  console.log('========== SYSTEM PROMPT ==========')
+  console.log(prompt)
+  console.log('===================================')
+
+  return prompt
 }
 
 function updateUsageDisplay(game) {

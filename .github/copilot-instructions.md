@@ -32,16 +32,17 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
    - Sanitizes messages via `GameLoop.sanitizeMessagesForModel()`.
    - Builds system prompt + message history.
    - Calls OpenRouter chat completion (streaming).
-3. **Real-time streaming** processes chunks via `GameLoop.sendMessage()`:
+3. **Real-time streaming** processes chunks via `sendMessage()`:
    - Extracts `<think>` tags for reasoning display.
-   - Delegates game tag parsing and side effects to `TagProcessor.processGameCommandsRealtime()`.
+   - Delegates game tag parsing and side effects to `TagProcessor.processGameTagsRealtime()`.
    - Updates UI immediately; no post-processing lag.
-4. `TagProcessor.processGameCommands()` (formerly in `game.js`) extracts and applies tag semantics:
+4. `TagProcessor.processGameTags()` extracts and applies tag semantics:
    - `LOCATION[name]` — Updates `game.currentLocation`, adds to `visitedLocations`.
    - `ROLL[type|key|dc|flag]` — Semantic rolls (skill, save, attack) with D&D modifiers.
    - `COMBAT_START[desc]`, `COMBAT_CONTINUE`, `COMBAT_END[outcome]` — Combat state management via `CombatManager.startCombat()`/`endCombat()`.
    - `DAMAGE[target|amount]`, `HEAL[target|amount]` — HP adjustments.
    - `INVENTORY_*`, `STATUS_ADD/REMOVE`, `RELATIONSHIP[npc|value]` — State updates.
+   - `CAST_SPELL[spell|level]`, `XP_GAIN[amount|reason]`, `LEVEL_UP[level]` — Advanced mechanics.
    - `ACTION[...]` — Suggested player choices (displayed as quick-action bubbles).
 
 ### Tag System & Roll Batching
@@ -83,7 +84,33 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Class resources**: `character.classResources[]` recover on short/long rests as applicable
 - **Concentration breaks**: Long rest ends all concentration spells
 
-### AI Integration (`src/utils/openrouter.js`)
+### Character & World Generation
+- **AI-generated characters** (`generateCharacterWithLLM()`):
+  - System prompt: `CHARACTER_LLM_SYSTEM_PROMPT` enforces strict JSON schema output
+  - Optionally uses structured outputs if model supports it
+  - Normalizes response via `normalizeJsonCharacter()` to handle various AI formats
+- **AI-generated worlds** (`generateWorldWithAI()`):
+  - Similar structured output pattern; generates world metadata + system prompt
+  - System prompt becomes the world's guide for all adventures within it
+- **Templates**: Shared templates in `BEGINNER_TEMPLATES` (characters, now in `src/data/archetypes.js`) and `WORLD_TEMPLATES` (worlds, now in `src/data/worlds.js`) seed quick-start options
+  - **Single source of truth**: Templates are imported and spread into `storage.js` DEFAULT_DATA; no duplication
+  - `WORLD_TEMPLATES[0]` is the canonical default world; `storage.js` and `worlds.js` import it
+  - Character templates removed from `storage.js`; modern code uses `BEGINNER_TEMPLATES` directly
+
+### Combat & State Management
+- **Initiative tracking**: `game.combat.initiative[]` sorted by total; `game.combat.currentTurnIndex` tracks active turn
+- **Relationship tracking**: `game.relationships{}` object; trimmed to `maxRelationshipsTracked` (default 50) keeping most-recent entries
+- **Location history**: `game.visitedLocations[]` trimmed to `maxLocationsTracked` (default 10)
+- **Cumulative usage**: `game.cumulativeUsage` tracks tokens + cost across all turns in a game
+
+### Dice System (`src/utils/dice.js` & `dice5e.js`)
+- **Notation parsing**: `parseNotation("1d20+5")` → `{count, sides, modifier}`
+- **Core roll**: `roll(input)` returns `{notation, rolls[], subtotal, total, crit?}`
+- **Advantage/disadvantage**: `rollAdvantage()`, `rollDisadvantage()` return both rolls + chosen
+- **D&D 5e helpers**: `rollSkillCheck()`, `rollSavingThrow()`, `rollAttack()` apply character modifiers
+- **Crit detection**: Metadata for Nat 20 / Nat 1 on d20; purely additive, not assumed by callers
+
+### AI Integration (`src/utils/openrouter.js` legacy, now `src/utils/ai-provider.js`)
 - **OpenRouter API** provides 100+ model access with standardized interface
 - **Reasoning support detection** (`detectReasoningType()`):
   - `"effort"` models (OpenAI o1/o3/gpt-5, Grok): use `reasoning.effort` ("low"/"medium"/"high")
@@ -128,7 +155,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Manual testing**: No automated tests; full e2e via browser
 
 ### Adding Features
-- **New game tags**: Add regex + parsing logic in `TagProcessor.processGameCommandsRealtime()` + `.processGameCommands()`; document in `src/data/tags.js`
+- **New game tags**: Add regex + parsing logic in `TagProcessor.processGameTagsRealtime()` + `.processGameTags()`; document in `src/data/tags.js`
 - **New spellcasting mechanics**: Extend `SpellcastingManager.js` and `src/data/spells.js`
 - **New combat mechanics**: Modify `CombatManager.js` for initiative/turn management
 - **New class features**: Update `CLASS_PROGRESSION` in `src/data/classes.js`
@@ -190,6 +217,7 @@ src/
     spells.js — Common spells database definitions
  engine/
     GameLoop.js — Game loop and AI streaming logic
+    TagParser.js — Low-level tag extraction and sanitization utility
     TagProcessor.js — Game tag parsing and execution
     CombatManager.js — Combat state and initiative tracking
     SpellcastingManager.js — Spell casting and slot management
@@ -230,7 +258,7 @@ src/
 **Add a new game tag:**
 1. Add regex to `REGEX` export in `src/data/tags.js`
 2. Document format in `TAG_REFERENCE` (same file)
-3. Add parsing logic to `processGameCommandsRealtime()` in game.js using `REGEX.YOUR_TAG`
+3. Add parsing logic to `processGameTagsRealtime()` and/or `processGameTags()` in `TagProcessor.js`
 4. Add corresponding side effect (state mutation)
 5. Test via console: `rollDice()` or manual tag in AI response
 

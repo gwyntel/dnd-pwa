@@ -1,4 +1,4 @@
-# Copilot Instructions for dnd-pwa
+# Cline Instructions for dnd-pwa
 
 ## Project Overview
 A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no frameworks. Players create characters, build worlds, start games, and interact with an AI Dungeon Master that understands D&D mechanics, renders dynamic narrative, and processes dice rolls via a tag-based command system.
@@ -26,31 +26,34 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **No persistence backend**; all state local to browser with export/import capability
 - Normalization via `normalizeCharacter()` and migration scripts handle version upgrades
 
-### Game Loop & Message Flow (`src/engine/GameLoop.js` and `src/views/game.js`)
+### Game Loop & Message Flow (`src/views/game.js` and `src/engine/GameLoop.js`)
 1. Player sends text input → `handlePlayerInput()` adds user message to `game.messages` (in `game.js`).
-2. `GameLoop.sendMessage()` (formerly in `game.js`) constructs API request:
-   - Sanitizes messages via `GameLoop.sanitizeMessagesForModel()`.
+2. `sendMessage()` (in `game.js`) constructs API request:
+   - Sanitizes messages via `GameLoop.buildApiMessages()` → `GameLoop.sanitizeMessagesForModel()`.
    - Builds system prompt + message history.
    - Calls OpenRouter chat completion (streaming).
-3. **Real-time streaming** processes chunks via `GameLoop.sendMessage()`:
+3. **Real-time streaming** processes chunks via `sendMessage()`:
    - Extracts `<think>` tags for reasoning display.
-   - Delegates game tag parsing and side effects to `TagProcessor.processGameCommandsRealtime()`.
+   - Delegates game tag parsing and side effects to `TagProcessor.processGameTagsRealtime()`.
    - Updates UI immediately; no post-processing lag.
-4. `TagProcessor.processGameCommands()` (formerly in `game.js`) extracts and applies tag semantics:
+4. `TagProcessor.processGameTags()` extracts and applies tag semantics:
    - `LOCATION[name]` — Updates `game.currentLocation`, adds to `visitedLocations`.
    - `ROLL[type|key|dc|flag]` — Semantic rolls (skill, save, attack) with D&D modifiers.
    - `COMBAT_START[desc]`, `COMBAT_CONTINUE`, `COMBAT_END[outcome]` — Combat state management via `CombatManager.startCombat()`/`endCombat()`.
    - `DAMAGE[target|amount]`, `HEAL[target|amount]` — HP adjustments.
    - `INVENTORY_*`, `STATUS_ADD/REMOVE`, `RELATIONSHIP[npc|value]` — State updates.
+   - `CAST_SPELL[spell|level]`, `XP_GAIN[amount|reason]`, `LEVEL_UP[level]` — Advanced mechanics.
    - `ACTION[...]` — Suggested player choices (displayed as quick-action bubbles).
 
 ### Tag System & Roll Batching
 - **Tags drive game mechanics**: AI generates tags in narrative; system parses and executes
 - **Centralized regex patterns** (`src/data/tags.js`): All tag regex exported as `REGEX` object; single source of truth imported by `TagProcessor.js`, `game.js`, `dice.js`
+- **Tag Parser** (`src/engine/TagParser.js`): Low-level tag extraction and sanitization utility
+- **Tag Processor** (`src/engine/TagProcessor.js`): Contains `processGameTagsRealtime()` and `processGameTags()` functions
 - **Roll batching** (`ROLL_SETTLING_DELAY_MS = 500ms`): Collects multiple rolls in a message, then triggers a single follow-up narration (avoids spam)
 - **Deferred batch**: If streaming is active when a batch completes, batch is queued and processed after streaming ends
 
-### AI Integration (`src/utils/openrouter.js`)
+### AI Integration (`src/utils/openrouter.js` legacy, now `src/utils/ai-provider.js`)
 - **OpenRouter API** provides 100+ model access with standardized interface
 - **Reasoning support detection** (`detectReasoningType()`):
   - `"effort"` models (OpenAI o1/o3/gpt-5, Grok): use `reasoning.effort` ("low"/"medium"/"high")
@@ -128,7 +131,7 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Manual testing**: No automated tests; full e2e via browser
 
 ### Adding Features
-- **New game tags**: Add regex + parsing logic in `TagProcessor.processGameCommandsRealtime()` + `.processGameCommands()`; document in `src/data/tags.js`
+- **New game tags**: Add regex + parsing logic in `TagProcessor.processGameTagsRealtime()` + `.processGameTags()`; document in `src/data/tags.js`
 - **New spellcasting mechanics**: Extend `SpellcastingManager.js` and `src/data/spells.js`
 - **New combat mechanics**: Modify `CombatManager.js` for initiative/turn management
 - **New class features**: Update `CLASS_PROGRESSION` in `src/data/classes.js`
@@ -185,6 +188,7 @@ src/
     spells.js — Common spells database definitions
  engine/
     GameLoop.js — Game loop and AI streaming logic
+    TagParser.js — Low-level tag extraction and sanitization utility
     TagProcessor.js — Game tag parsing and execution
     CombatManager.js — Combat state and initiative tracking
     SpellcastingManager.js — Spell casting and slot management
@@ -225,7 +229,7 @@ src/
 **Add a new game tag:**
 1. Add regex to `REGEX` export in `src/data/tags.js`
 2. Document format in `TAG_REFERENCE` (same file)
-3. Add parsing logic to `processGameCommandsRealtime()` in game.js using `REGEX.YOUR_TAG`
+3. Add parsing logic to `processGameTagsRealtime()` and/or `processGameTags()` in `TagProcessor.js`
 4. Add corresponding side effect (state mutation)
 5. Test via console: `rollDice()` or manual tag in AI response
 

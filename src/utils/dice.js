@@ -16,7 +16,7 @@
  * - formatRoll remains compatible; it only uses new metadata (crit) additively when present.
  */
 
-import { REGEX } from "../data/tags.js"
+import { tagParser } from "../engine/TagParser.js"
 
 /**
  * Parse standard dice notation into structured components.
@@ -382,17 +382,19 @@ export function formatRoll(result) {
  * @returns {Array} Array of roll requests
  */
 export function parseRollRequests(text) {
+  const { tags } = tagParser.parse(text);
   const requests = [];
-  let match;
 
-  while ((match = REGEX.ROLL.exec(text)) !== null) {
-    const parts = match[1].split("|");
-    requests.push({
-      notation: parts[0],
-      type: parts[1] || "normal",
-      dc: parts[2] ? parseInt(parts[2], 10) : null,
-      fullMatch: match[0],
-    });
+  for (const tag of tags) {
+    if (tag.type === 'ROLL') {
+      const parts = tag.content.split("|");
+      requests.push({
+        notation: parts[0],
+        type: parts[1] || "normal",
+        dc: parts[2] ? parseInt(parts[2], 10) : null,
+        fullMatch: tag.raw,
+      });
+    }
   }
 
   return requests;

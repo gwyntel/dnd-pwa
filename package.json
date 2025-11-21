@@ -7,17 +7,20 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npx wrangler pages deploy"
+    "deploy": "npx wrangler pages deploy",
+    "test": "vitest"
   },
   "devDependencies": {
     "@types/node": "24.10.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "jsdom": "^27.0.1",
     "postcss": "8.5.6",
     "tailwindcss": "4.1.17",
     "terser": "^5.44.1",
     "typescript": "5.9.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "^4.0.13"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

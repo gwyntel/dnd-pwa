@@ -4,9 +4,424 @@
  */
 
 import { getLocationIcon, getConditionIcon } from "../data/icons.js"
-import { REGEX } from "../data/tags.js"
-import { rollDice, rollAdvantage, rollDisadvantage } from "../utils/dice.js"
+import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
+import { tagParser } from "./TagParser.js"
+import { createRollMetadata } from "./GameLoop.js"
+import { startCombat, endCombat } from "./CombatManager.js"
+import { castSpell, startConcentration, endConcentration } from "./SpellcastingManager.js"
+import { shortRest, longRest, spendHitDice } from "./RestManager.js"
+
+/**
+ * Process game tags in real-time as they stream in
+ * @param {Object} game - Game state object
+ * @param {Object} character - Character object
+ * @param {string} text - Text to process
+ * @param {Set} processedTags - Set of processed tag keys
+ * @param {Object} callbacks - Callbacks for side effects (onRoll, etc.)
+ * @returns {Promise<Array>} - Array of new messages
+ */
+export async function processGameTagsRealtime(game, character, text, processedTags, callbacks = {}) {
+  const { tags } = tagParser.parse(text)
+  const newMessages = []
+
+  // Precompute dice profile if we have a character
+  const diceProfile = character ? buildDiceProfile(character) : null
+
+  // Helpers
+  const ensureInventory = () => {
+    if (!Array.isArray(game.inventory)) game.inventory = []
+  }
+  const ensureCurrency = () => {
+    if (!game.currency || typeof game.currency.gp !== "number") game.currency = { gp: 0 }
+  }
+  const ensureConditions = () => {
+    if (!Array.isArray(game.conditions)) game.conditions = []
+  }
+
+  const upsertItem = (rawName, deltaQty, { equip, unequip } = {}) => {
+    ensureInventory()
+    const name = (rawName || "").replace(/[\r\n]+/g, ' ').trim()
+    if (!name) return null
+
+    const findIndex = () => game.inventory.findIndex((it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase())
+    let idx = findIndex()
+    const isNewItem = idx === -1
+
+    if (isNewItem && deltaQty > 0) {
+      game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
+      idx = findIndex()
+    }
+
+    if (idx === -1) return null
+
+    const item = game.inventory[idx]
+    const oldQty = typeof item.quantity === "number" ? item.quantity : 0
+    const newQty = isNewItem ? item.quantity : Math.max(0, oldQty + deltaQty)
+    item.quantity = newQty
+
+    if (equip === true) item.equipped = true
+    else if (unequip === true) item.equipped = false
+
+    if (item.quantity === 0) game.inventory.splice(idx, 1)
+
+    return { name: item.item, oldQty, newQty, equipped: !!item.equipped }
+  }
+
+  const changeGold = (deltaRaw) => {
+    const delta = Number.parseFloat(deltaRaw)
+    if (Number.isNaN(delta) || delta === 0) return null
+    ensureCurrency()
+    const before = game.currency.gp
+    let after = before + delta
+    if (after < 0) after = 0
+    after = Math.round(after * 100) / 100
+    game.currency.gp = after
+    return { before, after, applied: after - before }
+  }
+
+  const addStatus = (raw) => {
+    ensureConditions()
+    const name = (raw || "").trim()
+    if (!name) return false
+    const exists = game.conditions.some((c) => {
+      if (typeof c === "string") return c.toLowerCase() === name.toLowerCase()
+      return c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase()
+    })
+    if (!exists) {
+      game.conditions.push({ name, addedAt: new Date().toISOString() })
+      return true
+    }
+    return false
+  }
+
+  const removeStatus = (raw) => {
+    ensureConditions()
+    const name = (raw || "").trim()
+    if (!name) return false
+    const idx = game.conditions.findIndex((c) => {
+      if (typeof c === "string") return c.toLowerCase() === name.toLowerCase()
+      return c && typeof c.name === "string" && c.name.toLowerCase() === name.toLowerCase()
+    })
+    if (idx !== -1) {
+      game.conditions.splice(idx, 1)
+      return true
+    }
+    return false
+  }
+
+  for (const tag of tags) {
+    const tagKey = `${tag.type}_${tag.index}`
+    if (processedTags.has(tagKey)) continue
+
+    let processed = false
+
+    switch (tag.type) {
+      case 'INVENTORY_ADD': {
+        const [item, qty] = tag.content.split('|').map(s => s.trim())
+        const result = upsertItem(item, qty ? parseInt(qty, 10) : 1)
+        if (result) processed = true
+        break
+      }
+      case 'INVENTORY_REMOVE': {
+        const [item, qty] = tag.content.split('|').map(s => s.trim())
+        const result = upsertItem(item, -(qty ? parseInt(qty, 10) : 1))
+        if (result) processed = true
+        break
+      }
+      case 'INVENTORY_EQUIP': {
+        const result = upsertItem(tag.content, 0, { equip: true })
+        if (result) processed = true
+        break
+      }
+      case 'INVENTORY_UNEQUIP': {
+        const result = upsertItem(tag.content, 0, { unequip: true })
+        if (result) processed = true
+        break
+      }
+      case 'GOLD_CHANGE': {
+        const result = changeGold(tag.content)
+        if (result) processed = true
+        break
+      }
+      case 'STATUS_ADD': {
+        if (addStatus(tag.content)) processed = true
+        break
+      }
+      case 'STATUS_REMOVE': {
+        if (removeStatus(tag.content)) processed = true
+        break
+      }
+      case 'RELATIONSHIP': {
+        const [entity, delta] = tag.content.split('|').map(s => s.trim())
+        const val = parseInt(delta, 10)
+        if (entity && !isNaN(val)) {
+          if (!game.relationships) game.relationships = {}
+          game.relationships[entity] = (game.relationships[entity] || 0) + val
+          processed = true
+        }
+        break
+      }
+      case 'ROLL': {
+        if (!character) break
+        const parts = tag.content.split('|').map(s => s.trim())
+        const kind = (parts[0] || '').toLowerCase()
+
+        let rollData = null
+
+        if (kind === 'skill') {
+          const skill = parts[1]
+          const dc = parts[2] ? parseInt(parts[2], 10) : null
+          const roll = rollSkillCheck(character, skill, dc)
+          rollData = { kind: 'Skill Check', label: skill, roll }
+        } else if (kind === 'save') {
+          const ability = parts[1]
+          const dc = parts[2] ? parseInt(parts[2], 10) : null
+          const roll = rollSavingThrow(character, ability, dc)
+          rollData = { kind: 'Saving Throw', label: ability, roll }
+        } else if (kind === 'attack') {
+          const weapon = parts[1]
+          const ac = parts[2] ? parseInt(parts[2], 10) : null
+          const roll = rollAttack(character, weapon, ac)
+          rollData = { kind: 'Attack', label: weapon, roll }
+        } else {
+          // Generic roll
+          const notation = parts[0]
+          const roll = rollDice(notation)
+          rollData = { kind: 'Roll', label: notation, roll }
+        }
+
+        if (rollData && callbacks.onRoll) {
+          callbacks.onRoll(rollData)
+          processed = true
+        }
+        break
+      }
+      case 'CAST_SPELL': {
+        const [spell, level] = tag.content.split('|').map(s => s.trim())
+        const result = castSpell(game, character, spell, parseInt(level, 10) || 0)
+        if (result) processed = true
+        break
+      }
+      case 'CONCENTRATION_START': {
+        const result = startConcentration(game, tag.content.trim())
+        if (result) processed = true
+        break
+      }
+      case 'CONCENTRATION_END': {
+        const result = endConcentration(game)
+        if (result) processed = true
+        break
+      }
+      case 'SHORT_REST': {
+        const duration = parseInt(tag.content, 10) || 60
+        const result = shortRest(game, character, duration)
+        if (result) {
+          newMessages.push(result)
+          processed = true
+        }
+        break
+      }
+      case 'LONG_REST': {
+        const duration = parseInt(tag.content, 10) || 8
+        const result = longRest(game, character, duration)
+        if (result) {
+          newMessages.push(result)
+          processed = true
+        }
+        break
+      }
+      case 'HIT_DIE_ROLL': {
+        const count = parseInt(tag.content, 10) || 1
+        const result = spendHitDice(game, character, count)
+        if (result) {
+          newMessages.push(result)
+          processed = true
+        }
+        break
+      }
+      case 'ACTION': {
+        // Just mark as processed, no side effect other than suggestion which is handled elsewhere?
+        // game.js handled ACTION tags by adding to suggestedActions?
+        // Wait, game.js `processGameCommandsRealtime` logic for ACTION:
+        // "const actionMatch = text.matchAll(/ACTION\[([^\]]+)\]/g)"
+        // "for (const match of actionMatch) { ... game.suggestedActions.push(...) }"
+        // Yes.
+        if (!game.suggestedActions) game.suggestedActions = []
+        const action = tag.content.trim()
+        if (action && !game.suggestedActions.includes(action)) {
+          game.suggestedActions.push(action)
+          processed = true
+        }
+        break
+      }
+      case 'XP_GAIN': {
+        const [amount, reason] = tag.content.split('|').map(s => s.trim())
+        const xp = parseInt(amount, 10)
+        if (!isNaN(xp) && character && character.xp) {
+          character.xp.current += xp
+          character.xp.history.push({
+            amount: xp,
+            reason: reason || 'Unknown',
+            date: new Date().toISOString()
+          })
+
+          // Check for Level Up
+          if (character.xp.current >= character.xp.max) {
+            newMessages.push({
+              role: 'system',
+              content: `🎉 **LEVEL UP AVAILABLE!**\nYou have reached **${character.xp.current} XP**! Open your character sheet to level up.`
+            })
+          }
+          processed = true
+        }
+        break
+      }
+      case 'LEARN_SPELL': {
+        const spellName = tag.content.trim()
+        if (spellName && character) {
+          const alreadyKnown = (character.knownSpells || []).some(s => s.name.toLowerCase() === spellName.toLowerCase())
+          if (!alreadyKnown) {
+            if (!character.knownSpells) character.knownSpells = []
+            character.knownSpells.push({
+              name: spellName,
+              level: 0,
+              school: 'Unknown',
+              source: 'learned'
+            })
+            newMessages.push({
+              role: 'system',
+              content: `✨ **New Spell Learned!**\nYou have added **${spellName}** to your known spells.`
+            })
+          }
+          processed = true
+        }
+        break
+      }
+      case 'LEVEL_UP': {
+        processed = true
+        break
+      }
+    }
+
+    if (processed) {
+      processedTags.add(tagKey)
+    }
+  }
+
+  return newMessages
+}
+
+/**
+ * Process game tags that require full message context or are not real-time safe
+ * @param {Object} game - Game state object
+ * @param {Object} character - Character object
+ * @param {string} text - Text to process
+ * @param {Set} processedTags - Set of processed tag keys
+ * @param {Object} data - Store data
+ */
+export async function processGameTags(game, character, text, processedTags, data) {
+  const { tags } = tagParser.parse(text)
+
+  for (const tag of tags) {
+    const tagKey = `${tag.type}_${tag.index}`
+    if (processedTags.has(tagKey)) continue
+
+    let processed = false
+
+    switch (tag.type) {
+      case 'LOCATION': {
+        const loc = tag.content.trim()
+        if (loc) {
+          game.currentLocation = loc
+          if (!Array.isArray(game.visitedLocations)) game.visitedLocations = []
+          if (!game.visitedLocations.includes(loc)) game.visitedLocations.push(loc)
+          processed = true
+        }
+        break
+      }
+      case 'COMBAT_START': {
+        if (!game.combat.active) {
+          const msgs = startCombat(game, character, tag.content)
+          game.messages.push(...msgs)
+          processed = true
+        }
+        break
+      }
+      case 'COMBAT_END': {
+        const msg = endCombat(game, tag.content)
+        game.messages.push(msg)
+        processed = true
+        break
+      }
+      case 'DAMAGE': {
+        const [target, amount] = tag.content.split('|').map(s => s.trim())
+        const dmg = parseInt(amount, 10)
+        if (target && !isNaN(dmg)) {
+          // Handle damage logic (simple HP reduction for now, or complex if target is NPC)
+          // game.js logic:
+          // if target is player -> reduce HP
+          // else -> just log?
+          // game.js: "if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') { ... }"
+          if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
+            game.currentHP = Math.max(0, game.currentHP - dmg)
+            // Add system message? game.js didn't seem to add one, just updated state.
+            // But `stripTags` renders a badge.
+          }
+          processed = true
+        }
+        break
+      }
+      case 'HEAL': {
+        const [target, amount] = tag.content.split('|').map(s => s.trim())
+        const heal = parseInt(amount, 10)
+        if (target && !isNaN(heal)) {
+          if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
+            game.currentHP = Math.min(character.maxHP, game.currentHP + heal)
+          }
+          processed = true
+        }
+        break
+      }
+      case 'XP_GAIN': {
+        const [amount, reason] = tag.content.split('|').map(s => s.trim())
+        const xp = parseInt(amount, 10)
+        if (!isNaN(xp) && character && character.xp) {
+          character.xp.current += xp
+          character.xp.history.push({
+            amount: xp,
+            reason: reason || 'Unknown',
+            date: new Date().toISOString()
+          })
+          // Level up notification handled in realtime or by UI state
+          processed = true
+        }
+        break
+      }
+      case 'LEARN_SPELL': {
+        const spellName = tag.content.trim()
+        if (spellName && character) {
+          const alreadyKnown = (character.knownSpells || []).some(s => s.name.toLowerCase() === spellName.toLowerCase())
+          if (!alreadyKnown) {
+            if (!character.knownSpells) character.knownSpells = []
+            character.knownSpells.push({
+              name: spellName,
+              level: 0,
+              school: 'Unknown',
+              source: 'learned'
+            })
+          }
+          processed = true
+        }
+        break
+      }
+    }
+
+    if (processed) {
+      processedTags.add(tagKey)
+    }
+  }
+}
 
 /**
  * Strip game tags from text and replace with inline badge tokens
@@ -14,86 +429,92 @@ import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from ".
  * @returns {string} - Text with tags replaced by badge tokens
  */
 export function stripTags(text) {
-  let cleaned = text
+  const { cleanText, tags } = tagParser.parse(text)
+  let result = text
 
-  cleaned = cleaned.replace(REGEX.LOCATION, (match, location) =>
-    createBadgeToken('location', { name: location.trim() }))
+  // We iterate backwards to avoid index shifting issues if we were using indices,
+  // but here we are using replace on the string.
+  // However, if we use replace(tag.raw, ...), we rely on finding the string.
+  // If there are duplicates, we must be careful.
+  // Since tagParser returns tags in order, and replace(str, ...) replaces the first occurrence,
+  // we can just iterate and replace.
+  // BUT, if we replace the first occurrence, we must ensure we are replacing the *correct* one if context matters.
+  // Since `tag.raw` is identical for identical tags, it doesn't matter which one we replace, 
+  // as long as we replace *one* of them for each tag in the array.
 
-  cleaned = cleaned.replace(REGEX.ROLL, (match, inner) => {
-    const parts = inner.split('|').map(p => p.trim())
-    const kind = (parts[0] || '').toLowerCase()
-    if (kind === 'skill' || kind === 'save' || kind === 'attack') {
-      return createBadgeToken('roll', {
-        kind,
-        key: parts[1] || '',
-        dc: parts[2] ? Number.parseInt(parts[2], 10) : null,
-        targetAC: parts[2] ? Number.parseInt(parts[2], 10) : null
-      })
+  for (const tag of tags) {
+    const badgeToken = createBadgeForTag(tag)
+    // Replace only the first occurrence of this specific raw string
+    // We use replace with string (not regex global) to replace one instance.
+    result = result.replace(tag.raw, badgeToken)
+  }
+
+  // Clean up whitespace artifacts (copied from original)
+  result = result.replace(/ +\n/g, "\n")
+  result = result.replace(/\n +/g, "\n")
+  result = result.replace(/  +/g, " ")
+  result = result.replace(/\n{3,}/g, "\n\n")
+  result = result.split("\n").map(line => line.trim()).join("\n")
+
+  return result.trim()
+}
+
+function createBadgeForTag(tag) {
+  switch (tag.type) {
+    case 'LOCATION': return createBadgeToken('location', { name: tag.content.trim() })
+    case 'ROLL': {
+      const parts = tag.content.split('|').map(p => p.trim())
+      const kind = (parts[0] || '').toLowerCase()
+      if (['skill', 'save', 'attack'].includes(kind)) {
+        return createBadgeToken('roll', {
+          kind,
+          key: parts[1] || '',
+          dc: parts[2] ? parseInt(parts[2], 10) : null,
+          targetAC: parts[2] ? parseInt(parts[2], 10) : null
+        })
+      }
+      return createBadgeToken('roll', { notation: parts[0] || '' })
     }
-    return createBadgeToken('roll', { notation: parts[0] || '' })
-  })
-
-  cleaned = cleaned.replace(REGEX.COMBAT_START, (m, d) =>
-    createBadgeToken('combat', { action: 'start', desc: (d || '').trim() }))
-  cleaned = cleaned.replace(REGEX.COMBAT_CONTINUE, () =>
-    createBadgeToken('combat', { action: 'continue' }))
-  cleaned = cleaned.replace(REGEX.COMBAT_END, (m, d) =>
-    createBadgeToken('combat', { action: 'end', desc: (d || '').trim() }))
-
-  cleaned = cleaned.replace(REGEX.DAMAGE, (m, target, amount) =>
-    createBadgeToken('damage', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
-  cleaned = cleaned.replace(REGEX.HEAL, (m, target, amount) =>
-    createBadgeToken('heal', { target: (target || '').trim(), amount: Number.parseInt(amount, 10) }))
-
-  cleaned = cleaned.replace(REGEX.INVENTORY_ADD, (m, item, qty) =>
-    createBadgeToken('inventory_add', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(REGEX.INVENTORY_REMOVE, (m, item, qty) =>
-    createBadgeToken('inventory_remove', { item: (item || '').trim(), qty: qty ? Number.parseInt(qty, 10) : 1 }))
-  cleaned = cleaned.replace(REGEX.INVENTORY_EQUIP, (m, item) =>
-    createBadgeToken('inventory_equip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(REGEX.INVENTORY_UNEQUIP, (m, item) =>
-    createBadgeToken('inventory_unequip', { item: (item || '').trim() }))
-  cleaned = cleaned.replace(REGEX.GOLD_CHANGE, (m, delta) =>
-    createBadgeToken('gold', { delta: Number.parseFloat(delta) }))
-  cleaned = cleaned.replace(REGEX.STATUS_ADD, (m, name) =>
-    createBadgeToken('status_add', { name: (name || '').trim() }))
-  cleaned = cleaned.replace(REGEX.STATUS_REMOVE, (m, name) =>
-    createBadgeToken('status_remove', { name: (name || '').trim() }))
-
-  cleaned = cleaned.replace(REGEX.RELATIONSHIP, (m, entity, delta) =>
-    createBadgeToken('relationship', { entity: (entity || '').trim(), delta: Number.parseInt(delta, 10) }))
-
-  cleaned = cleaned.replace(REGEX.CAST_SPELL, (m, spell, level) =>
-    createBadgeToken('cast_spell', { spell: (spell || '').trim(), level: Number.parseInt(level, 10) }))
-
-  cleaned = cleaned.replace(REGEX.SHORT_REST, (m, duration) =>
-    createBadgeToken('short_rest', { duration: Number.parseInt(duration, 10) }))
-
-  cleaned = cleaned.replace(REGEX.LONG_REST, (m, duration) =>
-    createBadgeToken('long_rest', { duration: Number.parseInt(duration, 10) }))
-
-  cleaned = cleaned.replace(REGEX.CONCENTRATION_START, (m, spell) =>
-    createBadgeToken('concentration_start', { spell: (spell || '').trim() }))
-
-  cleaned = cleaned.replace(REGEX.CONCENTRATION_END, (m, spell) =>
-    createBadgeToken('concentration_end', { spell: (spell || '').trim() }))
-
-  cleaned = cleaned.replace(REGEX.HIT_DIE_ROLL, (m, count) =>
-    createBadgeToken('hit_die_roll', { count: Number.parseInt(count, 10) }))
-
-  // Remove ACTION tags, especially if they are on their own line
-  cleaned = cleaned.replace(REGEX.ACTION_LINE, '')
-  cleaned = cleaned.replace(REGEX.ACTION, (m, action) =>
-    createBadgeToken('action', { action: (action || '').trim() }))
-
-  // Clean up whitespace artifacts
-  cleaned = cleaned.replace(/ +\n/g, "\n")
-  cleaned = cleaned.replace(/\n +/g, "\n")
-  cleaned = cleaned.replace(/  +/g, " ")
-  cleaned = cleaned.replace(/\n{3,}/g, "\n\n")
-  cleaned = cleaned.split("\n").map(line => line.trim()).join("\n")
-
-  return cleaned.trim()
+    case 'COMBAT_START': return createBadgeToken('combat', { action: 'start', desc: tag.content.trim() })
+    case 'COMBAT_CONTINUE': return createBadgeToken('combat', { action: 'continue' })
+    case 'COMBAT_END': return createBadgeToken('combat', { action: 'end', desc: tag.content.trim() })
+    case 'DAMAGE': {
+      const [target, amount] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('damage', { target: target || '', amount: parseInt(amount, 10) })
+    }
+    case 'HEAL': {
+      const [target, amount] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('heal', { target: target || '', amount: parseInt(amount, 10) })
+    }
+    case 'INVENTORY_ADD': {
+      const [item, qty] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('inventory_add', { item: item || '', qty: qty ? parseInt(qty, 10) : 1 })
+    }
+    case 'INVENTORY_REMOVE': {
+      const [item, qty] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('inventory_remove', { item: item || '', qty: qty ? parseInt(qty, 10) : 1 })
+    }
+    case 'INVENTORY_EQUIP': return createBadgeToken('inventory_equip', { item: tag.content.trim() })
+    case 'INVENTORY_UNEQUIP': return createBadgeToken('inventory_unequip', { item: tag.content.trim() })
+    case 'GOLD_CHANGE': return createBadgeToken('gold', { delta: parseFloat(tag.content) })
+    case 'STATUS_ADD': return createBadgeToken('status_add', { name: tag.content.trim() })
+    case 'STATUS_REMOVE': return createBadgeToken('status_remove', { name: tag.content.trim() })
+    case 'RELATIONSHIP': {
+      const [entity, delta] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('relationship', { entity: entity || '', delta: parseInt(delta, 10) })
+    }
+    case 'CAST_SPELL': {
+      const [spell, level] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('cast_spell', { spell: spell || '', level: parseInt(level, 10) })
+    }
+    case 'SHORT_REST': return createBadgeToken('short_rest', { duration: parseInt(tag.content, 10) })
+    case 'LONG_REST': return createBadgeToken('long_rest', { duration: parseInt(tag.content, 10) })
+    case 'CONCENTRATION_START': return createBadgeToken('concentration_start', { spell: tag.content.trim() })
+    case 'CONCENTRATION_END': return createBadgeToken('concentration_end', { spell: tag.content.trim() })
+    case 'HIT_DIE_ROLL': return createBadgeToken('hit_die_roll', { count: parseInt(tag.content, 10) })
+    case 'ACTION': return createBadgeToken('action', { action: tag.content.trim() })
+    default: return tag.raw
+  }
 }
 
 /**
@@ -306,6 +727,15 @@ export function insertInlineBadges(html) {
  * @returns {string} - Escaped HTML
  */
 function escapeHtml(text) {
+  // In Node environment (tests), document is not defined.
+  // Simple fallback for tests or use jsdom if configured.
+  if (typeof document === 'undefined') {
+    return text.replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
   const div = document.createElement("div")
   div.textContent = text
   return div.innerHTML

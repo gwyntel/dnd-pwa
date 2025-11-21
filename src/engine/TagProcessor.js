@@ -269,8 +269,11 @@ export async function processGameTagsRealtime(game, character, text, processedTa
           // Check for Level Up
           if (character.xp.current >= character.xp.max) {
             newMessages.push({
+              id: `msg_${Date.now()}_level_up`,
               role: 'system',
-              content: `🎉 **LEVEL UP AVAILABLE!**\nYou have reached **${character.xp.current} XP**! Open your character sheet to level up.`
+              content: `🎉 **LEVEL UP AVAILABLE!**\nYou have reached **${character.xp.current} XP**! Open your character sheet to level up.`,
+              timestamp: new Date().toISOString(),
+              hidden: false
             })
           }
           processed = true

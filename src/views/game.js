@@ -430,12 +430,12 @@ export async function renderGame(state = {}) {
   // Window handlers for Level Up
   window.openLevelUpModal = () => {
     levelUpModalOpen = true
-    renderGame(store.get())
+    renderGame({ params: { id: currentGameId } })
   }
 
   window.closeLevelUp = () => {
     levelUpModalOpen = false
-    renderGame(store.get())
+    renderGame({ params: { id: currentGameId } })
   }
 
   // Auto-scroll to bottom initially

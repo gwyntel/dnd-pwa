@@ -7,7 +7,7 @@ import { navigateTo } from "../router.js"
 import { getProvider } from "../utils/model-utils.js"
 import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
-import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/character-prompt-improved.js"
+import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/prompts/character-prompts.js"
 import { validateHitDice } from "../utils/character-validation.js"
 import store from "../state/store.js"
 
@@ -96,8 +96,8 @@ function renderCharacterList(characters) {
   return `
     <div class="grid grid-2">
       ${characters
-        .map(
-          (char) => `
+      .map(
+        (char) => `
         <div class="card character-card card-clickable" data-character-id="${char.id}">
           <button class="btn-icon delete-btn" data-character-id="${char.id}" title="Delete">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -123,15 +123,14 @@ function renderCharacterList(characters) {
               <span>CHA: ${char.stats.charisma}</span>
             </div>
           </div>
-          ${
-            char.fromTemplate
-              ? `<p class="text-secondary mt-2 text-xs">From template: ${char.fromTemplate}</p>`
-              : ""
+          ${char.fromTemplate
+            ? `<p class="text-secondary mt-2 text-xs">From template: ${char.fromTemplate}</p>`
+            : ""
           }
         </div>
       `,
-        )
-        .join("")}
+      )
+      .join("")}
     </div>
   `
 }
@@ -192,35 +191,35 @@ export function renderCharacterCreator(state = {}) {
   // Initialize form data
   const formData = character ||
     initialTemplate || {
-      name: "",
-      race: "Human",
-      class: "Fighter",
-      level: 1,
-      stats: {
-        strength: 10,
-        dexterity: 10,
-        constitution: 10,
-        intelligence: 10,
-        wisdom: 10,
-        charisma: 10,
-      },
-      maxHP: 10,
-      armorClass: 10,
-      proficiencyBonus: 2,
-      speed: 30,
-      hitDice: "1d10",
-      savingThrows: [],
-      skills: [],
-      proficiencies: {
-        armor: [],
-        weapons: [],
-        tools: [],
-      },
-      features: [],
-      spells: [],
-      inventory: [],
-      backstory: "",
-    }
+    name: "",
+    race: "Human",
+    class: "Fighter",
+    level: 1,
+    stats: {
+      strength: 10,
+      dexterity: 10,
+      constitution: 10,
+      intelligence: 10,
+      wisdom: 10,
+      charisma: 10,
+    },
+    maxHP: 10,
+    armorClass: 10,
+    proficiencyBonus: 2,
+    speed: 30,
+    hitDice: "1d10",
+    savingThrows: [],
+    skills: [],
+    proficiencies: {
+      armor: [],
+      weapons: [],
+      tools: [],
+    },
+    features: [],
+    spells: [],
+    inventory: [],
+    backstory: "",
+  }
 
   const creationMode = state.creationMode || null
 
@@ -242,9 +241,8 @@ export function renderCharacterCreator(state = {}) {
         <a href="/characters" class="btn-secondary">Cancel</a>
       </div>
 
-      ${
-        !isEdit
-          ? `
+      ${!isEdit
+      ? `
         <div class="card mb-3">
           <h2 class="mt-0">Create with AI or From Scratch</h2>
           <p class="text-secondary text-sm mb-2">
@@ -267,8 +265,8 @@ export function renderCharacterCreator(state = {}) {
           </p>
         </div>
       `
-          : ""
-      }
+      : ""
+    }
       
       ${""}
       
@@ -284,123 +282,119 @@ export function renderCharacterCreator(state = {}) {
               <label class="form-label">Race *</label>
               <select id="char-race">
                 ${[
-                  "Human",
-                  "Elf",
-                  "Dwarf",
-                  "Halfling",
-                  "Dragonborn",
-                  "Gnome",
-                  "Half-Elf",
-                  "Half-Orc",
-                  "Tiefling",
-                  "Custom",
-                ]
-                  .map((race) => `<option value="${race}" ${formData.race === race ? "selected" : ""}>${race}</option>`)
-                  .join("")}
+      "Human",
+      "Elf",
+      "Dwarf",
+      "Halfling",
+      "Dragonborn",
+      "Gnome",
+      "Half-Elf",
+      "Half-Orc",
+      "Tiefling",
+      "Custom",
+    ]
+      .map((race) => `<option value="${race}" ${formData.race === race ? "selected" : ""}>${race}</option>`)
+      .join("")}
               </select>
               <input
                 type="text"
                 id="char-race-custom"
                 class="mt-1"
                 placeholder="Enter custom race"
-                style="display: ${
-                  formData.race &&
-                  ![
-                    "Human",
-                    "Elf",
-                    "Dwarf",
-                    "Halfling",
-                    "Dragonborn",
-                    "Gnome",
-                    "Half-Elf",
-                    "Half-Orc",
-                    "Tiefling",
-                  ].includes(formData.race)
-                    ? "block"
-                    : "none"
-                };"
-                value="${
-                  formData.race &&
-                  ![
-                    "Human",
-                    "Elf",
-                    "Dwarf",
-                    "Halfling",
-                    "Dragonborn",
-                    "Gnome",
-                    "Half-Elf",
-                    "Half-Orc",
-                    "Tiefling",
-                  ].includes(formData.race)
-                    ? escapeHtml(formData.race)
-                    : ""
-                }"
+                style="display: ${formData.race &&
+      ![
+        "Human",
+        "Elf",
+        "Dwarf",
+        "Halfling",
+        "Dragonborn",
+        "Gnome",
+        "Half-Elf",
+        "Half-Orc",
+        "Tiefling",
+      ].includes(formData.race)
+      ? "block"
+      : "none"
+    };"
+                value="${formData.race &&
+      ![
+        "Human",
+        "Elf",
+        "Dwarf",
+        "Halfling",
+        "Dragonborn",
+        "Gnome",
+        "Half-Elf",
+        "Half-Orc",
+        "Tiefling",
+      ].includes(formData.race)
+      ? escapeHtml(formData.race)
+      : ""
+    }"
               >
             </div>
             <div>
               <label class="form-label">Class *</label>
               <select id="char-class">
                 ${[
-                  "Fighter",
-                  "Wizard",
-                  "Rogue",
-                  "Cleric",
-                  "Barbarian",
-                  "Bard",
-                  "Druid",
-                  "Monk",
-                  "Paladin",
-                  "Ranger",
-                  "Sorcerer",
-                  "Warlock",
-                  "Custom",
-                ]
-                  .map((cls) => `<option value="${cls}" ${formData.class === cls ? "selected" : ""}>${cls}</option>`)
-                  .join("")}
+      "Fighter",
+      "Wizard",
+      "Rogue",
+      "Cleric",
+      "Barbarian",
+      "Bard",
+      "Druid",
+      "Monk",
+      "Paladin",
+      "Ranger",
+      "Sorcerer",
+      "Warlock",
+      "Custom",
+    ]
+      .map((cls) => `<option value="${cls}" ${formData.class === cls ? "selected" : ""}>${cls}</option>`)
+      .join("")}
               </select>
               <input
                 type="text"
                 id="char-class-custom"
                 class="mt-1"
                 placeholder="Enter custom class"
-                style="display: ${
-                  formData.class &&
-                  ![
-                    "Fighter",
-                    "Wizard",
-                    "Rogue",
-                    "Cleric",
-                    "Barbarian",
-                    "Bard",
-                    "Druid",
-                    "Monk",
-                    "Paladin",
-                    "Ranger",
-                    "Sorcerer",
-                    "Warlock",
-                  ].includes(formData.class)
-                    ? "block"
-                    : "none"
-                };"
-                value="${
-                  formData.class &&
-                  ![
-                    "Fighter",
-                    "Wizard",
-                    "Rogue",
-                    "Cleric",
-                    "Barbarian",
-                    "Bard",
-                    "Druid",
-                    "Monk",
-                    "Paladin",
-                    "Ranger",
-                    "Sorcerer",
-                    "Warlock",
-                  ].includes(formData.class)
-                    ? escapeHtml(formData.class)
-                    : ""
-                }"
+                style="display: ${formData.class &&
+      ![
+        "Fighter",
+        "Wizard",
+        "Rogue",
+        "Cleric",
+        "Barbarian",
+        "Bard",
+        "Druid",
+        "Monk",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+      ].includes(formData.class)
+      ? "block"
+      : "none"
+    };"
+                value="${formData.class &&
+      ![
+        "Fighter",
+        "Wizard",
+        "Rogue",
+        "Cleric",
+        "Barbarian",
+        "Bard",
+        "Druid",
+        "Monk",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+      ].includes(formData.class)
+      ? escapeHtml(formData.class)
+      : ""
+    }"
               >
             </div>
           </div>
@@ -414,17 +408,17 @@ export function renderCharacterCreator(state = {}) {
           <p class="text-secondary mb-2 text-sm">Standard range: 8-18. Higher is better.</p>
           <div class="grid grid-2 mb-3">
             ${Object.entries(formData.stats)
-              .map(
-                ([stat, value]) => `
+      .map(
+        ([stat, value]) => `
               <div>
                 <label class="form-label" style="text-transform: uppercase;">${stat
-                  .substring(0, 3)
-                  .toUpperCase()}: ${value}</label>
+            .substring(0, 3)
+            .toUpperCase()}: ${value}</label>
                 <input type="range" id="stat-${stat}" min="3" max="20" value="${value}">
               </div>
             `,
-              )
-              .join("")}
+      )
+      .join("")}
           </div>
           
           <div class="grid grid-2 mb-3">
@@ -448,19 +442,19 @@ export function renderCharacterCreator(state = {}) {
               <select id="char-hitdice" title="Select your character's hit die (e.g., 1d8 for a Fighter, 1d6 for a Wizard)">
                 <optgroup label="Standard Options">
                   ${["1d4", "1d6", "1d8", "1d10", "1d12"]
-                    .map(
-                      (dice) =>
-                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
-                    )
-                    .join("")}
+      .map(
+        (dice) =>
+          `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+      )
+      .join("")}
                 </optgroup>
                 <optgroup label="Multiple Dice">
                   ${["2d4", "2d6", "2d8", "2d10", "2d12"]
-                    .map(
-                      (dice) =>
-                        `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
-                    )
-                    .join("")}
+      .map(
+        (dice) =>
+          `<option value="${dice}" ${formData.hitDice === dice ? "selected" : ""}>${dice}</option>`,
+      )
+      .join("")}
                 </optgroup>
               </select>
               <small id="hitdice-validation" class="text-secondary text-xs mt-1" style="display: block;"></small>
@@ -679,12 +673,12 @@ async function generateCharacterWithLLM(userPrompt = "") {
       temperature: 0.8,
       ...(supportsStructuredOutputs
         ? {
-            jsonSchema: {
-              name: "character",
-              strict: true,
-              schema: characterSchema,
-            },
-          }
+          jsonSchema: {
+            name: "character",
+            strict: true,
+            schema: characterSchema,
+          },
+        }
         : {}),
     })
 
@@ -989,24 +983,24 @@ function normalizeJsonCharacter(raw) {
   const statsIn =
     // Preferred strict schema: object with named fields
     (raw.stats && !Array.isArray(raw.stats) && raw.stats) ||
-      raw.abilityScores ||
-      raw.abilities ||
-      // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
-      (Array.isArray(raw.stats) && {
-        strength: raw.stats[0],
-        dexterity: raw.stats[1],
-        constitution: raw.stats[2],
-        intelligence: raw.stats[3],
-        wisdom: raw.stats[4],
-        charisma: raw.stats[5],
-      }) || {
-        strength: raw.strength,
-        dexterity: raw.dexterity,
-        constitution: raw.constitution,
-        intelligence: raw.intelligence,
-        wisdom: raw.wisdom,
-        charisma: raw.charisma,
-      }
+    raw.abilityScores ||
+    raw.abilities ||
+    // If model returns an array like [str,dex,con,int,wis,cha], keep it only as fallback for non-strict mode
+    (Array.isArray(raw.stats) && {
+      strength: raw.stats[0],
+      dexterity: raw.stats[1],
+      constitution: raw.stats[2],
+      intelligence: raw.stats[3],
+      wisdom: raw.stats[4],
+      charisma: raw.stats[5],
+    }) || {
+      strength: raw.strength,
+      dexterity: raw.dexterity,
+      constitution: raw.constitution,
+      intelligence: raw.intelligence,
+      wisdom: raw.wisdom,
+      charisma: raw.charisma,
+    }
 
   const num = (v, fallback) => {
     const n = typeof v === "number" ? v : Number.parseInt(v, 10)

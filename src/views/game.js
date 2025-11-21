@@ -11,25 +11,25 @@ import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequest
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../data/icons.js"
 import { REGEX } from "../data/tags.js"
-import { buildGameDMPrompt } from "../views/prompts/game-dm-prompt.js"
-import { 
-  stripTags, 
-  parseMarkdown, 
-  createBadgeToken, 
-  renderInlineBadgeHtml, 
-  insertInlineBadges 
+import { buildGameDMPrompt } from "../utils/prompts/game-dm-prompt.js"
+import {
+  stripTags,
+  parseMarkdown,
+  createBadgeToken,
+  renderInlineBadgeHtml,
+  insertInlineBadges
 } from "../engine/TagProcessor.js"
-import { 
-  startCombat as engineStartCombat, 
-  endCombat as engineEndCombat, 
-  getCurrentTurnDescription 
+import {
+  startCombat as engineStartCombat,
+  endCombat as engineEndCombat,
+  getCurrentTurnDescription
 } from "../engine/CombatManager.js"
-import { 
-  buildApiMessages, 
-  sanitizeMessagesForModel, 
-  trimRelationships, 
-  trimVisitedLocations, 
-  createRollMetadata 
+import {
+  buildApiMessages,
+  sanitizeMessagesForModel,
+  trimRelationships,
+  trimVisitedLocations,
+  createRollMetadata
 } from "../engine/GameLoop.js"
 import { UsageDisplay } from "../components/UsageDisplay.js"
 import { RollHistory } from "../components/RollHistory.js"
@@ -58,7 +58,7 @@ function isScrolledToBottom(container, threshold = 100) {
 // Smart scroll that respects user's scroll position
 function smartScrollToBottom(container) {
   if (!container) return
-  
+
   // Only auto-scroll if user is already near bottom
   if (isScrolledToBottom(container)) {
     container.scrollTop = container.scrollHeight
@@ -125,12 +125,12 @@ function renderGameCreator(data) {
           <select id="game-character" required>
             <option value="">Choose a character...</option>
             ${data.characters
-              .map(
-                (char) => `
+      .map(
+        (char) => `
               <option value="${char.id}">${char.name} - Level ${char.level} ${char.race} ${char.class}</option>
             `,
-              )
-              .join("")}
+      )
+      .join("")}
           </select>
         </div>
         
@@ -138,14 +138,14 @@ function renderGameCreator(data) {
           <label class="form-label">World Setting *</label>
           <select id="game-world" required>
             ${data.worlds
-              .map(
-                (world) => `
+      .map(
+        (world) => `
               <option value="${world.id}" ${world.isDefault ? "selected" : ""}>
                 ${world.name}${world.isDefault ? " (Default)" : ""}
               </option>
             `,
-              )
-              .join("")}
+      )
+      .join("")}
           </select>
           <p class="text-secondary mt-1 text-sm">
             <a href="/worlds">Manage worlds</a>
@@ -298,23 +298,22 @@ export async function renderGame(state = {}) {
           </div>
           
           <div class="input-container">
-            ${
-              game.suggestedActions && game.suggestedActions.length > 0
-                ? `
+            ${game.suggestedActions && game.suggestedActions.length > 0
+      ? `
               <div class="suggested-actions">
                 ${game.suggestedActions
-                  .map(
-                    (action) => `
+        .map(
+          (action) => `
                   <button class="action-bubble" data-action="${escapeHtml(action)}">
                     ${escapeHtml(action)}
                   </button>
                 `,
-                  )
-                  .join("")}
+        )
+        .join("")}
               </div>
             `
-                : ""
-            }
+      : ""
+    }
             <form id="chat-form" class="chat-form">
               <input 
                 type="text" 
@@ -339,22 +338,21 @@ export async function renderGame(state = {}) {
 
         <div class="card">
           <h3>Inventory</h3>
-          ${
-            Array.isArray(game.inventory) && game.inventory.length > 0
-              ? `
+          ${Array.isArray(game.inventory) && game.inventory.length > 0
+      ? `
             <ul class="inventory-list">
               ${game.inventory
-                .map((it) => {
-                  const qty = typeof it.quantity === "number" ? it.quantity : 1
-                  const label = escapeHtml(it.item || "")
-                  const eq = it.equipped ? " (eq.)" : ""
-                  return `<li>${qty}x ${label}${eq}</li>`
-                })
-                .join("")}
+        .map((it) => {
+          const qty = typeof it.quantity === "number" ? it.quantity : 1
+          const label = escapeHtml(it.item || "")
+          const eq = it.equipped ? " (eq.)" : ""
+          return `<li>${qty}x ${label}${eq}</li>`
+        })
+        .join("")}
             </ul>
           `
-              : `<p class="text-secondary text-sm">No items in inventory.</p>`
-          }
+      : `<p class="text-secondary text-sm">No items in inventory.</p>`
+    }
         </div>
 
         <div class="card">
@@ -443,7 +441,7 @@ function appendMessage(msg) {
 
   // Check if element with this msg.id already exists (for idempotency during streaming)
   const existingElement = document.querySelector(`[data-msg-id="${msg.id}"]`)
-  
+
   if (existingElement) {
     // Replace the existing element with the newly rendered one
     existingElement.replaceWith(div.firstChild)
@@ -479,12 +477,12 @@ function renderMessages(messages) {
 function addRollToBatch(rollData) {
   console.log("[dice][batch] Adding roll to batch:", rollData)
   rollBatch.push(rollData)
-  
+
   // Clear existing timer and start new one
   if (rollSettlingTimer) {
     clearTimeout(rollSettlingTimer)
   }
-  
+
   rollSettlingTimer = setTimeout(() => {
     processRollBatch()
   }, ROLL_SETTLING_DELAY_MS)
@@ -495,17 +493,17 @@ function addRollToBatch(rollData) {
  */
 async function processRollBatch() {
   if (rollBatch.length === 0) return
-  
+
   console.log("[dice][batch] Processing roll batch:", rollBatch)
-  
+
   const data = store.get()
   const game = data.games.find((g) => g.id === currentGameId)
   if (!game) return
-  
+
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
   if (!character) return
-  
+
   // If streaming is active, defer this batch until streaming completes
   if (isStreaming) {
     console.log("[dice][batch] Deferring follow-up - streaming in progress")
@@ -513,33 +511,32 @@ async function processRollBatch() {
     rollBatch = []
     return
   }
-  
+
   // Build summary of all rolls
   const rollSummaries = rollBatch.map(({ kind, label, roll }) => {
-    const outcome = roll.success === true 
-      ? "✓ Success" 
-      : roll.success === false 
-      ? "✗ Failure" 
-      : `Total: ${roll.total}`
+    const outcome = roll.success === true
+      ? "✓ Success"
+      : roll.success === false
+        ? "✗ Failure"
+        : `Total: ${roll.total}`
     return `${kind} (${label}): ${roll.notation || "1d20"} = ${roll.total} (${outcome})`
   }).join(", ")
-  
+
   console.log("[dice][batch] Sending follow-up for rolls:", rollSummaries)
-  
+
   // Build follow-up prompt
   const followupPrompt = rollBatch.length === 1
-    ? `The player just made a ${rollBatch[0].kind} roll for ${rollBatch[0].label}: ${rollBatch[0].roll.notation || "1d20"} = ${rollBatch[0].roll.total}. ${
-        rollBatch[0].roll.success === true
-          ? "The roll succeeded. Describe the positive outcome."
-          : rollBatch[0].roll.success === false
-          ? "The roll failed. Describe the consequences."
-          : "Interpret this roll narratively."
-      } Keep the response concise and continue the scene.`
+    ? `The player just made a ${rollBatch[0].kind} roll for ${rollBatch[0].label}: ${rollBatch[0].roll.notation || "1d20"} = ${rollBatch[0].roll.total}. ${rollBatch[0].roll.success === true
+      ? "The roll succeeded. Describe the positive outcome."
+      : rollBatch[0].roll.success === false
+        ? "The roll failed. Describe the consequences."
+        : "Interpret this roll narratively."
+    } Keep the response concise and continue the scene.`
     : `The player just made the following rolls: ${rollSummaries}. Narrate the outcomes briefly and continue the scene.`
-  
+
   // Clear batch
   rollBatch = []
-  
+
   // Create system message with roll results
   const rollSystemMessage = {
     id: `msg_${Date.now()}_roll_result`,
@@ -547,15 +544,15 @@ async function processRollBatch() {
     content: followupPrompt,
     timestamp: new Date().toISOString(),
     hidden: true, // Hidden from UI but visible to AI
-    metadata: { 
+    metadata: {
       rollResult: true,
-      ephemeral: true 
+      ephemeral: true
     }
   }
 
   // Add to game state so it's included in the API request
   game.messages.push(rollSystemMessage)
-  
+
   // Optional: Append to UI if we wanted to show it (but it's hidden)
   // appendMessage(rollSystemMessage) 
 
@@ -682,7 +679,7 @@ async function sendMessage(game, userText, data) {
     userText: userText?.substring(0, 100),
     currentMessageCount: game?.messages?.length
   })
-  
+
   const gameRef = game // Use the passed-in game object
   if (!gameRef) {
     console.error("[v0] Game not found!")
@@ -740,7 +737,7 @@ async function sendMessage(game, userText, data) {
       reasoningOptions.reasoningEnabled = data.settings.reasoning.enabled
       reasoningOptions.reasoningEffort = data.settings.reasoning.effort
       reasoningOptions.reasoningMaxTokens = data.settings.reasoning.maxTokens
-      
+
       // Get model metadata to determine reasoning type
       const model = data.models?.find((m) => m.id === gameRef.narrativeModel)
       if (model) {
@@ -758,7 +755,7 @@ async function sendMessage(game, userText, data) {
     // Get the configured provider and send the request
     const provider = await getProvider()
     const response = await provider.sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
-    
+
     console.log('[flow] sendMessage: API response received')
 
     let assistantMessage = ""
@@ -777,7 +774,7 @@ async function sendMessage(game, userText, data) {
 
     const assistantMsgIndex = gameRef.messages.length
     console.log('[flow] sendMessage: creating assistant message at index', assistantMsgIndex)
-    
+
     gameRef.messages.push({
       id: assistantMsgId,
       role: "assistant",
@@ -791,7 +788,7 @@ async function sendMessage(game, userText, data) {
     let insideThinkTag = false
     let thinkBuffer = ""
     let contentOutsideThink = ""
-    
+
     for await (const chunk of provider.parseStreamingResponse(response)) {
       const choice = chunk.choices?.[0]
       // Use `delta?.content || ""` to ensure delta is not null/undefined for the logic below
@@ -807,31 +804,31 @@ async function sendMessage(game, userText, data) {
       if (reasoningDelta) {
         reasoningBuffer += reasoningDelta
         lastReasoningText = reasoningBuffer
-        
+
         // Update message metadata with streaming reasoning
         gameRef.messages[assistantMsgIndex].metadata.reasoning = reasoningBuffer
         gameRef.messages[assistantMsgIndex].metadata.reasoningType = 'openrouter'
-        
+
         // Update reasoning display in real-time if panel is enabled
         if (reasoningPanelEnabled) {
           let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
-          
+
           if (!streamingMsgElement) {
             // Create the message element immediately when reasoning starts
             appendMessage(gameRef.messages[assistantMsgIndex])
             streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
-            
+
             // Open the details element that was just created by appendMessage
             const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
             if (reasoningDetails) {
               reasoningDetails.open = true
             }
           }
-          
+
           if (streamingMsgElement) {
             // Update existing reasoning body
             let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
-            
+
             if (!reasoningBody) {
               // Create reasoning panel if it doesn't exist yet (fallback, shouldn't happen)
               const messageDiv = streamingMsgElement
@@ -846,20 +843,20 @@ async function sendMessage(game, userText, data) {
                   <div class="reasoning-body"></div>
                 </details>
               `
-              
+
               // Insert at the beginning of the message
               if (messageDiv.firstChild) {
                 messageDiv.insertBefore(reasoningPanel, messageDiv.firstChild)
               } else {
                 messageDiv.appendChild(reasoningPanel)
               }
-              
+
               reasoningBody = reasoningPanel.querySelector(".reasoning-body")
             }
-            
+
             if (reasoningBody) {
               reasoningBody.innerHTML = escapeHtml(reasoningBuffer).replace(/\n/g, "<br>")
-              
+
               // Auto-scroll reasoning body to bottom as it streams
               reasoningBody.scrollTop = reasoningBody.scrollHeight
             }
@@ -871,11 +868,11 @@ async function sendMessage(game, userText, data) {
       // because we need to handle tags and UI updates on every chunk.
       // The `if (delta)` check was too restrictive for hybrid models.
       // The `|| ""` above ensures `delta` is always a string.
-      
+
       // Parse <think> tags in the delta for real-time reasoning extraction
       let processedDelta = delta
       let i = 0
-      
+
       while (i < processedDelta.length) {
         if (!insideThinkTag) {
           // Look for opening <think> tag
@@ -885,11 +882,11 @@ async function sendMessage(game, userText, data) {
             const beforeThink = processedDelta.substring(i, thinkStart)
             contentOutsideThink += beforeThink
             assistantMessage += beforeThink
-            
+
             // Enter think tag mode
             insideThinkTag = true
             i = thinkStart + 7 // Skip past '<think>'
-            
+
             // Mark that we have reasoning and set type
             gameRef.messages[assistantMsgIndex].metadata.reasoningType = 'think_tags'
           } else {
@@ -906,7 +903,7 @@ async function sendMessage(game, userText, data) {
             // Add content to think buffer
             const thinkContent = processedDelta.substring(i, thinkEnd)
             thinkBuffer += thinkContent
-            
+
             // Exit think tag mode
             insideThinkTag = false
             i = thinkEnd + 8 // Skip past '</think>'
@@ -918,31 +915,31 @@ async function sendMessage(game, userText, data) {
           }
         }
       }
-      
+
       // Update reasoning if we have think content
       if (thinkBuffer) {
         lastReasoningText = thinkBuffer
         gameRef.messages[assistantMsgIndex].metadata.reasoning = thinkBuffer
-        
+
         // Update reasoning display in real-time if panel is enabled
         if (reasoningPanelEnabled) {
           let streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
-          
+
           if (!streamingMsgElement) {
             // Create the message element immediately when reasoning starts
             appendMessage(gameRef.messages[assistantMsgIndex])
             streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
-            
+
             // Open the details element
             const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
             if (reasoningDetails) {
               reasoningDetails.open = true
             }
           }
-          
+
           if (streamingMsgElement) {
             let reasoningBody = streamingMsgElement.querySelector(".reasoning-body")
-            
+
             if (!reasoningBody) {
               // Create reasoning panel
               const messageDiv = streamingMsgElement
@@ -957,16 +954,16 @@ async function sendMessage(game, userText, data) {
                   <div class="reasoning-body"></div>
                 </details>
               `
-              
+
               if (messageDiv.firstChild) {
                 messageDiv.insertBefore(reasoningPanel, messageDiv.firstChild)
               } else {
                 messageDiv.appendChild(reasoningPanel)
               }
-              
+
               reasoningBody = reasoningPanel.querySelector(".reasoning-body")
             }
-            
+
             if (reasoningBody) {
               reasoningBody.innerHTML = escapeHtml(thinkBuffer).replace(/\n/g, "<br>")
               reasoningBody.scrollTop = reasoningBody.scrollHeight
@@ -974,7 +971,7 @@ async function sendMessage(game, userText, data) {
           }
         }
       }
-      
+
       // Update the stored content (without think tags)
       gameRef.messages[assistantMsgIndex].content = assistantMessage
 
@@ -997,7 +994,7 @@ async function sendMessage(game, userText, data) {
         appendMessage(gameRef.messages[assistantMsgIndex])
         streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
       }
-      
+
       // Collapse reasoning panel when actual content (not think) starts arriving
       if (contentOutsideThink.trim() && reasoningPanelEnabled) {
         const reasoningDetails = streamingMsgElement?.querySelector(".reasoning-details")
@@ -1005,10 +1002,10 @@ async function sendMessage(game, userText, data) {
           reasoningDetails.open = false
         }
       }
-      
+
       if (streamingMsgElement) {
         const contentElement = streamingMsgElement.querySelector(".message-content")
-          if (contentElement) {
+        if (contentElement) {
           const cleanContent = stripTags(assistantMessage)
           contentElement.innerHTML = insertInlineBadges(parseMarkdown(cleanContent))
         }
@@ -1047,7 +1044,7 @@ async function sendMessage(game, userText, data) {
 
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
     await processGameCommands(gameRef, character, assistantMessage, processedTags, data)
-    
+
     // Note: <think> tag extraction is now handled during streaming, no post-processing needed
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 
@@ -1064,7 +1061,7 @@ async function sendMessage(game, userText, data) {
     // Combat reminder system: If combat is still active after AI response, inject reminder
     if (gameRef.combat.active) {
       const hasCombatEnd = REGEX.COMBAT_END_TEST.test(assistantMessage)
-      
+
       if (!hasCombatEnd) {
         // Combat is ongoing - add reminder message
         console.log('[combat] Adding combat reminder for AI')
@@ -1074,7 +1071,7 @@ async function sendMessage(game, userText, data) {
           content: "⚔️ Combat is still active. Continue narrating combat actions or use COMBAT_END[reason] to end combat.",
           timestamp: new Date().toISOString(),
           hidden: true, // Hidden from UI but visible to AI
-          metadata: { 
+          metadata: {
             combatReminder: true,
             ephemeral: true // Mark for later cleanup
           },
@@ -1086,13 +1083,13 @@ async function sendMessage(game, userText, data) {
     // Update final reasoning metadata with token count if we have usage data
     if (lastReasoningText) {
       gameRef.messages[assistantMsgIndex].metadata.reasoning = lastReasoningText
-      
+
       // Update token count in the UI if panel exists
       if (lastUsageData) {
         const usage = provider.extractUsage({ usage: lastUsageData })
         if (usage.reasoningTokens > 0) {
           gameRef.messages[assistantMsgIndex].metadata.reasoningTokens = usage.reasoningTokens
-          
+
           // Update the token count display in the reasoning summary
           const streamingMsgElement = document.querySelector(`[data-msg-id="${assistantMsgId}"]`)
           if (streamingMsgElement) {
@@ -1108,7 +1105,7 @@ async function sendMessage(game, userText, data) {
     // Update cumulative usage if we have usage data
     if (lastUsageData) {
       const usage = provider.extractUsage({ usage: lastUsageData })
-      
+
       // Add to cumulative totals
       gameRef.cumulativeUsage.promptTokens += usage.promptTokens
       gameRef.cumulativeUsage.completionTokens += usage.completionTokens
@@ -1128,7 +1125,7 @@ async function sendMessage(game, userText, data) {
           console.error('[v0] Failed to fetch models for cost tracking:', error)
         }
       }
-      
+
       const models = data.models || []
       const currentModel = models.find((m) => m.id === gameRef.narrativeModel)
       if (currentModel && currentModel.pricing) {
@@ -1199,19 +1196,19 @@ async function sendMessage(game, userText, data) {
       submitButton.disabled = false
       submitButton.textContent = "Send"
     }
-    
+
     // Check if there's a pending roll batch that was deferred during streaming
     if (pendingRollBatch && pendingRollBatch.length > 0) {
       console.log('[dice][batch] Processing deferred roll batch after streaming completed')
       rollBatch = pendingRollBatch
       pendingRollBatch = null
-      
+
       // Process the deferred batch
       setTimeout(() => {
         processRollBatch()
       }, 100) // Small delay to ensure streaming cleanup is complete
     }
-    
+
     console.log('[flow] ========== sendMessage END (finally) ==========')
   }
 }
@@ -1255,7 +1252,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
 
     let idx = findIndex()
     const isNewItem = idx === -1
-    
+
     if (isNewItem && deltaQty > 0) {
       game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
       idx = findIndex()
@@ -1267,7 +1264,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
 
     const item = game.inventory[idx]
     const oldQty = typeof item.quantity === "number" ? item.quantity : 0
-    
+
     // Only add delta if item already existed; if we just created it, quantity is already set
     const newQty = isNewItem ? item.quantity : Math.max(0, oldQty + deltaQty)
     item.quantity = newQty
@@ -1285,7 +1282,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
     return { name: item.item, oldQty, newQty, equipped: !!item.equipped }
   }
 
-   const changeGold = (deltaRaw) => {
+  const changeGold = (deltaRaw) => {
     const delta = Number.parseFloat(deltaRaw)
     if (Number.isNaN(delta) || delta === 0) return null
     ensureCurrency()
@@ -1431,20 +1428,20 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
         initiativeEntries.sort((a, b) => b.total - a.total)
         game.combat.initiative = initiativeEntries
         game.combat.currentTurnIndex = 0
-        
+
         // Add turn order announcement (visible to player and AI)
         const firstActor = initiativeEntries[0]
         const turnOrderMsg = firstActor.type === "player"
           ? "🎯 You go first! What do you do?"
           : `🎯 ${firstActor.name} goes first!`
-        
+
         newMessages.push({
           id: `msg_${Date.now()}_turn_order`,
           role: "system",
           content: turnOrderMsg,
           timestamp: new Date().toISOString(),
           hidden: false, // Visible to both player and AI
-          metadata: { 
+          metadata: {
             turnOrder: true,
             firstActor: firstActor.type,
             firstActorName: firstActor.name,
@@ -1596,9 +1593,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
               `🎲 Skill (${key || "check"}): ` +
               `${formatRoll(result)}` +
               (dc != null
-                ? ` vs DC ${dc} - ${
-                    result.success ? "✓ Success!" : "✗ Failure"
-                  }`
+                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"
+                }`
                 : ""),
             timestamp: meta.timestamp,
             hidden: false,
@@ -1630,9 +1626,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
               `🎲 Save (${(key || "").toUpperCase() || "save"}): ` +
               `${formatRoll(result)}` +
               (dc != null
-                ? ` vs DC ${dc} - ${
-                    result.success ? "✓ Success!" : "✗ Failure"
-                  }`
+                ? ` vs DC ${dc} - ${result.success ? "✓ Success!" : "✗ Failure"
+                }`
                 : ""),
             timestamp: meta.timestamp,
             hidden: false,
@@ -1664,7 +1659,7 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           const segments = []
           segments.push(
             `🎲 Attack (${label}): ${formatRoll(toHit)}` +
-              (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}` : ""),
+            (targetAC != null ? ` vs AC ${targetAC} - ${toHit.success ? "✓ Hit" : "✗ Miss"}` : ""),
           )
           if (dmg) {
             segments.push(`💥 Damage: ${formatRoll(dmg)}`)
@@ -1906,22 +1901,22 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
     if (!processedTags.has(tagKey)) {
       const entityId = match[1].trim()
       const delta = Number.parseInt(match[2], 10)
-      
+
       if (entityId && !Number.isNaN(delta)) {
         // Initialize relationships object if needed
         if (!game.relationships || typeof game.relationships !== 'object') {
           game.relationships = {}
         }
-        
+
         // Get current value or default to 0
-        const currentValue = typeof game.relationships[entityId] === 'number' 
-          ? game.relationships[entityId] 
+        const currentValue = typeof game.relationships[entityId] === 'number'
+          ? game.relationships[entityId]
           : 0
-        
+
         // Apply delta
         const newValue = currentValue + delta
         game.relationships[entityId] = newValue
-        
+
         // Create system message
         const sign = delta > 0 ? '+' : ''
         newMessages.push({
@@ -1931,20 +1926,20 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           timestamp: new Date().toISOString(),
           hidden: false,
         })
-        
+
         needsUIUpdate = true
       }
       processedTags.add(tagKey)
     }
- }
+  }
 
   // Apply relationship trimming after processing all tags
   // This ensures zero-value relationships are removed and cap is enforced
   game.relationships = trimRelationships(game)
-  
+
   // Apply visited locations trimming to keep only the most recent locations
   game.visitedLocations = trimVisitedLocations(game)
-  
+
   needsUIUpdate = true
 
   // ACTION suggestions
@@ -2126,7 +2121,7 @@ async function processGameCommands(game, character, text, processedTags = new Se
     const head = (request.notation || "").toLowerCase().trim()
     // Filter out semantic tags AND already-processed tags
     if (head === "skill" || head === "save" || head === "attack") return false
-    
+
     // Check if this roll was already processed during streaming
     const tagKey = `roll_${request.fullMatch}`
     return !processedTags.has(tagKey)
@@ -2174,9 +2169,8 @@ async function sendRollResultToAI(game, rollResult, request) {
   // Build a message with the roll result for AI context and persist it
   const dcPart =
     request.dc != null
-      ? `, DC ${request.dc} - ${
-          rollResult.total >= request.dc ? "SUCCESS" : "FAILURE"
-        }`
+      ? `, DC ${request.dc} - ${rollResult.total >= request.dc ? "SUCCESS" : "FAILURE"
+      }`
       : ""
 
   const resultText = `[Roll Result: ${rollResult.notation} = ${rollResult.total}${dcPart}]`
@@ -2240,7 +2234,7 @@ function updatePlayerStats(game) {
   const data = store.get()
   const rawCharacter = data.characters.find((c) => c.id === game.characterId)
   const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
-  
+
   if (!character) return
 
   // Find the character card container and re-render using CharacterHUD
@@ -2259,20 +2253,20 @@ function updatePlayerStats(game) {
           <h3>Inventory</h3>
           <ul class="inventory-list">
             ${game.inventory
-              .map((it) => {
-                const qty = typeof it.quantity === "number" ? it.quantity : 1
-                const label = escapeHtml(it.item || "")
-                const eq = it.equipped ? " (eq.)" : ""
-                return `<li>${qty}x ${label}${eq}</li>`
-              })
-              .join("")}
+          .map((it) => {
+            const qty = typeof it.quantity === "number" ? it.quantity : 1
+            const label = escapeHtml(it.item || "")
+            const eq = it.equipped ? " (eq.)" : ""
+            return `<li>${qty}x ${label}${eq}</li>`
+          })
+          .join("")}
           </ul>
         `
         : `
           <h3>Inventory</h3>
           <p class="text-secondary text-sm">No items in inventory.</p>
         `
-      
+
       card.innerHTML = inventoryHTML
       break
     }
@@ -2330,22 +2324,21 @@ function updateInputContainer(game) {
   if (!inputContainer) return
 
   inputContainer.innerHTML = `
-    ${
-      game.suggestedActions && game.suggestedActions.length > 0
-        ? `
+    ${game.suggestedActions && game.suggestedActions.length > 0
+      ? `
       <div class="suggested-actions">
         ${game.suggestedActions
-          .map(
-            (action) => `
+        .map(
+          (action) => `
           <button class="action-bubble" data-action="${escapeHtml(action)}">
             ${escapeHtml(action)}
           </button>
         `,
-          )
-          .join("")}
+        )
+        .join("")}
       </div>
     `
-        : ""
+      : ""
     }
     <form id="chat-form" class="chat-form">
       <input 

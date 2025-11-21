@@ -222,19 +222,14 @@ export function renderSettings() {
             value="${data.settings.temperature || 1.0}"
           >
           <span id="temperature-value" class="text-sm" style="min-width: 3rem; font-weight: 500;">${(
-            data.settings.temperature || 1.0
-          ).toFixed(1)}</span>
+      data.settings.temperature || 1.0
+    ).toFixed(1)}</span>
         </div>
       </div>
       
       <div class="card mb-3">
         <h2>Preferences</h2>
-        <div class="mb-2">
-          <label class="form-check">
-            <span class="form-check-label">Auto-save game state</span>
-            <input type="checkbox" id="auto-save-check" ${data.settings.autoSave ? "checked" : ""}>
-          </label>
-        </div>
+
         <div class="mb-2">
           <label class="form-check">
             <span class="form-check-label">Dice roll animations</span>
@@ -329,22 +324,19 @@ export function renderSettings() {
     saveData(data)
   })
 
-  document.getElementById("auto-save-check").addEventListener("change", (e) => {
-    data.settings.autoSave = e.target.checked
-    saveData(data)
-  })
+
 
   document.getElementById("dice-animation-check").addEventListener("change", (e) => {
     data.settings.diceAnimation = e.target.checked
     saveData(data)
   })
 
-   document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
+  document.getElementById("max-relationships-slider").addEventListener("input", (e) => {
     const value = Number.parseInt(e.target.value)
     document.getElementById("max-relationships-value").textContent = value
     data.settings.maxRelationshipsTracked = value
     saveData(data)
- })
+  })
 
   document.getElementById("max-locations-slider").addEventListener("input", (e) => {
     const value = Number.parseInt(e.target.value)
@@ -405,35 +397,35 @@ export function renderSettings() {
  */
 function setupProviderHandlers(data) {
   const providerSelect = document.getElementById("provider-select")
-  
+
   // Show/hide provider-specific configuration based on selection
   const updateProviderConfig = () => {
     const selectedProvider = providerSelect.value
-    
+
     // Hide all provider configs
     document.getElementById("provider-config-openrouter").style.display = "none"
     document.getElementById("provider-config-openai").style.display = "none"
     document.getElementById("provider-config-lmstudio").style.display = "none"
-    
+
     // Show the selected provider config
     const configElement = document.getElementById(`provider-config-${selectedProvider}`)
     if (configElement) {
       configElement.style.display = "block"
     }
   }
-  
+
   // Initialize provider config display
   updateProviderConfig()
-  
+
   // Handle provider selection change
   providerSelect.addEventListener("change", (e) => {
     const oldProvider = data.settings.provider
     const newProvider = e.target.value
-    
+
     data.settings.provider = newProvider
     saveData(data)
     updateProviderConfig()
-    
+
     // Clear selected model when switching providers
     if (oldProvider !== newProvider) {
       data.settings.defaultNarrativeModel = null
@@ -442,13 +434,13 @@ function setupProviderHandlers(data) {
       showMessage(`Switched to ${newProvider}. Please select a model.`, "success")
     }
   })
-  
+
   // OpenAI configuration handlers
   const openaiBaseUrl = document.getElementById("openai-base-url")
   const openaiApiKey = document.getElementById("openai-api-key")
   const openaiContextLength = document.getElementById("openai-context-length")
   const testOpenAIBtn = document.getElementById("test-openai-btn")
-  
+
   if (openaiBaseUrl) {
     openaiBaseUrl.addEventListener("change", (e) => {
       if (!data.settings.providers) data.settings.providers = {}
@@ -457,7 +449,7 @@ function setupProviderHandlers(data) {
       saveData(data)
     })
   }
-  
+
   if (openaiApiKey) {
     openaiApiKey.addEventListener("change", (e) => {
       if (!data.settings.providers) data.settings.providers = {}
@@ -466,7 +458,7 @@ function setupProviderHandlers(data) {
       saveData(data)
     })
   }
-  
+
   if (openaiContextLength) {
     openaiContextLength.addEventListener("change", (e) => {
       if (!data.settings.providers) data.settings.providers = {}
@@ -476,7 +468,7 @@ function setupProviderHandlers(data) {
       saveData(data)
     })
   }
-  
+
   // OpenAI proxy checkbox handler
   const openaiProxyCheck = document.getElementById("openai-proxy-check")
   if (openaiProxyCheck) {
@@ -487,16 +479,16 @@ function setupProviderHandlers(data) {
       showMessage(`Backend proxy ${status}`, "success")
     })
   }
-  
+
   if (testOpenAIBtn) {
     testOpenAIBtn.addEventListener("click", async () => {
       testOpenAIBtn.disabled = true
       testOpenAIBtn.textContent = "Testing..."
-      
+
       try {
         const provider = await getProvider()
         const success = await provider.testConnection()
-        
+
         if (success) {
           showMessage("✓ OpenAI connection successful!", "success")
         } else {
@@ -510,12 +502,12 @@ function setupProviderHandlers(data) {
       }
     })
   }
-  
+
   // LM Studio configuration handlers
   const lmstudioBaseUrl = document.getElementById("lmstudio-base-url")
   const lmstudioContextLength = document.getElementById("lmstudio-context-length")
   const testLMStudioBtn = document.getElementById("test-lmstudio-btn")
-  
+
   if (lmstudioBaseUrl) {
     lmstudioBaseUrl.addEventListener("change", (e) => {
       if (!data.settings.providers) data.settings.providers = {}
@@ -524,7 +516,7 @@ function setupProviderHandlers(data) {
       saveData(data)
     })
   }
-  
+
   if (lmstudioContextLength) {
     lmstudioContextLength.addEventListener("change", (e) => {
       if (!data.settings.providers) data.settings.providers = {}
@@ -534,16 +526,16 @@ function setupProviderHandlers(data) {
       saveData(data)
     })
   }
-  
+
   if (testLMStudioBtn) {
     testLMStudioBtn.addEventListener("click", async () => {
       testLMStudioBtn.disabled = true
       testLMStudioBtn.textContent = "Testing..."
-      
+
       try {
         const provider = await getProvider()
         const success = await provider.testConnection()
-        
+
         if (success) {
           showMessage("✓ LM Studio connection successful!", "success")
         } else {
@@ -590,16 +582,16 @@ async function initializeReasoningSettings(data) {
   if (!model) {
     try {
       console.log("[Reasoning] Fetching fresh model list from provider...")
-      
+
       // Fetch models to get the latest metadata from current provider
       const provider = await getProvider()
       const fetchedModels = await provider.fetchModels()
       console.log("[Reasoning] Fetched", fetchedModels.length, "models from provider")
-      
+
       // Update data with fetched models
       data.models = fetchedModels
       saveData(data)
-      
+
       model = fetchedModels.find((m) => m.id === selectedId)
       if (model) {
         console.log("[Reasoning] Found model after fetch:", model.id, "supportsReasoning:", model.supportsReasoning)
@@ -624,11 +616,11 @@ async function initializeReasoningSettings(data) {
   if (model.supportsReasoning) {
     console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
     cardEl.style.display = "block"
-    
+
     // Show/hide appropriate controls based on reasoning type
     const effortContainer = document.getElementById("reasoning-effort-container")
     const maxTokensContainer = document.getElementById("reasoning-max-tokens-container")
-    
+
     if (model.reasoningType === "effort") {
       console.log("[Reasoning] Model uses effort-based reasoning")
       effortContainer.style.display = "block"
@@ -693,7 +685,7 @@ function setupReasoningSettingsHandlers(data) {
     // Always save the reasoning object (even if just { enabled: false })
     // This ensures we preserve the user's choice to disable reasoning
     data.settings.reasoning = reasoning
-    
+
     console.log("[Reasoning] Saved settings:", reasoning)
     saveData(data)
   }

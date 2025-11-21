@@ -456,8 +456,13 @@ export async function renderGame(state = {}) {
         if (c) c.classResources = character.classResources
       }
     })
-    // Trigger AI response
-    await sendMessage(game, "I take a short rest.", data)
+
+    // Prefill input for user to confirm/edit
+    const input = document.getElementById('player-input')
+    if (input) {
+      input.value = "I take a short rest."
+      input.focus()
+    }
   })
 
   document.getElementById('long-rest-btn')?.addEventListener('click', async () => {
@@ -483,8 +488,13 @@ export async function renderGame(state = {}) {
         }
       }
     })
-    // Trigger AI response
-    await sendMessage(game, "I take a long rest.", data)
+
+    // Prefill input for user to confirm/edit
+    const input = document.getElementById('player-input')
+    if (input) {
+      input.value = "I take a long rest."
+      input.focus()
+    }
   })
 
   document.getElementById('spend-hit-dice-btn')?.addEventListener('click', async () => {

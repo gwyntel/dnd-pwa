@@ -1136,6 +1136,19 @@ async function sendMessage(game, userText, data) {
         if (g) {
           Object.assign(g, gameRef)
         }
+
+        // Save character changes (e.g., XP gains, learned spells, etc.)
+        const char = state.characters.find((c) => c.id === gameRef.characterId)
+        if (char && character) {
+          // Update XP if changed
+          if (character.xp) {
+            char.xp = character.xp
+          }
+          // Update known spells if changed
+          if (character.knownSpells) {
+            char.knownSpells = character.knownSpells
+          }
+        }
       }, { debounceDelay: 100 })
     }
 
@@ -1257,6 +1270,19 @@ async function sendMessage(game, userText, data) {
       const g = state.games.find((g) => g.id === currentGameId)
       if (g) {
         Object.assign(g, gameRef)
+      }
+
+      // Save character changes (e.g., XP gains, learned spells, etc.)
+      const char = state.characters.find((c) => c.id === gameRef.characterId)
+      if (char && character) {
+        // Update XP if changed
+        if (character.xp) {
+          char.xp = character.xp
+        }
+        // Update known spells if changed
+        if (character.knownSpells) {
+          char.knownSpells = character.knownSpells
+        }
       }
     }, { immediate: true })
     updateInputContainer(gameRef)

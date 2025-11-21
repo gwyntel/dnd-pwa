@@ -159,12 +159,14 @@ src/
     openrouter.js — OpenRouter API client
     model-utils.js — Model metadata & provider selection
     proxy.js — Proxy abstraction (unused in current deployment)
+    prompts/
+      character-prompts.js — Character generation prompts
+      game-dm-prompt.js — Builds system prompt for game turns
+      world-prompts.js — World generation prompts
   views/
     game.js — Main gameplay UI and event handling
     characters.js — Character CRUD + AI generation
     worlds.js — World CRUD + AI generation
-    prompts/
-      game-dm-prompt.js — Builds system prompt for game turns
   router.js — Client-side navigation
  main.js — App initialization
 ```

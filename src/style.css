@@ -329,6 +329,67 @@ textarea {
   box-shadow: 0 4px 12px var(--shadow-strong);
 }
 
+.death-saves-container {
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.death-saves-container .death-save-title {
+  color: var(--warning-color);
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.death-save-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.death-save-track .track-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.death-save-track .track-circles {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.death-save-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid;
+  transition: all 0.2s ease;
+}
+
+.death-save-circle.success {
+  border-color: var(--success-color);
+}
+
+.death-save-circle.success.filled {
+  background-color: var(--success-color);
+}
+
+.death-save-circle.failure {
+  border-color: var(--error-color);
+}
+
+.death-save-circle.failure.filled {
+  background-color: var(--error-color);
+}
+
 /* Navigation */
 nav {
   background-color: var(--bg-secondary);

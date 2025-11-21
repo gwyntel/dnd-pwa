@@ -2146,8 +2146,6 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
   // Apply visited locations trimming to keep only the most recent locations
   game.visitedLocations = trimVisitedLocations(game)
 
-  needsUIUpdate = true
-
   // ACTION suggestions
   const actionMatches = text.matchAll(REGEX.ACTION)
   const newActions = []

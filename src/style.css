@@ -785,7 +785,7 @@ a,
 .game-main-card {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
   min-height: 400px;
 }
 
@@ -875,12 +875,14 @@ a,
   overflow-y: auto;
   overflow-x: hidden;
   padding: 1rem;
+  padding-bottom: 2rem;
   margin-bottom: 1rem;
   background-color: var(--bg-primary);
   border-radius: 8px;
   min-height: 0;
   /* critical for proper flexbox scrolling on desktop */
   max-width: 100%;
+  overscroll-behavior: contain;
 }
 
 /* Below-chat layout container (character + rolls stacked) */

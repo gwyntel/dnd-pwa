@@ -2282,51 +2282,59 @@ async function processGameCommands(game, character, text, processedTags = new Se
   // Check for damage
   const damageMatch = text.match(/DAMAGE\[(\w+)\|(\d+)\]/)
   if (damageMatch) {
-    const target = damageMatch[1]
-    const amount = Number.parseInt(damageMatch[2])
+    const tagKey = `damage_${damageMatch[0]}`
+    if (!processedTags.has(tagKey)) {
+      const target = damageMatch[1]
+      const amount = Number.parseInt(damageMatch[2])
 
-    if (target.toLowerCase() === "player") {
-      const oldHP = game.currentHP
-      game.currentHP = Math.max(0, game.currentHP - amount)
+      if (target.toLowerCase() === "player") {
+        const oldHP = game.currentHP
+        game.currentHP = Math.max(0, game.currentHP - amount)
 
-      // Add system message
-      game.messages.push({
-        id: `msg_${Date.now()}_damage`,
-        role: "system",
-        content: `💔 You take ${amount} damage! (${oldHP} → ${game.currentHP} HP)`,
-        timestamp: new Date().toISOString(),
-        hidden: false,
-        metadata: { damage: amount },
-      })
+        // Add system message
+        game.messages.push({
+          id: `msg_${Date.now()}_damage`,
+          role: "system",
+          content: `💔 You take ${amount} damage! (${oldHP} → ${game.currentHP} HP)`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { damage: amount },
+        })
+      }
+      processedTags.add(tagKey)
     }
   }
 
   // Check for healing
   const healMatch = text.match(/HEAL\[(\w+)\|(\d+)\]/)
   if (healMatch) {
-    const target = healMatch[1]
-    const amount = Number.parseInt(healMatch[2])
+    const tagKey = `heal_${healMatch[0]}`
+    if (!processedTags.has(tagKey)) {
+      const target = healMatch[1]
+      const amount = Number.parseInt(healMatch[2])
 
-    if (target.toLowerCase() === "player" && character) {
-      // Ensure currentHP is initialized
-      if (typeof game.currentHP !== 'number') {
-        game.currentHP = 0
+      if (target.toLowerCase() === "player" && character) {
+        // Ensure currentHP is initialized
+        if (typeof game.currentHP !== 'number') {
+          game.currentHP = 0
+        }
+
+        const maxHP = character.maxHP || 10
+        const oldHP = game.currentHP
+        game.currentHP = Math.min(maxHP, Math.max(0, oldHP + amount))
+        const actualHealing = game.currentHP - oldHP
+
+        // Add system message
+        game.messages.push({
+          id: `msg_${Date.now()}_heal`,
+          role: "system",
+          content: `💚 You heal ${actualHealing} HP! (${oldHP} → ${game.currentHP} HP)`,
+          timestamp: new Date().toISOString(),
+          hidden: false,
+          metadata: { healing: actualHealing },
+        })
       }
-
-      const maxHP = character.maxHP || 10
-      const oldHP = game.currentHP
-      game.currentHP = Math.min(maxHP, Math.max(0, oldHP + amount))
-      const actualHealing = game.currentHP - oldHP
-
-      // Add system message
-      game.messages.push({
-        id: `msg_${Date.now()}_heal`,
-        role: "system",
-        content: `💚 You heal ${actualHealing} HP! (${oldHP} → ${game.currentHP} HP)`,
-        timestamp: new Date().toISOString(),
-        hidden: false,
-        metadata: { healing: actualHealing },
-      })
+      processedTags.add(tagKey)
     }
   }
 

@@ -2504,6 +2504,11 @@ async function processGameCommands(game, character, text, processedTags = new Se
         game.currentHP = Math.min(maxHP, Math.max(0, oldHP + amount))
         const actualHealing = game.currentHP - oldHP
 
+        // If healing from unconscious, reset death saves
+        if (oldHP <= 0 && game.currentHP > 0) {
+          game.deathSaves = { successes: 0, failures: 0, isStable: false }
+        }
+
         // Add system message
         game.messages.push({
           id: `msg_${Date.now()}_heal`,

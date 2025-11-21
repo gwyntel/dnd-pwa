@@ -513,6 +513,13 @@ function createBadgeForTag(tag) {
     case 'CONCENTRATION_END': return createBadgeToken('concentration_end', { spell: tag.content.trim() })
     case 'HIT_DIE_ROLL': return createBadgeToken('hit_die_roll', { count: parseInt(tag.content, 10) })
     case 'ACTION': return createBadgeToken('action', { action: tag.content.trim() })
+    case 'XP_GAIN': {
+      const [amount, reason] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('xp_gain', { amount: parseInt(amount, 10), reason: reason || '' })
+    }
+    case 'LEARN_SPELL': {
+      return createBadgeToken('learn_spell', { spell: tag.content.trim() })
+    }
     default: return tag.raw
   }
 }
@@ -678,6 +685,15 @@ export function renderInlineBadgeHtml(type, data) {
       case "hit_die_roll": {
         const count = badgeData.count ?? 1
         return `<span class="inline-badge rest" data-tag-type="rest">🎲 Spent ${count} Hit ${count === 1 ? 'Die' : 'Dice'}</span>`
+      }
+      case "xp_gain": {
+        const amount = badgeData.amount ?? 0
+        const reason = badgeData.reason || ''
+        return `<span class="inline-badge xp" data-tag-type="xp">⭐ +${labelEscape(amount)} XP${reason ? `: ${labelEscape(reason)}` : ''}</span>`
+      }
+      case "learn_spell": {
+        const spell = badgeData.spell || ''
+        return `<span class="inline-badge spell" data-tag-type="spell">✨ Learned: ${labelEscape(spell)}</span>`
       }
       default:
         return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`

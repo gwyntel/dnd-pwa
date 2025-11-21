@@ -1848,6 +1848,12 @@ a,
   color: white;
 }
 
+.inline-badge.xp {
+  background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
 /* Spell List */
 .spell-list-content {
   display: flex;

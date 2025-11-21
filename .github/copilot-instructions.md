@@ -8,22 +8,23 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ### Data Model & Storage
 - **Centralized Store** (`src/state/store.js`): In-memory state cache wrapping `localStorage`
   - Single source of truth for all app state
-  - Methods: `store.get()`, `store.update(updaterFn)`, `store.getGame(id)`, `store.getCharacter(id)`
+  - Methods: `store.get()`, `store.update(updaterFn)`, `store.getGame(id)`, `store.getCharacter(id)`, `store.getWorld(id)`, `store.getSettings()`
   - Debounced persistence (default 300ms) prevents excessive writes during streaming
   - Immediate save option: `store.update(..., { immediate: true })`
-  - Used by all views: `game.js`, `characters.js`, `worlds.js`
+  - Subscription system for reactive UI updates: `store.subscribe(listener)`
+  - Used by all views and controllers
 - **Low-level storage** (`src/utils/storage.js`): localStorage wrapper used internally by Store
-  - Handles serialization/deserialization
+  - Handles serialization/deserialization and data migration
   - Provides `normalizeCharacter()` for backward compatibility
-  - Store wraps but doesn't replace this layer
 - **Data schema** stored in `localStorage` key `"data"`:
-  - `characters[]` — Created character sheets with full D&D 5e stats
+  - `characters[]` — Created character sheets with full D&D 5e stats (including spell slots, hit dice, XP progress)
   - `worlds[]` — Campaign worlds with system prompts (guides AI behavior)
-  - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage
-  - `settings` — User preferences (model selection, theme, reasoning tokens)
-  - `models[]` — Cached OpenRouter model metadata (fetched on-demand, includes pricing & reasoning support)
-- **No persistence backend**; all state local to browser
-- Normalization via `normalizeCharacter()` handles legacy character formats
+  - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage, combat data, relationship tracking
+  - `settings` — User preferences (AI provider selection, model settings, UI theme, reasoning tokens)
+  - `models[]` — Cached AI model metadata (fetched on-demand, includes pricing & reasoning support)
+- **Migration system** (`src/utils/ai-migration.js`): Handles breaking changes to data schema
+- **No persistence backend**; all state local to browser with export/import capability
+- Normalization via `normalizeCharacter()` and migration scripts handle version upgrades
 
 ### Game Loop & Message Flow (`src/engine/GameLoop.js` and `src/views/game.js`)
 1. Player sends text input → `handlePlayerInput()` adds user message to `game.messages` (in `game.js`).
@@ -48,6 +49,39 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Centralized regex patterns** (`src/data/tags.js`): All tag regex exported as `REGEX` object; single source of truth imported by `TagProcessor.js`, `game.js`, `dice.js`
 - **Roll batching** (`ROLL_SETTLING_DELAY_MS = 500ms`): Collects multiple rolls in a message, then triggers a single follow-up narration (avoids spam)
 - **Deferred batch**: If streaming is active when a batch completes, batch is queued and processed after streaming ends
+
+### AI Multi-Provider Support (`src/utils/ai-provider.js`)
+- **Unified interface** for OpenAI, OpenRouter, and LM Studio
+- **Provider configuration** via settings: `data.settings.provider` ("openrouter" | "openai" | "lmstudio")
+- **Authentication**: OAuth for OpenRouter, API keys for OpenAI, none for local LM Studio
+- **CORS handling**: Proxy support for OpenAI to avoid CORS issues
+- **Structured outputs**: JSON schema support when provider allows
+- **Error normalization**: Provider-specific errors mapped to user-friendly messages
+- **Model caching**: Available models fetched and cached with pricing/metadata
+
+### Levelling System (`src/components/LevelUpModal.js` & `src/data/classes.js`)
+- **Class progression data** in `CLASS_PROGRESSION` with features + spell slots per level
+- **XP thresholds** define when level-ups occur (currently simplified to predetermined levels)
+- **Level-up wizard**: Multi-step modal for HP, features, ASI (Ability Score Improvement), spells
+- **Hit point calculation**: Classes get hit dice (e.g., "1d10") + CON modifier on level-up
+- **Spell slot progression**: Stored in `character.spellSlots[level].current/max`
+- **Feature tracking**: `character.features[]` array accumulates over levels
+
+### Spellcasting (`src/engine/SpellcastingManager.js` & `src/data/spells.js`)
+- **Spell slot tracking**: `character.spellSlots{}` with current/max per level (1-9)
+- **Concentration**: `game.concentration.spellName` tracks active concentration spells
+- **Spell database**: `COMMON_SPELLS{}` with spell definitions (level, school, concentration)
+- **Spell usage**: `castSpell()` manages slot consumption, launches spell effects
+- **Level 0 (Cantrips)**: Unlimited casting, no slot consumption
+- **Concentration mechanics**: Only one concentration spell active, ends on damage/long rest
+
+### Rest Mechanics (`src/engine/RestManager.js`)
+- **Short rest**: Spend hit dice, recover HP (`1[hitDieType] + CON mod` per hit die)
+- **Long rest**: Full HP recovery, spell slot refresh, hit die recovery (half max, min +1)
+- **Hit dice**: `character.hitDice.current/max` tracks available healing dice
+- **Rest tracking**: `game.restState` prevents spam rests (short rest timer)
+- **Class resources**: `character.classResources[]` recover on short/long rests as applicable
+- **Concentration breaks**: Long rest ends all concentration spells
 
 ### AI Integration (`src/utils/openrouter.js`)
 - **OpenRouter API** provides 100+ model access with standardized interface
@@ -94,10 +128,15 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Manual testing**: No automated tests; full e2e via browser
 
 ### Adding Features
-- **New game tags**: Add regex + parsing logic in `processGameCommandsRealtime()` + `processGameCommands()` (game.js); document in `src/data/tags.js`
+- **New game tags**: Add regex + parsing logic in `TagProcessor.processGameCommandsRealtime()` + `.processGameCommands()`; document in `src/data/tags.js`
+- **New spellcasting mechanics**: Extend `SpellcastingManager.js` and `src/data/spells.js`
+- **New combat mechanics**: Modify `CombatManager.js` for initiative/turn management
+- **New class features**: Update `CLASS_PROGRESSION` in `src/data/classes.js`
 - **New dice mechanics**: Extend `dice5e.js` with skill/save/attack wrappers
 - **New world types**: Add template to `WORLD_TEMPLATES` in `src/data/worlds.js`
 - **New character templates**: Add to `BEGINNER_TEMPLATES` in `src/data/archetypes.js`
+- **New AI providers**: Extend `ai-provider.js` with new provider configurations
+- **New components**: Follow component patterns in `src/components/`
 
 ## Key Architectural Decisions
 
@@ -140,15 +179,21 @@ src/
     RelationshipList.js — NPC relationship tracker
     ChatMessage.js — Individual message rendering with reasoning support
     CharacterHUD.js — Character stats display (placeholder for future use)
+    LevelUpModal.js — Level-up wizard component
+    MigrationPopup.js — Data migration notifications
   data/
     archetypes.js — Character templates (BEGINNER_TEMPLATES)
     worlds.js — World templates (WORLD_TEMPLATES)
     tags.js — Game tag reference documentation (TAG_REFERENCE)
     icons.js — UI icons and emoji utilities
+    classes.js — D&D 5e class progression data (XP thresholds, features, spell slots)
+    spells.js — Common spells database definitions
  engine/
     GameLoop.js — Game loop and AI streaming logic
     TagProcessor.js — Game tag parsing and execution
     CombatManager.js — Combat state and initiative tracking
+    SpellcastingManager.js — Spell casting and slot management
+    RestManager.js — Short/long rest mechanics
   state/
     store.js — Centralized state management (in-memory cache + localStorage)
   utils/
@@ -156,19 +201,28 @@ src/
     storage.js — localStorage interface + normalization
     dice.js — Core dice parsing & rolling
     dice5e.js — D&D 5e skill/save/attack mechanics
-    openrouter.js — OpenRouter API client
-    model-utils.js — Model metadata & provider selection
+    openrouter.js — OpenRouter API client (legacy, replaced by ai-provider.js)
+    ai-provider.js — Unified AI provider interface (OpenRouter, OpenAI, LM Studio)
+    model-utils.js — Model metadata and provider selection
     proxy.js — Proxy abstraction (unused in current deployment)
+    ai-migration.js — Data schema migration scripts
+    cors-detector.js — CORS detection utilities
+    character-validation.js — Character creation validation
+    ui-templates.js — UI template utilities
     prompts/
       character-prompts.js — Character generation prompts
       game-dm-prompt.js — Builds system prompt for game turns
       world-prompts.js — World generation prompts
-  views/
+ views/
     game.js — Main gameplay UI and event handling
     characters.js — Character CRUD + AI generation
     worlds.js — World CRUD + AI generation
+    characterTemplatesView.js — Character template browser
+    home.js — Home/welcome page
+    models.js — Model selection and configuration
+    settings.js — User preferences and settings management
   router.js — Client-side navigation
- main.js — App initialization
+  main.js — App initialization
 ```
 
 ## Common Tasks

@@ -174,7 +174,10 @@ ${statusLine}${inventorySection}
 - They cannot take actions, move, or speak.
 - The ONLY valid action is to roll a Death Save.
 - Prompt: "You are unconscious. Roll a Death Save." -> ROLL[death]
-- Do NOT narrate them waking up unless they receive healing or roll a 20.
+- They wake up and recover to 1 HP when:
+  - They roll a 20 on a Death Save (critical success), OR
+  - They achieve 3 successful Death Saves (become stabilized and regain consciousness), OR
+  - They receive healing from another source.
 
 **CRITICAL - Game Engine Rules:**
 

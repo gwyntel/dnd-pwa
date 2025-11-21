@@ -14,12 +14,12 @@ export const TAG_REFERENCE = {
     note: "Emit for all location changes. Fast travel only to visited locations."
   },
   ROLL: {
-    pattern: "ROLL[dice|type|DC] or ROLL[skill|name|DC] or ROLL[save|ability|DC] or ROLL[attack|weapon|AC]",
+    pattern: "ROLL[dice|type|DC] or ROLL[skill|name|DC] or ROLL[save|ability|DC] or ROLL[attack|weapon|AC] or ROLL[death]",
     examples: [
       "ROLL[skill|perception|15]",
       "ROLL[save|dex|14]",
       "ROLL[attack|longsword|13]",
-      "ROLL[skill|stealth|15|advantage]"
+      "ROLL[death]"
     ],
     required: true,
     note: "Semantic forms preferred. Add |advantage or |disadvantage as 4th parameter."
@@ -246,4 +246,5 @@ export const REGEX = {
   SHORT_REST: /SHORT_REST\[(\d+)\]/g,
   LONG_REST: /LONG_REST\[(\d+)\]/g,
   HIT_DIE_ROLL: /HIT_DIE_ROLL\[(\d+)\]/g,
+  DEATH_SAVE: /DEATH_SAVE\[(\d+)\]/g,
 };

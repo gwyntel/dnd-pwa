@@ -169,6 +169,13 @@ CONCENTRATING ON: ${game.concentration.spellName}
 ` : ''}
 ${statusLine}${inventorySection}
 
+**UNCONSCIOUS STATE RULES (0 HP):**
+- If player HP is 0, they are UNCONSCIOUS.
+- They cannot take actions, move, or speak.
+- The ONLY valid action is to roll a Death Save.
+- Prompt: "You are unconscious. Roll a Death Save." -> ROLL[death]
+- Do NOT narrate them waking up unless they receive healing or roll a 20.
+
 **CRITICAL - Game Engine Rules:**
 
 The app is a GAME ENGINE, not a chat bot. State updates ONLY through tags. Without tags, nothing happens mechanically.

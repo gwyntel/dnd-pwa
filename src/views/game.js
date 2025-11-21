@@ -334,6 +334,11 @@ export async function renderGame(state = {}) {
                 ${isStreaming ? "Sending..." : "Send"}
               </button>
             </form>
+            ${game.currentHP === 0 ? `
+              <button id="death-save-btn" class="btn btn-danger mt-2" style="width: 100%; background-color: var(--error-color, #f44336); color: white; font-weight: bold;" ${isStreaming ? 'disabled' : ''}>
+                💀 Roll Death Save
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -440,6 +445,15 @@ export async function renderGame(state = {}) {
   setupLocationFastTravel(game)
 
   // Rest button handlers - prefill input for AI narration
+  document.getElementById('death-save-btn')?.addEventListener('click', () => {
+    if (isStreaming) return
+    const input = document.getElementById('player-input')
+    if (input) {
+      input.value = "I make a death saving throw."
+      input.focus()
+    }
+  })
+
   document.getElementById('short-rest-btn')?.addEventListener('click', () => {
     if (isStreaming) return
     const input = document.getElementById('player-input')
@@ -1396,6 +1410,61 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
     }
   }
 
+  // DEATH_SAVE[result]
+  const deathSaveMatches = text.matchAll(REGEX.DEATH_SAVE)
+  for (const match of deathSaveMatches) {
+    const tagKey = `death_save_${match[0]}`
+    if (!processedTags.has(tagKey)) {
+      const roll = Number.parseInt(match[1], 10)
+
+      if (!game.deathSaves) game.deathSaves = { successes: 0, failures: 0 }
+
+      let msg = ""
+      let status = ""
+
+      if (roll === 20) {
+        game.currentHP = 1
+        game.deathSaves = { successes: 0, failures: 0 }
+        msg = "⚡ **Critical Success!** You regain 1 HP and consciousness!"
+        status = "conscious"
+      } else if (roll === 1) {
+        game.deathSaves.failures = (game.deathSaves.failures || 0) + 2
+        msg = "💀 **Critical Failure!** (2 Failures)"
+        status = "death_save_crit_fail"
+      } else if (roll >= 10) {
+        game.deathSaves.successes = (game.deathSaves.successes || 0) + 1
+        msg = "✅ Death Save Success"
+        status = "death_save_success"
+      } else {
+        game.deathSaves.failures = (game.deathSaves.failures || 0) + 1
+        msg = "❌ Death Save Failure"
+        status = "death_save_fail"
+      }
+
+      // Check End States
+      if (game.deathSaves.successes >= 3) {
+        msg += " - **STABILIZED**"
+        status = "stabilized"
+        game.deathSaves.isStable = true
+      } else if (game.deathSaves.failures >= 3) {
+        msg += " - ☠️ **CHARACTER DIED**"
+        status = "dead"
+      }
+
+      newMessages.push({
+        id: `msg_${Date.now()}_death_save`,
+        role: "system",
+        content: `${msg} (Successes: ${game.deathSaves.successes}/3, Failures: ${game.deathSaves.failures}/3)`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { status, deathSave: true }
+      })
+
+      needsUIUpdate = true
+      processedTags.add(tagKey)
+    }
+  }
+
   // COMBAT_START with initiative
   const combatStartMatches = text.matchAll(REGEX.COMBAT_START)
   for (const match of combatStartMatches) {
@@ -1564,6 +1633,36 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           metadata: { damage: amount },
         })
 
+        // Death Saves Logic
+        if (game.currentHP === 0) {
+          if (oldHP > 0) {
+            // Just fell unconscious
+            game.deathSaves = { successes: 0, failures: 0 }
+            newMessages.push({
+              id: `msg_${Date.now()}_unconscious`,
+              role: "system",
+              content: `⚠️ **You fall UNCONSCIOUS!** Make Death Saving Throws on your turns.`,
+              timestamp: new Date().toISOString(),
+              hidden: false,
+              metadata: { status: "unconscious" }
+            })
+          } else {
+            // Already unconscious and took damage -> Automatic death save failure
+            if (!game.deathSaves) game.deathSaves = { successes: 0, failures: 0 }
+            game.deathSaves.failures = (game.deathSaves.failures || 0) + 1
+
+            const dead = game.deathSaves.failures >= 3
+            newMessages.push({
+              id: `msg_${Date.now()}_death_fail_damage`,
+              role: "system",
+              content: `💀 You take damage while unconscious! (Failure ${game.deathSaves.failures}/3)${dead ? " - ☠️ CHARACTER DIED" : ""}`,
+              timestamp: new Date().toISOString(),
+              hidden: false,
+              metadata: { status: "death_save_fail" }
+            })
+          }
+        }
+
         // Concentration Check
         if (game.concentration) {
           const dc = Math.max(10, Math.floor(amount / 2))
@@ -1632,6 +1731,19 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
           hidden: false,
           metadata: { healing: actualHealing },
         })
+
+        // Reset Death Saves if healing from 0
+        if (oldHP === 0 && game.currentHP > 0) {
+          game.deathSaves = { successes: 0, failures: 0 }
+          newMessages.push({
+            id: `msg_${Date.now()}_conscious`,
+            role: "system",
+            content: `⚡ **You regain consciousness!**`,
+            timestamp: new Date().toISOString(),
+            hidden: false,
+            metadata: { status: "conscious" }
+          })
+        }
         processedTags.add(tagKey)
       }
     }
@@ -1668,8 +1780,8 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
       }
     }
 
-    // Semantic: ROLL[skill|...], ROLL[save|...], ROLL[attack|...]
-    if ((kind === "skill" || kind === "save" || kind === "attack") && diceProfile && character) {
+    // Semantic: ROLL[skill|...], ROLL[save|...], ROLL[attack|...], ROLL[death]
+    if ((kind === "skill" || kind === "save" || kind === "attack" || kind === "death") && diceProfile && character) {
       // Semantic handling for skill/save/attack rolls
       // If this fails, we will log and fall back to numeric handling.
       const key = parts[1] || ""
@@ -1677,7 +1789,73 @@ async function processGameCommandsRealtime(game, character, text, processedTags,
       const adv = parseAdv(parts[3])
 
       try {
-        if (kind === "skill") {
+        if (kind === "death") {
+          const roll = rollDice("1d20")
+
+          if (!game.deathSaves) game.deathSaves = { successes: 0, failures: 0 }
+
+          let msg = ""
+          let status = ""
+          const val = roll.total
+
+          if (val === 20) {
+            game.currentHP = 1
+            game.deathSaves = { successes: 0, failures: 0 }
+            msg = "⚡ **Critical Success!** You regain 1 HP and consciousness!"
+            status = "conscious"
+          } else if (val === 1) {
+            game.deathSaves.failures = (game.deathSaves.failures || 0) + 2
+            msg = "💀 **Critical Failure!** (2 Failures)"
+            status = "death_save_crit_fail"
+          } else if (val >= 10) {
+            game.deathSaves.successes = (game.deathSaves.successes || 0) + 1
+            msg = "✅ Death Save Success"
+            status = "death_save_success"
+          } else {
+            game.deathSaves.failures = (game.deathSaves.failures || 0) + 1
+            msg = "❌ Death Save Failure"
+            status = "death_save_fail"
+          }
+
+          // Check End States
+          if (game.deathSaves.successes >= 3) {
+            msg += " - **STABILIZED**"
+            status = "stabilized"
+            game.deathSaves.isStable = true
+          } else if (game.deathSaves.failures >= 3) {
+            msg += " - ☠️ **CHARACTER DIED**"
+            status = "dead"
+          }
+
+          const meta = createRollMetadata({ sourceType: "death_save" })
+          newMessages.push({
+            id: `msg_${meta.rollId}_death_save`,
+            role: "system",
+            content: `🎲 Death Save: ${formatRoll(roll)} - ${msg} (${game.deathSaves.successes}/3 Success, ${game.deathSaves.failures}/3 Fail)`,
+            timestamp: meta.timestamp,
+            hidden: false,
+            metadata: {
+              diceRoll: roll,
+              type: "death_save",
+              status,
+              ...meta
+            }
+          })
+
+          // Add narrative message for stabilization
+          if (game.deathSaves.successes >= 3) {
+            newMessages.push({
+              id: `msg_${Date.now()}_stabilized`,
+              role: "system",
+              content: `🩹 You are now **STABLE**. You remain unconscious at 0 HP. You will wake up when you receive healing.`,
+              timestamp: new Date().toISOString(),
+              hidden: false,
+              metadata: { status: "stabilized_narrative" }
+            })
+          }
+
+          needsUIUpdate = true
+        } else if (kind === "skill") {
           console.debug("[dice][ROLL] Handling semantic skill roll", { key, dc: parseDC(third), adv, raw: match[0] })
           const dc = parseDC(third)
           const result = rollSkillCheck(character, key, { dc, ...adv })

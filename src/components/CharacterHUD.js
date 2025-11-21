@@ -51,7 +51,10 @@ export function CharacterHUD(game, character) {
     };"
         ></div>
       </div>
+      </div>
     </div>
+
+    ${renderDeathSaves(game)}
     
     <div class="flex justify-between mb-3 key-stats">
       <div><strong>AC</strong><br>${character.armorClass}</div>
@@ -188,6 +191,42 @@ function renderClassResources(character) {
           <span>${resource.current}/${resource.max}</span>
         </div>
       `).join('')}
+    </div>
+  `
+}
+
+function renderDeathSaves(game) {
+  if (game.currentHP > 0) return ''
+
+  const successes = game.deathSaves?.successes || 0
+  const failures = game.deathSaves?.failures || 0
+
+  return `
+    <div class="death-saves-container mt-3 p-3" style="background: rgba(0,0,0,0.3); border-radius: 8px; border: 2px solid var(--error-color, #f44336);">
+      <div class="text-center mb-3" style="color: var(--error-color, #f44336); font-weight: bold; font-size: 0.875rem; letter-spacing: 0.5px;">
+        ⚠️ UNCONSCIOUS
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="death-save-track">
+          <div class="text-xs text-center mb-2" style="color: var(--success-color, #4caf50); font-weight: 600; text-transform: uppercase; font-size: 0.7rem;">Successes</div>
+          <div style="display: flex; justify-content: center; gap: 0.5rem;">
+            ${[1, 2, 3].map(i => `
+              <div style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--success-color, #4caf50); background: ${i <= successes ? 'var(--success-color, #4caf50)' : 'transparent'}; transition: all 0.2s ease;">
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div class="death-save-track">
+          <div class="text-xs text-center mb-2" style="color: var(--error-color, #f44336); font-weight: 600; text-transform: uppercase; font-size: 0.7rem;">Failures</div>
+          <div style="display: flex; justify-content: center; gap: 0.5rem;">
+            ${[1, 2, 3].map(i => `
+              <div style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--error-color, #f44336); background: ${i <= failures ? 'var(--error-color, #f44336)' : 'transparent'}; transition: all 0.2s ease;">
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
     </div>
   `
 }

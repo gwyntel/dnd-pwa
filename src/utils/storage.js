@@ -88,6 +88,13 @@ export function normalizeCharacter(character) {
       dieType: character.hitDice?.dieType || 'd8' // Default to d8 if unknown
     },
 
+    // Death Saves (for 0 HP state)
+    deathSaves: character.deathSaves || {
+      successes: 0,
+      failures: 0,
+      isStable: false
+    },
+
     // Class-specific resources (Ki, Rage, Channel Divinity, etc.)
     classResources: Array.isArray(character.classResources)
       ? character.classResources

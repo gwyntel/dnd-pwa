@@ -18,22 +18,21 @@ export function CharacterHUD(game, character) {
         <h3>${character.name}</h3>
         <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
       </div>
-      ${
-        game.conditions && game.conditions.length > 0
-          ? `
+      ${game.conditions && game.conditions.length > 0
+      ? `
         <div class="character-header-right">
           <div class="status-chips">
             ${game.conditions
-              .map((c) => {
-                const name = typeof c === "string" ? c : c.name
-                return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-              })
-              .join("")}
+        .map((c) => {
+          const name = typeof c === "string" ? c : c.name
+          return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+        })
+        .join("")}
           </div>
         </div>
         `
-          : ""
-      }
+      : ""
+    }
     </div>
     
     <div class="stat-bar mt-2">
@@ -44,13 +43,12 @@ export function CharacterHUD(game, character) {
       <div class="progress-bar progress-bar-lg">
         <div
           class="progress-fill"
-          style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${
-            game.currentHP > character.maxHP * 0.5
-              ? "var(--success-color, #4caf50)"
-              : game.currentHP > character.maxHP * 0.25
-              ? "var(--warning-color, #ff9800)"
-              : "var(--error-color, #f44336)"
-          };"
+          style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${game.currentHP > character.maxHP * 0.5
+      ? "var(--success-color, #4caf50)"
+      : game.currentHP > character.maxHP * 0.25
+        ? "var(--warning-color, #ff9800)"
+        : "var(--error-color, #f44336)"
+    };"
         ></div>
       </div>
     </div>
@@ -90,6 +88,10 @@ export function CharacterHUD(game, character) {
     </div>
 
     ${renderCombatIndicator(game)}
+    ${renderSpellSlots(character)}
+    ${renderHitDice(character)}
+    ${renderConcentration(game)}
+    ${renderClassResources(character)}
   `
 }
 
@@ -114,14 +116,78 @@ function renderCurrentTurn(game) {
   if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
     return ""
   }
-  
+
   const currentIndex = game.combat.currentTurnIndex || 0
   const current = game.combat.initiative[currentIndex]
-  
+
   if (!current) {
     return ""
   }
-  
+
   const turnText = current.type === "player" ? "Your turn" : `${current.name}'s turn`
   return ` • ${turnText}`
+}
+
+function renderSpellSlots(character) {
+  const hasSpellSlots = Object.values(character.spellSlots || {})
+    .some(slot => slot.max > 0)
+
+  if (!hasSpellSlots) return ''
+
+  return `
+    <div class="spell-slots mt-3">
+      <h4 style="font-size: 0.875rem; margin-bottom: 0.5rem;">Spell Slots</h4>
+      <div class="spell-slots-grid">
+        ${Object.entries(character.spellSlots)
+      .filter(([_, slot]) => slot.max > 0)
+      .map(([level, slot]) => `
+            <div class="spell-slot-row">
+              <span class="spell-slot-level">${level === '0' ? 'Cantrips' : `Level ${level}`}</span>
+              <div class="spell-slot-dots">
+                ${Array(slot.max).fill(0).map((_, i) => `
+                  <span class="spell-slot-dot ${i < slot.current ? 'filled' : 'empty'}">●</span>
+                `).join('')}
+              </div>
+              <span class="spell-slot-count">${slot.current}/${slot.max}</span>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+  `
+}
+
+function renderHitDice(character) {
+  if (!character.hitDice || character.hitDice.max === 0) return ''
+
+  return `
+    <div class="hit-dice mt-2">
+      <strong>Hit Dice:</strong> ${character.hitDice.current}/${character.hitDice.max} ${character.hitDice.dieType}
+    </div>
+  `
+}
+
+function renderConcentration(game) {
+  if (!game.concentration) return ''
+
+  return `
+    <div class="concentration-indicator mt-2">
+      <strong>🧠 Concentrating:</strong> ${escapeHtml(game.concentration.spellName)}
+    </div>
+  `
+}
+
+function renderClassResources(character) {
+  if (!character.classResources || character.classResources.length === 0) return ''
+
+  return `
+    <div class="class-resources mt-2">
+      <h4 style="font-size: 0.875rem; margin-bottom: 0.5rem;">Class Resources</h4>
+      ${character.classResources.map(resource => `
+        <div class="resource-row">
+          <span>${escapeHtml(resource.name)}:</span>
+          <span>${resource.current}/${resource.max}</span>
+        </div>
+      `).join('')}
+    </div>
+  `
 }

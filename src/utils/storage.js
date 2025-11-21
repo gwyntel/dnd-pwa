@@ -67,12 +67,52 @@ export function normalizeCharacter(character) {
     },
     // Future-friendly resources array (SHOULD - optional usage)
     resources: Array.isArray(character.resources) ? character.resources : [],
-    // Future-friendly spellcasting object (SHOULD - optional usage)
+
+    // Spell Slots (current/max)
+    spellSlots: character.spellSlots || {
+      1: { current: 0, max: 0 },
+      2: { current: 0, max: 0 },
+      3: { current: 0, max: 0 },
+      4: { current: 0, max: 0 },
+      5: { current: 0, max: 0 },
+      6: { current: 0, max: 0 },
+      7: { current: 0, max: 0 },
+      8: { current: 0, max: 0 },
+      9: { current: 0, max: 0 }
+    },
+
+    // Hit Dice (for short rest healing)
+    hitDice: {
+      current: character.hitDice?.current ?? character.level ?? 1,
+      max: character.hitDice?.max ?? character.level ?? 1,
+      dieType: character.hitDice?.dieType || 'd8' // Default to d8 if unknown
+    },
+
+    // Class-specific resources (Ki, Rage, Channel Divinity, etc.)
+    classResources: Array.isArray(character.classResources)
+      ? character.classResources
+      : [],
+
+    // Prepared spells (for classes that prepare)
+    preparedSpells: Array.isArray(character.preparedSpells)
+      ? character.preparedSpells
+      : character.spells || [], // Legacy fallback
+
+    // Known spells (all spells the character knows)
+    knownSpells: Array.isArray(character.knownSpells)
+      ? character.knownSpells
+      : character.spells || [], // Legacy fallback
+
+    // Spellcasting metadata
     spellcasting:
       character.spellcasting && typeof character.spellcasting === "object"
         ? character.spellcasting
         : {
-          // kept intentionally minimal; real structure can evolve in v1.5+
+          ability: null, // 'int', 'wis', 'cha', etc.
+          spellSaveDC: null,
+          spellAttackBonus: null,
+          isPreparationCaster: false, // Wizard/Cleric vs Sorcerer/Bard
+          cantripsKnown: 0
         },
   }
 }

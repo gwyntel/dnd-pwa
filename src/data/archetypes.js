@@ -27,7 +27,11 @@ export const BEGINNER_TEMPLATES = [
     ],
     backstory: "You trained in the city guard and now seek adventure to prove your worth as a true warrior.",
     playstyleDesc: "Get close, draw aggro, and protect allies. Straightforward melee tank and damage dealer.",
-    keyAbilities: ["Second Wind - Heal yourself once per rest", "Fighting Style - Defense or Dueling"]
+    keyAbilities: ["Second Wind - Heal yourself once per rest", "Fighting Style - Defense or Dueling"],
+    hitDice: { current: 1, max: 1, dieType: 'd10' },
+    classResources: [
+      { name: 'Second Wind', current: 1, max: 1, recoversOn: 'short' }
+    ]
   },
   {
     id: "template_rogue",
@@ -52,7 +56,8 @@ export const BEGINNER_TEMPLATES = [
     ],
     backstory: "You grew up on the streets, using quick wits and quicker hands to survive. Now you sell your talents to the highest bidder.",
     playstyleDesc: "Flank enemies, use Sneak Attack, and handle traps and locks.",
-    keyAbilities: ["Sneak Attack", "Thieves' Cant"]
+    keyAbilities: ["Sneak Attack", "Thieves' Cant"],
+    hitDice: { current: 1, max: 1, dieType: 'd8' }
   },
   {
     id: "template_cleric",
@@ -78,7 +83,32 @@ export const BEGINNER_TEMPLATES = [
     ],
     backstory: "You served faithfully at your temple, called now to bring your deity's light to dark places.",
     playstyleDesc: "Heal allies, bless the party, and hold the line in armor.",
-    keyAbilities: ["Spellcasting", "Channel Divinity / Turn Undead"]
+    keyAbilities: ["Spellcasting", "Channel Divinity / Turn Undead"],
+    hitDice: { current: 1, max: 1, dieType: 'd8' },
+    spellSlots: {
+      1: { current: 2, max: 2 },
+      2: { current: 0, max: 0 },
+      3: { current: 0, max: 0 },
+      4: { current: 0, max: 0 },
+      5: { current: 0, max: 0 },
+      6: { current: 0, max: 0 },
+      7: { current: 0, max: 0 },
+      8: { current: 0, max: 0 },
+      9: { current: 0, max: 0 }
+    },
+    preparedSpells: [
+      { id: 'cure-wounds', level: 1, name: 'Cure Wounds' },
+      { id: 'bless', level: 1, name: 'Bless' },
+      { id: 'sacred-flame', level: 0, name: 'Sacred Flame' },
+      { id: 'thaumaturgy', level: 0, name: 'Thaumaturgy' }
+    ],
+    spellcasting: {
+      ability: 'wis',
+      spellSaveDC: 13,
+      spellAttackBonus: 5,
+      isPreparationCaster: true,
+      cantripsKnown: 3
+    }
   },
   {
     id: "template_wizard",
@@ -103,7 +133,43 @@ export const BEGINNER_TEMPLATES = [
     ],
     backstory: "You delved too deep into forbidden tomes, now driven to test your theories on the open road.",
     playstyleDesc: "Fragile but powerful caster. Control the battlefield and solve problems with spells.",
-    keyAbilities: ["Spellcasting", "Arcane Recovery"]
+    keyAbilities: ["Spellcasting", "Arcane Recovery"],
+    hitDice: { current: 1, max: 1, dieType: 'd6' },
+    spellSlots: {
+      1: { current: 2, max: 2 },
+      2: { current: 0, max: 0 },
+      3: { current: 0, max: 0 },
+      4: { current: 0, max: 0 },
+      5: { current: 0, max: 0 },
+      6: { current: 0, max: 0 },
+      7: { current: 0, max: 0 },
+      8: { current: 0, max: 0 },
+      9: { current: 0, max: 0 }
+    },
+    knownSpells: [
+      { id: 'fire-bolt', level: 0, name: 'Fire Bolt' },
+      { id: 'mage-hand', level: 0, name: 'Mage Hand' },
+      { id: 'prestidigitation', level: 0, name: 'Prestidigitation' },
+      { id: 'magic-missile', level: 1, name: 'Magic Missile' },
+      { id: 'shield', level: 1, name: 'Shield' },
+      { id: 'detect-magic', level: 1, name: 'Detect Magic' },
+      { id: 'sleep', level: 1, name: 'Sleep' }
+    ],
+    preparedSpells: [
+      { id: 'magic-missile', level: 1, name: 'Magic Missile' },
+      { id: 'shield', level: 1, name: 'Shield' },
+      { id: 'sleep', level: 1, name: 'Sleep' }
+    ],
+    spellcasting: {
+      ability: 'int',
+      spellSaveDC: 13,
+      spellAttackBonus: 5,
+      isPreparationCaster: true,
+      cantripsKnown: 3
+    },
+    classResources: [
+      { name: 'Arcane Recovery', current: 1, max: 1, recoversOn: 'long' }
+    ]
   },
   {
     id: "template_ranger",
@@ -178,6 +244,10 @@ export const BEGINNER_TEMPLATES = [
     ],
     backstory: "You proved your might in brutal tribal trials, now seeking greater foes to test your rage.",
     playstyleDesc: "Point at enemy. Rage. Run forward. Hit.",
-    keyAbilities: ["Rage", "Unarmored Defense"]
+    keyAbilities: ["Rage", "Unarmored Defense"],
+    hitDice: { current: 1, max: 1, dieType: 'd12' },
+    classResources: [
+      { name: 'Rage', current: 2, max: 2, recoversOn: 'long' }
+    ]
   }
 ]

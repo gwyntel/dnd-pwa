@@ -31,6 +31,8 @@ import {
   trimVisitedLocations,
   createRollMetadata
 } from "../engine/GameLoop.js"
+import { castSpell, startConcentration, endConcentration } from "../engine/SpellcastingManager.js"
+import { shortRest, longRest, spendHitDice } from "../engine/RestManager.js"
 import { UsageDisplay } from "../components/UsageDisplay.js"
 import { RollHistory } from "../components/RollHistory.js"
 import { LocationHistory } from "../components/LocationHistory.js"
@@ -212,6 +214,12 @@ async function createGame() {
       initiative: [],
       lastActor: null, // Track who acted last for turn alternation
     },
+    restState: {
+      lastShortRest: null,
+      lastLongRest: null,
+      shortRestsToday: 0
+    },
+    concentration: null,
     suggestedActions: [],
     messages: [],
     createdAt: new Date().toISOString(),
@@ -336,6 +344,23 @@ export async function renderGame(state = {}) {
           ${CharacterHUD(game, character)}
         </div>
 
+        <div class="card rest-controls">
+          <h3>Rest</h3>
+          <div class="flex gap-2">
+            <button id="short-rest-btn" class="btn btn-secondary flex-1" ${isStreaming ? 'disabled' : ''}>
+              💤 Short Rest
+            </button>
+            <button id="long-rest-btn" class="btn btn-secondary flex-1" ${isStreaming ? 'disabled' : ''}>
+              🛏️ Long Rest
+            </button>
+          </div>
+          ${character.hitDice && character.hitDice.current > 0 ? `
+            <button id="spend-hit-dice-btn" class="btn btn-outline mt-2" style="width: 100%" ${isStreaming ? 'disabled' : ''}>
+              🎲 Spend Hit Dice (${character.hitDice.current} available)
+            </button>
+          ` : ''}
+        </div>
+
         <div class="card">
           <h3>Inventory</h3>
           ${Array.isArray(game.inventory) && game.inventory.length > 0
@@ -413,6 +438,82 @@ export async function renderGame(state = {}) {
 
   // Setup location fast travel click handlers
   setupLocationFastTravel(game)
+
+  // Rest button handlers
+  document.getElementById('short-rest-btn')?.addEventListener('click', async () => {
+    if (isStreaming) return
+    const result = shortRest(game, character)
+    result.messages.forEach(msg => {
+      game.messages.push(msg)
+      appendMessage(msg)
+    })
+    await store.update(state => {
+      const g = state.games.find(g => g.id === currentGameId)
+      if (g) {
+        g.messages = game.messages
+        g.restState = game.restState
+        const c = state.characters.find(c => c.id === game.characterId)
+        if (c) c.classResources = character.classResources
+      }
+    })
+    // Trigger AI response
+    await sendMessage(game, "I take a short rest.", data)
+  })
+
+  document.getElementById('long-rest-btn')?.addEventListener('click', async () => {
+    if (isStreaming) return
+    if (!confirm("Take a long rest? This will restore full HP and spell slots.")) return
+    const result = longRest(game, character)
+    result.messages.forEach(msg => {
+      game.messages.push(msg)
+      appendMessage(msg)
+    })
+    await store.update(state => {
+      const g = state.games.find(g => g.id === currentGameId)
+      if (g) {
+        g.messages = game.messages
+        g.restState = game.restState
+        g.currentHP = game.currentHP
+        g.concentration = null
+        const c = state.characters.find(c => c.id === game.characterId)
+        if (c) {
+          c.spellSlots = character.spellSlots
+          c.hitDice = character.hitDice
+          c.classResources = character.classResources
+        }
+      }
+    })
+    // Trigger AI response
+    await sendMessage(game, "I take a long rest.", data)
+  })
+
+  document.getElementById('spend-hit-dice-btn')?.addEventListener('click', async () => {
+    if (isStreaming) return
+    const result = spendHitDice(game, character, 1)
+    if (result.success) {
+      result.messages.forEach(msg => {
+        game.messages.push(msg)
+        appendMessage(msg)
+      })
+      await store.update(state => {
+        const g = state.games.find(g => g.id === currentGameId)
+        if (g) {
+          g.messages = game.messages
+          g.currentHP = game.currentHP
+          const c = state.characters.find(c => c.id === game.characterId)
+          if (c) c.hitDice = character.hitDice
+        }
+      })
+      // Re-render HUD to show updated HP/Hit Dice
+      const charCard = document.getElementById("character-card")
+      if (charCard) charCard.innerHTML = CharacterHUD(game, character)
+
+      // Update rest controls to show correct hit dice count
+      renderGame(store.get()) // Full re-render to update button state
+    } else {
+      alert(result.message)
+    }
+  })
 
   // If no messages, start the game
   if (game.messages.length === 0) {

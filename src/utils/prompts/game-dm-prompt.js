@@ -144,7 +144,21 @@ The player is:
 - INT: ${character.stats.intelligence} (${modStr(character.stats.intelligence)}), WIS: ${character.stats.wisdom} (${modStr(character.stats.wisdom)}), CHA: ${character.stats.charisma} (${modStr(character.stats.charisma)})
 - Skills: ${character.skills.join(", ")}
 - Features: ${character.features ? character.features.join(", ") : "None"}
-${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}${statusLine}${inventorySection}
+${character.spells && character.spells.length > 0 ? `- Spells: ${character.spells.map((s) => s.name).join(", ")}` : ""}
+${character.spellSlots && Object.values(character.spellSlots).some(s => s.max > 0) ? `
+Spell Slots Available:
+${Object.entries(character.spellSlots)
+        .filter(([_, s]) => s.max > 0)
+        .map(([lvl, s]) => `  Level ${lvl}: ${s.current}/${s.max}`)
+        .join('\n')}
+` : ''}
+${character.preparedSpells?.length > 0 ? `
+Prepared Spells: ${character.preparedSpells.map(s => s.name).join(', ')}
+` : ''}
+${game.concentration ? `
+CONCENTRATING ON: ${game.concentration.spellName}
+` : ''}
+${statusLine}${inventorySection}
 
 **CRITICAL - Game Engine Rules:**
 

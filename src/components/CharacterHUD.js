@@ -13,55 +13,44 @@ function escapeHtml(text) {
 
 export function CharacterHUD(game, character) {
   return `
-    <div class="character-header">
-      <div class="character-header-left">
-        <h3>${character.name}</h3>
-        <p class="text-secondary character-subtitle">Level ${character.level} ${character.race} ${character.class}</p>
+    <div class="flex items-center gap-3 mb-4" style="position: relative;">
+      ${game.conditions && game.conditions.length > 0 ? `
+        <div class="status-chips" style="position: absolute; top: 0; right: 0;">
+          ${game.conditions.map(c => {
+    const name = typeof c === "string" ? c : c.name
+    return `<span class="status-chip text-xs">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
+  }).join("")}
+        </div>
+      ` : ''}
+      <div class="avatar-container">
+        <div class="avatar">${character.icon || '👤'}</div>
       </div>
-      ${game.conditions && game.conditions.length > 0
-      ? `
-        <div class="character-header-right">
-          <div class="status-chips">
-            ${game.conditions
-        .map((c) => {
-          const name = typeof c === "string" ? c : c.name
-          return `<span class="status-chip">${getConditionIcon(name)} ${escapeHtml(name)}</span>`
-        })
-        .join("")}
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-bold text-lg leading-tight truncate">${character.name}</h3>
+            <div class="text-xs text-secondary truncate">Level ${character.level} ${character.race} ${character.class}</div>
+          </div>
+          
+          <div class="flex flex-col items-end gap-2">
+            ${renderLevelUpButton(character)}
           </div>
         </div>
-        `
-      : ""
-    }
+      </div>
     </div>
-    
-    <div class="stat-bar mt-2">
-      <div class="flex justify-between mb-1">
-        <span style="font-weight: 500;">HP</span>
-        <span>${game.currentHP}/${character.maxHP}</span>
-      </div>
-      <div class="progress-bar progress-bar-lg">
-        <div
-          class="progress-fill"
-          style="width: ${(game.currentHP / character.maxHP) * 100}%; background-color: ${game.currentHP > character.maxHP * 0.5
-      ? "var(--success-color, #4caf50)"
-      : game.currentHP > character.maxHP * 0.25
-        ? "var(--warning-color, #ff9800)"
-        : "var(--error-color, #f44336)"
-    };"
-        ></div>
-      </div>
-      </div>
+
+    ${renderHPBar(character, game)}
+    ${renderXPBar(character)}
 
     ${renderDeathSaves(game)}
     
-    <div class="flex justify-between mb-3 key-stats">
+    <div class="flex justify-between mb-3 mt-3 key-stats">
       <div><strong>AC</strong><br>${character.armorClass}</div>
       <div><strong>PROF</strong><br>+${character.proficiencyBonus}</div>
       <div><strong>SPD</strong><br>${character.speed}ft</div>
       <div><strong>Gold</strong><br>${game.currency?.gp ?? 0} gp</div>
     </div>
-    
+
     <div class="stats-grid mt-3">
       <div class="stat-item">
         <span class="stat-label">STR</span>
@@ -91,6 +80,7 @@ export function CharacterHUD(game, character) {
 
     ${renderCombatIndicator(game)}
     ${renderSpellSlots(character)}
+    ${renderSpellList(character)}
     ${renderHitDice(character)}
     ${renderConcentration(game)}
     ${renderClassResources(character)}
@@ -151,6 +141,49 @@ function renderSpellSlots(character) {
                 `).join('')}
               </div>
               <span class="spell-slot-count">${slot.current}/${slot.max}</span>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+  `
+}
+
+function renderSpellList(character) {
+  // Prefer prepared spells, fallback to known spells
+  const spells = character.preparedSpells?.length > 0
+    ? character.preparedSpells
+    : character.knownSpells || []
+
+  if (spells.length === 0) return ''
+
+  // Group by level
+  const spellsByLevel = spells.reduce((acc, spell) => {
+    const level = spell.level || 0
+    if (!acc[level]) acc[level] = []
+    acc[level].push(spell)
+    return acc
+  }, {})
+
+  return `
+    <div class="spell-list mt-3">
+      <h4 style="font-size: 0.875rem; margin-bottom: 0.5rem;">
+        ${character.preparedSpells?.length > 0 ? 'Prepared Spells' : 'Known Spells'}
+      </h4>
+      <div class="spell-list-content">
+        ${Object.entries(spellsByLevel)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([level, levelSpells]) => `
+            <div class="spell-level-group mb-2">
+              <div class="text-xs text-secondary uppercase font-bold mb-1">
+                ${level === '0' ? 'Cantrips' : `Level ${level}`}
+              </div>
+              <div class="flex flex-wrap gap-1">
+                ${levelSpells.map(spell => `
+                  <span class="spell-chip" title="${spell.name}">
+                    ${escapeHtml(spell.name)}
+                  </span>
+                `).join('')}
+              </div>
             </div>
           `).join('')}
       </div>
@@ -221,6 +254,56 @@ function renderDeathSaves(game) {
             `).join('')}
           </div>
         </div>
+      </div>
+    </div>
+  `
+}
+
+function renderLevelUpButton(character) {
+  if (!character.xp || character.xp.current < character.xp.max) return ''
+
+  return `
+    <button class="btn btn-sm btn-primary animate-pulse" onclick="window.openLevelUpModal()">
+      ⬆️ Level Up!
+    </button>
+  `
+}
+
+function renderXPBar(character) {
+  if (!character.xp) return ''
+
+  const pct = Math.min(100, Math.max(0, (character.xp.current / character.xp.max) * 100))
+
+  return `
+    <div class="xp-bar-container mt-1" title="XP: ${character.xp.current} / ${character.xp.max}">
+      <div class="xp-bar-fill" style="width: ${pct}%"></div>
+    </div>
+    <div class="text-xs text-right text-secondary" style="font-size: 0.7rem;">
+      XP: ${character.xp.current} / ${character.xp.max}
+    </div>
+  `
+}
+
+function renderHPBar(character, game) {
+  const currentHP = game.currentHP
+  const maxHP = character.maxHP
+  const pct = Math.min(100, Math.max(0, (currentHP / maxHP) * 100))
+
+  let color = "var(--success-color, #4caf50)"
+  if (currentHP <= maxHP * 0.25) color = "var(--error-color, #f44336)"
+  else if (currentHP <= maxHP * 0.5) color = "var(--warning-color, #ff9800)"
+
+  return `
+    <div class="stat-bar mt-2">
+      <div class="flex justify-between mb-1">
+        <span style="font-weight: 500;">HP</span>
+        <span>${currentHP}/${maxHP}</span>
+      </div>
+      <div class="progress-bar progress-bar-lg">
+        <div
+          class="progress-fill"
+          style="width: ${pct}%; background-color: ${color};"
+        ></div>
       </div>
     </div>
   `

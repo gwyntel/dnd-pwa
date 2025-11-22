@@ -3,6 +3,8 @@
  * Extracted from game.js to separate message handling logic from UI concerns
  */
 
+import { buildGameDMPrompt } from '../utils/prompts/game-dm-prompt.js'
+
 /**
  * Build the messages payload for the model
  * Preserves full stored history but returns sanitized version for API
@@ -41,7 +43,6 @@ export function buildApiMessages(gameRef, character, world) {
   // Rebuild system prompt with current character stats
   // This ensures the AI always sees up-to-date HP, level, stats, etc.
   if (character && world) {
-    const { buildGameDMPrompt } = require('../utils/prompts/game-dm-prompt.js')
     const freshSystemPrompt = buildGameDMPrompt(character, gameRef, world)
 
     // Find and replace the first system message (should be the system prompt)

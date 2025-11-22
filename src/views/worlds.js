@@ -394,6 +394,7 @@ async function generateWorldWithAI() {
       worldOverview: generatedWorld.worldOverview || [],
       coreLocations: generatedWorld.coreLocations || [],
       coreFactions: generatedWorld.coreFactions || [],
+      monsters: generatedWorld.monsters || [],
     }
 
     renderWorldForm(worldTemplate, false, true)
@@ -436,6 +437,7 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
       ${isAIGenerated ? '<p class="text-secondary mb-3">Review and edit the generated world before saving.</p>' : ""}
       
       <form id="world-form">
+        <input type="hidden" id="world-monsters" value='${JSON.stringify(formData.monsters || []).replace(/'/g, "&apos;")}'>
         <div class="mb-3">
           <label class="form-label">World Name *</label>
           <input type="text" id="world-name" required placeholder="e.g., Forgotten Realms" value="${formData.name}">
@@ -567,6 +569,16 @@ function saveWorld(existingWorldId = null) {
   const coreLocations = document.getElementById("world-locations").value.trim().split('\n').filter(l => l.trim())
   const coreFactions = document.getElementById("world-factions").value.trim().split('\n').filter(l => l.trim())
 
+  let monsters = []
+  try {
+    const monstersInput = document.getElementById("world-monsters")
+    if (monstersInput) {
+      monsters = JSON.parse(monstersInput.value)
+    }
+  } catch (e) {
+    console.warn("Failed to parse monsters data", e)
+  }
+
   if (!name || !briefDescription) {
     alert("Please fill in all required fields.")
     return
@@ -609,6 +621,7 @@ function saveWorld(existingWorldId = null) {
         worldOverview,
         coreLocations,
         coreFactions,
+        monsters,
         createdAt: new Date().toISOString(),
         isDefault: false,
       }

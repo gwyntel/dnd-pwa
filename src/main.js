@@ -7,6 +7,11 @@ import "./style.css"
 import { initRouter, registerRoute, navigateTo } from "./router.js"
 import { renderHome } from "./views/home.js"
 import { renderSettings } from "./views/settings.js"
+import { migrateMonsters } from "./utils/migrations/backfill-monsters.js"
+
+// Run migrations
+// migrateMonsters() called in init() after store is ready
+
 import { renderModels } from "./views/models.js"
 import { renderCharacters, renderCharacterCreator } from "./views/characters.js"
 import { renderCharacterTemplatesView } from "./views/characterTemplatesView.js"
@@ -27,6 +32,9 @@ async function init() {
 
   // Initialize the centralized store first
   await store.initialize()
+
+  // Run migrations that depend on store
+  migrateMonsters()
 
   // Try auto-login from environment variable
   autoLogin()

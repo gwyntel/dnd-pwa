@@ -8,7 +8,7 @@ import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequest
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { tagParser } from "./TagParser.js"
 import { createRollMetadata } from "./GameLoop.js"
-import { startCombat, endCombat } from "./CombatManager.js"
+import { startCombat, endCombat, spawnEnemy, applyDamage } from "./CombatManager.js"
 import { castSpell, startConcentration, endConcentration } from "./SpellcastingManager.js"
 import { shortRest, longRest, spendHitDice } from "./RestManager.js"
 
@@ -305,6 +305,17 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         processed = true
         break
       }
+      case 'ENEMY_SPAWN': {
+        // We handle spawning in processGameTags (not realtime) to ensure we have world context if needed?
+        // Actually, we need 'world' object to look up monsters.
+        // processGameTagsRealtime signature: (game, character, text, processedTags, callbacks)
+        // It doesn't have 'world'.
+        // We should handle this in processGameTags which has 'data' (store) access?
+        // processGameTags signature: (game, character, text, processedTags, data)
+        // Yes, let's handle it there.
+        processed = true
+        break
+      }
     }
 
     if (processed) {
@@ -361,18 +372,41 @@ export async function processGameTags(game, character, text, processedTags, data
         const [target, amount] = tag.content.split('|').map(s => s.trim())
         const dmg = parseInt(amount, 10)
         if (target && !isNaN(dmg)) {
-          // Handle damage logic (simple HP reduction for now, or complex if target is NPC)
-          // game.js logic:
-          // if target is player -> reduce HP
-          // else -> just log?
-          // game.js: "if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') { ... }"
-          if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
-            game.currentHP = Math.max(0, game.currentHP - dmg)
-            // Add system message? game.js didn't seem to add one, just updated state.
-            // But `stripTags` renders a badge.
+          // Use CombatManager to apply damage
+          const result = applyDamage(game, target, dmg)
+
+          if (result) {
+            // It was an enemy or handled entity
+            game.messages.push({
+              role: 'system',
+              content: result,
+              timestamp: new Date().toISOString()
+            })
+          } else {
+            // Fallback for player if applyDamage returned null (meaning it's player/you)
+            if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
+              game.currentHP = Math.max(0, game.currentHP - dmg)
+            }
           }
           processed = true
         }
+        break
+      }
+      case 'ENEMY_SPAWN': {
+        const [templateId, nameOverride] = tag.content.split('|').map(s => s.trim())
+        // We need the world object. 'data' is the store state.
+        // Find the current world.
+        const worldId = game.worldId
+        const world = data.worlds ? data.worlds.find(w => w.id === worldId) : null
+
+        const enemy = spawnEnemy(game, world, templateId, nameOverride)
+
+        game.messages.push({
+          role: 'system',
+          content: `⚔️ **${enemy.name}** joins the battle!`,
+          timestamp: new Date().toISOString()
+        })
+        processed = true
         break
       }
       case 'HEAL': {
@@ -522,6 +556,10 @@ function createBadgeForTag(tag) {
     }
     case 'LEARN_SPELL': {
       return createBadgeToken('learn_spell', { spell: tag.content.trim() })
+    }
+    case 'ENEMY_SPAWN': {
+      const [templateId, nameOverride] = tag.content.split('|').map(s => s.trim())
+      return createBadgeToken('enemy_spawn', { name: nameOverride || templateId })
     }
     default: return tag.raw
   }
@@ -697,6 +735,10 @@ export function renderInlineBadgeHtml(type, data) {
       case "learn_spell": {
         const spell = badgeData.spell || ''
         return `<span class="inline-badge spell" data-tag-type="spell">✨ Learned: ${labelEscape(spell)}</span>`
+      }
+      case "enemy_spawn": {
+        const name = badgeData.name || ''
+        return `<span class="inline-badge combat" data-tag-type="combat">👹 Spawning: ${labelEscape(name)}</span>`
       }
       default:
         return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`

@@ -196,6 +196,13 @@ export const TAG_REFERENCE = {
     required: false,
     note: "System tag triggered when XP threshold is met."
   },
+
+  ENEMY_SPAWN: {
+    pattern: "ENEMY_SPAWN[templateId|nameOverride]",
+    examples: ["ENEMY_SPAWN[goblin]", "ENEMY_SPAWN[orc|Orc Chieftain]"],
+    required: false,
+    note: "Spawns an enemy into the combat tracker."
+  },
 };
 
 

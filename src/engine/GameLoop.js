@@ -6,23 +6,29 @@
 /**
  * Build the messages payload for the model
  * Preserves full stored history but returns sanitized version for API
+ * CRITICAL: Regenerates system prompt on each call to ensure AI has current character stats
  * @param {Object} gameRef - Game state object
+ * @param {Object} character - Character object (for building fresh system prompt)
+ * @param {Object} world - World object (for building fresh system prompt)
  * @returns {Array} - Sanitized messages for API
  */
-export function buildApiMessages(gameRef) {
+export function buildApiMessages(gameRef, character, world) {
   console.log('[flow] buildApiMessages called', {
     gameId: gameRef?.id,
-    storedMessageCount: gameRef?.messages?.length || 0
+    storedMessageCount: gameRef?.messages?.length || 0,
+    characterName: character?.name,
+    characterLevel: character?.level,
+    characterMaxHP: character?.maxHP
   })
-  
+
   // Apply relationship trimming before building API messages
   gameRef.relationships = trimRelationships(gameRef)
-  
+
   // Apply visited locations trimming
   gameRef.visitedLocations = trimVisitedLocations(gameRef)
-  
+
   const base = gameRef?.messages || []
-  
+
   console.log('[flow] buildApiMessages: stored messages', {
     messages: base.map(m => ({
       id: m?.id,
@@ -31,9 +37,26 @@ export function buildApiMessages(gameRef) {
       timestamp: m?.timestamp
     }))
   })
-  
+
+  // Rebuild system prompt with current character stats
+  // This ensures the AI always sees up-to-date HP, level, stats, etc.
+  if (character && world) {
+    const { buildGameDMPrompt } = require('../utils/prompts/game-dm-prompt.js')
+    const freshSystemPrompt = buildGameDMPrompt(character, gameRef, world)
+
+    // Find and replace the first system message (should be the system prompt)
+    const systemMsgIndex = base.findIndex(m => m?.role === 'system')
+    if (systemMsgIndex !== -1) {
+      console.log('[flow] buildApiMessages: regenerating system prompt with current stats')
+      base[systemMsgIndex] = {
+        ...base[systemMsgIndex],
+        content: freshSystemPrompt
+      }
+    }
+  }
+
   const sanitized = sanitizeMessagesForModel(base)
-  
+
   console.log('[flow] buildApiMessages: returning sanitized messages', {
     count: sanitized.length,
     messages: sanitized.map(m => ({
@@ -42,7 +65,7 @@ export function buildApiMessages(gameRef) {
       contentPreview: m?.content?.substring(0, 50)
     }))
   })
-  
+
   return sanitized
 }
 
@@ -57,7 +80,7 @@ export function sanitizeMessagesForModel(messages) {
     messageCount: Array.isArray(messages) ? messages.length : 0,
     messages: messages?.map(m => ({ id: m?.id, role: m?.role, contentLength: m?.content?.length }))
   })
-  
+
   if (!Array.isArray(messages)) {
     console.log('[flow] sanitizeMessagesForModel: messages not an array, returning empty')
     return []
@@ -143,16 +166,16 @@ export function sanitizeMessagesForModel(messages) {
  */
 export function trimRelationships(game, settings = null) {
   const cap = settings?.maxRelationshipsTracked || 50
-  
+
   const trimmedEntries = Object.entries(game.relationships || {})
     .filter(([_, value]) => value !== 0)
     .slice(-cap)
-  
+
   const trimmedRelationships = {}
   for (const [key, value] of trimmedEntries) {
     trimmedRelationships[key] = value
   }
-  
+
   return trimmedRelationships
 }
 
@@ -165,10 +188,10 @@ export function trimRelationships(game, settings = null) {
  */
 export function trimVisitedLocations(game, settings = null) {
   const cap = settings?.maxLocationsTracked || 10
-  
+
   const visitedLocations = Array.isArray(game.visitedLocations) ? game.visitedLocations : []
   const trimmedLocations = visitedLocations.slice(-cap)
-  
+
   return trimmedLocations
 }
 

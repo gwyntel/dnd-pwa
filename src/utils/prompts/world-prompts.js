@@ -3,40 +3,41 @@
  */
 
 export const WORLD_GENERATION_SCHEMA = {
-    type: "object",
-    additionalProperties: false,
-    required: [
-        "name",
-        "briefDescription",
-        "fullDescription",
-        "tone",
-        "magicLevel",
-        "techLevel",
-        "startingLocation",
-        "coreIntent",
-        "worldOverview",
-        "coreLocations",
-        "coreFactions",
-    ],
-    properties: {
-        name: { type: "string" },
-        briefDescription: { type: "string" },
-        fullDescription: { type: "string" },
-        tone: { type: "string" },
-        magicLevel: {
-            type: "string",
-            enum: ["none", "low", "medium", "high"],
-        },
-        techLevel: {
-            type: "string",
-            enum: ["primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", "mixed"],
-        },
-        startingLocation: { type: "string" },
-        coreIntent: { type: "array", items: { type: "string" } },
-        worldOverview: { type: "array", items: { type: "string" } },
-        coreLocations: { type: "array", items: { type: "string" } },
-        coreFactions: { type: "array", items: { type: "string" } },
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "name",
+    "briefDescription",
+    "fullDescription",
+    "tone",
+    "magicLevel",
+    "techLevel",
+    "startingLocation",
+    "coreIntent",
+    "worldOverview",
+    "coreLocations",
+    "coreFactions",
+    "monsters",
+  ],
+  properties: {
+    name: { type: "string" },
+    briefDescription: { type: "string" },
+    fullDescription: { type: "string" },
+    tone: { type: "string" },
+    magicLevel: {
+      type: "string",
+      enum: ["none", "low", "medium", "high"],
     },
+    techLevel: {
+      type: "string",
+      enum: ["primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", "mixed"],
+    },
+    startingLocation: { type: "string" },
+    coreIntent: { type: "array", items: { type: "string" } },
+    worldOverview: { type: "array", items: { type: "string" } },
+    coreLocations: { type: "array", items: { type: "string" } },
+    coreFactions: { type: "array", items: { type: "string" } },
+  },
 }
 
 export const WORLD_GENERATION_PROMPT = `You are an expert TTRPG worldbuilding assistant for a D&D 5e-adjacent game system.
@@ -53,6 +54,11 @@ You MUST:
   - **worldOverview**: 3-5 bullet points summarizing the setting's history, geography, or unique features.
   - **coreLocations**: 3-5 key locations with brief descriptions (e.g., "Ironhold: A dwarven fortress city").
   - **coreFactions**: 3-5 key factions with brief descriptions (e.g., "The Silver Hand: Monster hunters").
+  - **monsters**: IMPORTANT:
+    - The "id" should be a unique slug (e.g., "forest_goblin").
+    - Generate 10-15 themed monsters appropriate for this world.
+    - Ensure stats are consistent with 5e SRD standards.
+    - Include a mix of low-level (CR 0-2), mid-level (CR 3-5), and a boss (CR 5+).
 
 When using the user's idea:
 - Respect their pitch and genre.

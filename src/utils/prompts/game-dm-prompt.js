@@ -11,6 +11,8 @@ const DND_MECHANICS_EXAMPLES = {
   skill: "You search. ROLL[skill|perception|12] → (app rolls d20+mods) → Success! You find the key.",
   save: "Dragon breathes fire. ROLL[save|dexterity|14|disadvantage] → (app rolls with disadvantage) → Fail! DAMAGE[player|24]",
   advantage: "You have the high ground. ROLL[attack|longsword|13|advantage] → (roll 2d20, take higher)",
+  spawn_enemy: "You encounter 3 Goblins. ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] COMBAT_START[Ambush!]",
+  enemy_damage: "You hit the Goblin! DAMAGE[goblin_1|6]",
   initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
   healing: "You drink healing potion. INVENTORY_REMOVE[Healing Potion|1] HEAL[player|10]",
   loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]",

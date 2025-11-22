@@ -40,6 +40,7 @@ import { LocationHistory } from "../components/LocationHistory.js"
 import { RelationshipList } from "../components/RelationshipList.js"
 import { ChatMessage } from "../components/ChatMessage.js"
 import { CharacterHUD } from "../components/CharacterHUD.js"
+import { renderCombatHUD } from "../components/CombatHUD.js"
 import { renderLevelUpModal, attachLevelUpHandlers, resetLevelUpState } from "../components/LevelUpModal.js"
 
 let currentGameId = null
@@ -302,6 +303,11 @@ export async function renderGame(state = {}) {
             <div id="usage-display" class="usage-display">
               ${UsageDisplay(game)}
             </div>
+          </div>
+
+          <!-- Combat HUD -->
+          <div id="combat-hud-container">
+            ${renderCombatHUD(game)}
           </div>
 
           <div id="messages-container" class="messages-container">
@@ -810,7 +816,11 @@ async function sendMessage(game, userText, data) {
 
   try {
     console.log('[flow] sendMessage: building API messages')
-    const apiMessages = buildApiMessages(gameRef)
+
+    // Get world for system prompt regeneration
+    const world = data.worlds.find((w) => w.id === gameRef.worldId)
+
+    const apiMessages = buildApiMessages(gameRef, character, world)
 
     console.log('[flow] sendMessage: API messages built', {
       count: apiMessages.length,
@@ -1346,156 +1356,156 @@ async function sendMessage(game, userText, data) {
 
 
 
-  function buildSystemPrompt(character, game) {
-    const data = store.get()
-    const world = data.worlds.find((w) => w.id === game.worldId)
-    const prompt = buildGameDMPrompt(character, game, world)
+function buildSystemPrompt(character, game) {
+  const data = store.get()
+  const world = data.worlds.find((w) => w.id === game.worldId)
+  const prompt = buildGameDMPrompt(character, game, world)
 
-    // Log the system prompt for debugging
-    console.log('========== SYSTEM PROMPT ==========')
-    console.log(prompt)
-    console.log('===================================')
+  // Log the system prompt for debugging
+  console.log('========== SYSTEM PROMPT ==========')
+  console.log(prompt)
+  console.log('===================================')
 
-    return prompt
+  return prompt
+}
+
+function updateUsageDisplay(game) {
+  const usageDisplay = document.getElementById("usage-display")
+  if (usageDisplay) {
+    usageDisplay.innerHTML = UsageDisplay(game)
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div")
+  div.textContent = text
+  return div.innerHTML
+}
+
+function updateRollHistory(game) {
+  const rollHistoryContainer = document.getElementById("roll-history-container")
+  if (!rollHistoryContainer) return
+  rollHistoryContainer.innerHTML = RollHistory(game.messages || [])
+}
+
+function updateLocationHistory(game) {
+  const locationHistoryContainer = document.getElementById("location-history-container")
+  if (!locationHistoryContainer) return
+  locationHistoryContainer.innerHTML = LocationHistory(game)
+  // Re-attach fast travel handlers after updating DOM
+  setupLocationFastTravel(game)
+}
+
+function updatePlayerStats(game) {
+  const data = store.get()
+  const rawCharacter = data.characters.find((c) => c.id === game.characterId)
+  const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
+
+  if (!character) return
+
+  // Find the character card container and re-render using CharacterHUD
+  const characterCard = document.getElementById("character-card")
+  if (characterCard) {
+    characterCard.innerHTML = CharacterHUD(game, character)
   }
 
-  function updateUsageDisplay(game) {
-    const usageDisplay = document.getElementById("usage-display")
-    if (usageDisplay) {
-      usageDisplay.innerHTML = UsageDisplay(game)
-    }
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement("div")
-    div.textContent = text
-    return div.innerHTML
-  }
-
-  function updateRollHistory(game) {
-    const rollHistoryContainer = document.getElementById("roll-history-container")
-    if (!rollHistoryContainer) return
-    rollHistoryContainer.innerHTML = RollHistory(game.messages || [])
-  }
-
-  function updateLocationHistory(game) {
-    const locationHistoryContainer = document.getElementById("location-history-container")
-    if (!locationHistoryContainer) return
-    locationHistoryContainer.innerHTML = LocationHistory(game)
-    // Re-attach fast travel handlers after updating DOM
-    setupLocationFastTravel(game)
-  }
-
-  function updatePlayerStats(game) {
-    const data = store.get()
-    const rawCharacter = data.characters.find((c) => c.id === game.characterId)
-    const character = rawCharacter ? normalizeCharacter(rawCharacter) : null
-
-    if (!character) return
-
-    // Find the character card container and re-render using CharacterHUD
-    const characterCard = document.getElementById("character-card")
-    if (characterCard) {
-      characterCard.innerHTML = CharacterHUD(game, character)
-    }
-
-    // Update inventory display - find the inventory card by searching for all cards with h3 "Inventory"
-    const cards = document.querySelectorAll(".card")
-    for (const card of cards) {
-      const h3 = card.querySelector("h3")
-      if (h3 && h3.textContent.trim() === "Inventory") {
-        const inventoryHTML = Array.isArray(game.inventory) && game.inventory.length > 0
-          ? `
+  // Update inventory display - find the inventory card by searching for all cards with h3 "Inventory"
+  const cards = document.querySelectorAll(".card")
+  for (const card of cards) {
+    const h3 = card.querySelector("h3")
+    if (h3 && h3.textContent.trim() === "Inventory") {
+      const inventoryHTML = Array.isArray(game.inventory) && game.inventory.length > 0
+        ? `
           <h3>Inventory</h3>
           <ul class="inventory-list">
             ${game.inventory
-            .map((it) => {
-              const qty = typeof it.quantity === "number" ? it.quantity : 1
-              const label = escapeHtml(it.item || "")
-              const eq = it.equipped ? " (eq.)" : ""
-              return `<li>${qty}x ${label}${eq}</li>`
-            })
-            .join("")}
+          .map((it) => {
+            const qty = typeof it.quantity === "number" ? it.quantity : 1
+            const label = escapeHtml(it.item || "")
+            const eq = it.equipped ? " (eq.)" : ""
+            return `<li>${qty}x ${label}${eq}</li>`
+          })
+          .join("")}
           </ul>
         `
-          : `
+        : `
           <h3>Inventory</h3>
           <p class="text-secondary text-sm">No items in inventory.</p>
         `
 
-        card.innerHTML = inventoryHTML
-        break
-      }
+      card.innerHTML = inventoryHTML
+      break
     }
   }
+}
 
-  function updateRelationshipsDisplay(game) {
-    const relationshipsContainer = document.getElementById("relationships-container")
-    if (!relationshipsContainer) return
-    relationshipsContainer.innerHTML = RelationshipList(game)
-  }
+function updateRelationshipsDisplay(game) {
+  const relationshipsContainer = document.getElementById("relationships-container")
+  if (!relationshipsContainer) return
+  relationshipsContainer.innerHTML = RelationshipList(game)
+}
 
-  function setupRollHistoryToggle() {
-    const toggle = document.getElementById("roll-history-toggle")
-    const container = document.getElementById("roll-history-container")
-    if (!toggle || !container) return
+function setupRollHistoryToggle() {
+  const toggle = document.getElementById("roll-history-toggle")
+  const container = document.getElementById("roll-history-container")
+  if (!toggle || !container) return
 
-    toggle.addEventListener("click", (e) => {
+  toggle.addEventListener("click", (e) => {
+    e.preventDefault()
+    const visible = toggle.getAttribute("data-visible") === "1"
+    if (visible) {
+      container.style.display = "none"
+      toggle.textContent = "Show Roll History"
+      toggle.setAttribute("data-visible", "0")
+    } else {
+      container.style.display = "block"
+      toggle.textContent = "Hide Roll History"
+      toggle.setAttribute("data-visible", "1")
+    }
+  })
+}
+
+function setupLocationFastTravel(game) {
+  const container = document.getElementById("location-history-container")
+  if (!container || !Array.isArray(game.visitedLocations)) return
+
+  container.querySelectorAll(".location-chip").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.preventDefault()
-      const visible = toggle.getAttribute("data-visible") === "1"
-      if (visible) {
-        container.style.display = "none"
-        toggle.textContent = "Show Roll History"
-        toggle.setAttribute("data-visible", "0")
-      } else {
-        container.style.display = "block"
-        toggle.textContent = "Hide Roll History"
-        toggle.setAttribute("data-visible", "1")
+      const loc = e.currentTarget.getAttribute("data-location")
+      if (!loc) return
+
+      // Prefill the input with fast travel message
+      const input = document.getElementById("player-input")
+      if (input) {
+        input.value = `Fast travel to ${loc}`
+        input.focus()
       }
     })
-  }
+  })
+}
 
-  function setupLocationFastTravel(game) {
-    const container = document.getElementById("location-history-container")
-    if (!container || !Array.isArray(game.visitedLocations)) return
+function updateInputContainer(game) {
+  const inputContainer = document.querySelector(".input-container")
+  if (!inputContainer) return
 
-    container.querySelectorAll(".location-chip").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault()
-        const loc = e.currentTarget.getAttribute("data-location")
-        if (!loc) return
-
-        // Prefill the input with fast travel message
-        const input = document.getElementById("player-input")
-        if (input) {
-          input.value = `Fast travel to ${loc}`
-          input.focus()
-        }
-      })
-    })
-  }
-
-  function updateInputContainer(game) {
-    const inputContainer = document.querySelector(".input-container")
-    if (!inputContainer) return
-
-    inputContainer.innerHTML = `
+  inputContainer.innerHTML = `
     ${game.suggestedActions && game.suggestedActions.length > 0
-        ? `
+      ? `
       <div class="suggested-actions">
         ${game.suggestedActions
-          .map(
-            (action) => `
+        .map(
+          (action) => `
           <button class="action-bubble" data-action="${escapeHtml(action)}">
             ${escapeHtml(action)}
           </button>
         `,
-          )
-          .join("")}
+        )
+        .join("")}
       </div>
     `
-        : ""
-      }
+      : ""
+    }
     <form id="chat-form" class="chat-form">
       <input 
         type="text" 
@@ -1510,62 +1520,62 @@ async function sendMessage(game, userText, data) {
     </form>
   `
 
-    const chatForm = document.getElementById("chat-form")
-    if (chatForm) {
-      chatForm.addEventListener("submit", async (e) => {
-        e.preventDefault()
-        await handlePlayerInput()
-      })
-    }
-
-    // Ensure roll history stays updated when suggested actions / input change
-    if (game) {
-      updateRollHistory(game)
-      setupLocationFastTravel(game)
-    }
-
-    document.querySelectorAll(".action-bubble").forEach((bubble) => {
-      bubble.addEventListener("click", (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        const action = e.currentTarget.getAttribute("data-action")
-        const input = document.getElementById("player-input")
-        if (input && action) {
-          input.value = action
-          input.focus()
-        }
-      })
+  const chatForm = document.getElementById("chat-form")
+  if (chatForm) {
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault()
+      await handlePlayerInput()
     })
-
-    setupRollHistoryToggle()
   }
 
-  // Renamed function to avoid redeclaration
-  async function sendChatCompletionRequest(apiMessages, model) {
-    try {
-      const { getCleanModelId } = await import("../utils/model-utils.js")
-      const cleanedModel = getCleanModelId(model)
-
-      console.log("[v0] Using model:", cleanedModel, `${model.includes(":nitro") ? "(Nitro - fast throughput)" : ""}`)
-
-      const response = await sendChatCompletion(apiMessages, cleanedModel)
-      return response
-    } catch (error) {
-      console.error("[v0] Error in sendChatCompletion:", error)
-      throw error
-    }
+  // Ensure roll history stays updated when suggested actions / input change
+  if (game) {
+    updateRollHistory(game)
+    setupLocationFastTravel(game)
   }
 
-  /**
-   * Refresh the CharacterHUD without full re-render
-   * @param {Object} game - The game object
-   * @param {Object} character - The character object
-   */
-  function refreshCharacterHUD(game, character) {
-    const container = document.getElementById("character-card")
-    if (container) {
-      // Ensure we have the latest HP from game if available
-      // Note: game.currentHP is the source of truth for HP in the HUD
-      container.innerHTML = CharacterHUD(game, character)
-    }
+  document.querySelectorAll(".action-bubble").forEach((bubble) => {
+    bubble.addEventListener("click", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const action = e.currentTarget.getAttribute("data-action")
+      const input = document.getElementById("player-input")
+      if (input && action) {
+        input.value = action
+        input.focus()
+      }
+    })
+  })
+
+  setupRollHistoryToggle()
+}
+
+// Renamed function to avoid redeclaration
+async function sendChatCompletionRequest(apiMessages, model) {
+  try {
+    const { getCleanModelId } = await import("../utils/model-utils.js")
+    const cleanedModel = getCleanModelId(model)
+
+    console.log("[v0] Using model:", cleanedModel, `${model.includes(":nitro") ? "(Nitro - fast throughput)" : ""}`)
+
+    const response = await sendChatCompletion(apiMessages, cleanedModel)
+    return response
+  } catch (error) {
+    console.error("[v0] Error in sendChatCompletion:", error)
+    throw error
   }
+}
+
+/**
+ * Refresh the CharacterHUD without full re-render
+ * @param {Object} game - The game object
+ * @param {Object} character - The character object
+ */
+function refreshCharacterHUD(game, character) {
+  const container = document.getElementById("character-card")
+  if (container) {
+    // Ensure we have the latest HP from game if available
+    // Note: game.currentHP is the source of truth for HP in the HUD
+    container.innerHTML = CharacterHUD(game, character)
+  }
+}

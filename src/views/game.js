@@ -20,6 +20,7 @@ import {
   processGameTagsRealtime,
   processGameTags
 } from "../engine/TagProcessor.js"
+import { tagParser } from "../engine/TagParser.js"
 import {
   startCombat as engineStartCombat,
   endCombat as engineEndCombat,
@@ -1187,7 +1188,8 @@ async function sendMessage(game, userText, data) {
 
     // Combat reminder system: If combat is still active after AI response, inject reminder
     if (gameRef.combat.active) {
-      const hasCombatEnd = assistantMessage.includes('COMBAT_END[')
+      const { tags } = tagParser.parse(assistantMessage)
+      const hasCombatEnd = tags.some(tag => tag.type === 'COMBAT_END')
 
       if (!hasCombatEnd) {
         // Combat is ongoing - add reminder message

@@ -9,6 +9,8 @@ import { isAuthenticated } from "../utils/auth.js"
 import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 import { IMPROVED_CHARACTER_LLM_SYSTEM_PROMPT } from "../utils/prompts/character-prompts.js"
 import { validateHitDice } from "../utils/character-validation.js"
+import { CLASS_PROGRESSION } from "../data/classes.js"
+import { generateClassProgression } from "../utils/class-progression-generator.js"
 import store from "../state/store.js"
 
 export function renderCharacters() {
@@ -543,9 +545,9 @@ export function renderCharacterCreator(state = {}) {
   updateClassCustomVisibility()
 
   // Form submission
-  document.getElementById("character-form")?.addEventListener("submit", (e) => {
+  document.getElementById("character-form")?.addEventListener("submit", async (e) => {
     e.preventDefault()
-    saveCharacter(isEdit ? character.id : null)
+    await saveCharacter(isEdit ? character.id : null)
   })
 
   // Template selection
@@ -761,74 +763,112 @@ function applyTemplate(templateId) {
   showMessage(`Loaded template: ${template.fromTemplate || template.name}`, "success")
 }
 
-function saveCharacter(existingId = null) {
-  const level = Number.parseInt(document.getElementById("char-level").value)
-  const profBonus = Math.floor((level - 1) / 4) + 2
+async function saveCharacter(existingId = null) {
+  const submitBtn = document.querySelector('button[type="submit"]')
+  if (submitBtn) {
+    submitBtn.disabled = true
+    submitBtn.textContent = "Saving..."
+  }
 
-  const selectedRace = document.getElementById("char-race").value
-  const customRace = (document.getElementById("char-race-custom")?.value || "").trim()
-  const finalRace = selectedRace === "Custom" ? customRace || "Custom" : selectedRace
+  try {
+    const level = Number.parseInt(document.getElementById("char-level").value)
+    const profBonus = Math.floor((level - 1) / 4) + 2
 
-  const selectedClass = document.getElementById("char-class").value
-  const customClass = (document.getElementById("char-class-custom")?.value || "").trim()
-  const finalClass = selectedClass === "Custom" ? customClass || "Custom" : selectedClass
+    const selectedRace = document.getElementById("char-race").value
+    const customRace = (document.getElementById("char-race-custom")?.value || "").trim()
+    const finalRace = selectedRace === "Custom" ? customRace || "Custom" : selectedRace
 
-  store.update((data) => {
-    const character = {
-      id: existingId || `char_${Date.now()}`,
-      name: document.getElementById("char-name").value.trim(),
-      race: finalRace,
-      class: finalClass,
-      level: level,
-      stats: {
-        strength: Number.parseInt(document.getElementById("stat-strength").value),
-        dexterity: Number.parseInt(document.getElementById("stat-dexterity").value),
-        constitution: Number.parseInt(document.getElementById("stat-constitution").value),
-        intelligence: Number.parseInt(document.getElementById("stat-intelligence").value),
-        wisdom: Number.parseInt(document.getElementById("stat-wisdom").value),
-        charisma: Number.parseInt(document.getElementById("stat-charisma").value),
-      },
-      maxHP: Number.parseInt(document.getElementById("char-hp").value),
-      armorClass: Number.parseInt(document.getElementById("char-ac").value),
-      proficiencyBonus: profBonus,
-      speed: Number.parseInt(document.getElementById("char-speed").value) || 30,
-      hitDice: document.getElementById("char-hitdice").value.trim() || "1d10",
-      savingThrows: existingId ? data.characters.find((c) => c.id === existingId).savingThrows : [],
-      skills: document
-        .getElementById("char-skills")
-        .value.split(",")
-        .map((s) => s.trim())
-        .filter((s) => s),
-      proficiencies: existingId
-        ? data.characters.find((c) => c.id === existingId).proficiencies
-        : { armor: [], weapons: [], tools: [] },
-      features: document
-        .getElementById("char-features")
-        .value.split(",")
-        .map((s) => s.trim())
-        .filter((s) => s),
-      spells: existingId ? data.characters.find((c) => c.id === existingId).spells : [],
-      inventory: existingId ? data.characters.find((c) => c.id === existingId).inventory : [],
-      backstory: document.getElementById("char-backstory").value.trim(),
-      createdAt: existingId ? data.characters.find((c) => c.id === existingId).createdAt : new Date().toISOString(),
-      fromTemplate: null,
+    const selectedClass = document.getElementById("char-class").value
+    const customClass = (document.getElementById("char-class-custom")?.value || "").trim()
+    const finalClass = selectedClass === "Custom" ? customClass || "Custom" : selectedClass
+
+    // Check if we need to generate custom progression
+    let customProgression = null
+    if (!CLASS_PROGRESSION[finalClass]) {
+      console.log(`[Character] Generating progression for custom class: ${finalClass}`)
+      showMessage(`Generating class progression for ${finalClass}...`, "info")
+
+      // Get existing custom progression if editing
+      if (existingId) {
+        const data = store.get()
+        const existingChar = data.characters.find(c => c.id === existingId)
+        if (existingChar && existingChar.class === finalClass && existingChar.customProgression) {
+          customProgression = existingChar.customProgression
+        }
+      }
+
+      // Generate if not found
+      if (!customProgression) {
+        const description = document.getElementById("char-backstory").value
+        customProgression = await generateClassProgression(finalClass, description)
+      }
     }
 
-    if (existingId) {
-      // Update existing
-      const index = data.characters.findIndex((c) => c.id === existingId)
-      data.characters[index] = character
-    } else {
-      // Add new
-      data.characters.push(character)
-    }
-  })
+    await store.update((data) => {
+      const character = {
+        id: existingId || `char_${Date.now()}`,
+        name: document.getElementById("char-name").value.trim(),
+        race: finalRace,
+        class: finalClass,
+        level: level,
+        stats: {
+          strength: Number.parseInt(document.getElementById("stat-strength").value),
+          dexterity: Number.parseInt(document.getElementById("stat-dexterity").value),
+          constitution: Number.parseInt(document.getElementById("stat-constitution").value),
+          intelligence: Number.parseInt(document.getElementById("stat-intelligence").value),
+          wisdom: Number.parseInt(document.getElementById("stat-wisdom").value),
+          charisma: Number.parseInt(document.getElementById("stat-charisma").value),
+        },
+        maxHP: Number.parseInt(document.getElementById("char-hp").value),
+        armorClass: Number.parseInt(document.getElementById("char-ac").value),
+        proficiencyBonus: profBonus,
+        speed: Number.parseInt(document.getElementById("char-speed").value) || 30,
+        hitDice: document.getElementById("char-hitdice").value.trim() || "1d10",
+        savingThrows: existingId ? data.characters.find((c) => c.id === existingId).savingThrows : [],
+        skills: document
+          .getElementById("char-skills")
+          .value.split(",")
+          .map((s) => s.trim())
+          .filter((s) => s),
+        proficiencies: existingId
+          ? data.characters.find((c) => c.id === existingId).proficiencies
+          : { armor: [], weapons: [], tools: [] },
+        features: document
+          .getElementById("char-features")
+          .value.split(",")
+          .map((s) => s.trim())
+          .filter((s) => s),
+        spells: existingId ? data.characters.find((c) => c.id === existingId).spells : [],
+        inventory: existingId ? data.characters.find((c) => c.id === existingId).inventory : [],
+        backstory: document.getElementById("char-backstory").value.trim(),
+        createdAt: existingId ? data.characters.find((c) => c.id === existingId).createdAt : new Date().toISOString(),
+        fromTemplate: null,
+        customProgression: customProgression // Save the generated progression
+      }
 
-  // Show success and navigate
-  showMessage(existingId ? "Character updated!" : "Character created!", "success")
-  setTimeout(() => {
-    navigateTo("/characters")
-  }, 1000)
+      if (existingId) {
+        // Update existing
+        const index = data.characters.findIndex((c) => c.id === existingId)
+        data.characters[index] = character
+      } else {
+        // Add new
+        data.characters.push(character)
+      }
+    })
+
+    // Show success and navigate
+    showMessage(existingId ? "Character updated!" : "Character created!", "success")
+    setTimeout(() => {
+      navigateTo("/characters")
+    }, 1000)
+  } catch (error) {
+    console.error("Failed to save character:", error)
+    showMessage("Failed to save character: " + error.message, "error")
+    if (submitBtn) {
+      submitBtn.disabled = false
+      submitBtn.textContent = existingId ? "Save Changes" : "Create Character"
+    }
+  }
 }
 
 function showMessage(text, type) {

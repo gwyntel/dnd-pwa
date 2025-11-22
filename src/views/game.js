@@ -1173,6 +1173,12 @@ async function sendMessage(game, userText, data) {
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
     await processGameTags(gameRef, character, assistantMessage, processedTags, data)
 
+    // Update Combat HUD if combat state changed (e.g., enemies spawned)
+    const combatHudContainer = document.getElementById('combat-hud-container')
+    if (combatHudContainer) {
+      combatHudContainer.innerHTML = renderCombatHUD(gameRef)
+    }
+
     // Note: <think> tag extraction is now handled during streaming, no post-processing needed
     gameRef.messages[assistantMsgIndex].content = assistantMessage
 

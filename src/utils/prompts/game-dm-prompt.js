@@ -90,6 +90,7 @@ export function buildGameDMPrompt(character, game, world) {
       world.worldOverview ? `**World Overview:**\n${formatList(world.worldOverview)}` : null,
       world.coreLocations ? `**Key Locations:**\n${formatList(world.coreLocations)}` : null,
       world.coreFactions ? `**Key Factions:**\n${formatList(world.coreFactions)}` : null,
+      world.monsters && world.monsters.length > 0 ? formatMonsterList(world.monsters) : null,
     ].filter(Boolean).join('\n\n');
     worldPrompt = `${sections}\n\n`;
   }
@@ -296,4 +297,14 @@ function formatList(list) {
   if (!list) return ""
   if (Array.isArray(list)) return list.map(i => `- ${i}`).join('\n')
   return list
+}
+
+function formatMonsterList(monsters) {
+  if (!monsters || !Array.isArray(monsters) || monsters.length === 0) return ""
+
+  const monsterSummary = monsters
+    .map(m => `${m.id} (${m.name}, CR ${m.cr})`)
+    .join(', ')
+
+  return `**Available Monsters:**\nUse ENEMY_SPAWN[id] to spawn these creatures: ${monsterSummary}\n(Example: ENEMY_SPAWN[goblin] or ENEMY_SPAWN[goblin|Goblin Leader])`
 }

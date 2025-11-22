@@ -4,15 +4,15 @@
  * to bypass CORS restrictions
  */
 
-import { loadData, saveData } from "./storage.js"
+import store from "../state/store.js"
 
 /**
  * Check if the proxy is enabled in settings
  * @returns {boolean} True if proxy is enabled
  */
 export function isProxyEnabled() {
-  const data = loadData()
-  return data.settings.useProxy === true
+  const data = store.get()
+  return data.settings?.useProxy === true
 }
 
 /**
@@ -20,9 +20,10 @@ export function isProxyEnabled() {
  * @param {boolean} enabled - Whether to enable the proxy
  */
 export function setProxyEnabled(enabled) {
-  const data = loadData()
-  data.settings.useProxy = enabled
-  saveData(data)
+  store.update((data) => {
+    if (!data.settings) data.settings = {}
+    data.settings.useProxy = enabled
+  })
 }
 
 /**
@@ -34,7 +35,7 @@ export function getProxyUrl() {
   if (import.meta.env.DEV) {
     return '/api/proxy'
   }
-  
+
   // In production, use the deployed worker URL
   return `${window.location.origin}/api/proxy`
 }
@@ -49,7 +50,7 @@ export function getProxyUrl() {
  */
 export async function proxyRequest(baseUrl, apiKey, endpoint, options = {}) {
   const proxyUrl = getProxyUrl()
-  
+
   // Prepare the proxy payload
   const payload = {
     baseUrl,
@@ -59,7 +60,7 @@ export async function proxyRequest(baseUrl, apiKey, endpoint, options = {}) {
     headers: options.headers || {},
     body: options.body,
   }
-  
+
   // Make the request to the proxy
   const response = await fetch(proxyUrl, {
     method: 'POST',
@@ -68,7 +69,7 @@ export async function proxyRequest(baseUrl, apiKey, endpoint, options = {}) {
     },
     body: JSON.stringify(payload),
   })
-  
+
   return response
 }
 
@@ -83,7 +84,7 @@ export async function testProxyConnection(baseUrl, apiKey) {
     const response = await proxyRequest(baseUrl, apiKey, '/models', {
       method: 'GET',
     })
-    
+
     return response.ok
   } catch (error) {
     console.error('Proxy connection test failed:', error)

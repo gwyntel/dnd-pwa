@@ -3,7 +3,7 @@
  * Handles model selection, environment variables, Nitro detection, and provider factory
  */
 
-import { loadData } from "./storage.js"
+import store from "../state/store.js"
 
 /**
  * Detect if endpoint has :nitro suffix for fast throughput
@@ -64,6 +64,6 @@ export async function getProvider() {
  * @returns {string} The current provider name
  */
 export function getCurrentProvider() {
-  const data = loadData()
-  return data.settings.provider || "openrouter"
+  const data = store.get()
+  return data.settings?.provider || "openrouter"
 }

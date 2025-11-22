@@ -70,11 +70,11 @@ export function renderLevelUpModal(character, onClose) {
             <div class="text-sm text-secondary">(${average} + ${conMod} CON)</div>
           </button>
           
-          <button class="card p-4 text-center hover:border-primary cursor-pointer ${typeof hpRoll === 'object' ? 'border-primary' : ''}"
+          <button class="card p-4 text-center hover:border-primary cursor-pointer ${hpRoll && typeof hpRoll === 'object' ? 'border-primary' : ''}"
                   onclick="window.rollLevelUpHP('${classData.hp_die}', ${conMod})"
-                  ${typeof hpRoll === 'object' ? 'disabled' : ''}>
+                  ${hpRoll && typeof hpRoll === 'object' ? 'disabled' : ''}>
             <div class="text-xl font-bold mb-1">Roll Dice</div>
-            <div class="text-3xl text-primary">${typeof hpRoll === 'object' ? hpRoll.total : '?'}</div>
+            <div class="text-3xl text-primary">${hpRoll && typeof hpRoll === 'object' ? hpRoll.total : '?'}</div>
             <div class="text-sm text-secondary">(${classData.hp_die} + ${conMod} CON)</div>
           </button>
         </div>

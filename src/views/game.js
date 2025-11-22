@@ -423,7 +423,7 @@ export async function renderGame(state = {}) {
   // Attach Level Up Handlers if modal is open
   if (levelUpModalOpen) {
     attachLevelUpHandlers(game, character, () => {
-      renderGame(store.get()) // Re-render on change
+      renderGame({ params: { id: currentGameId } }) // Re-render on change
     })
   }
 

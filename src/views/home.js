@@ -2,17 +2,18 @@
  * Home view - Dashboard with game list
  */
 
-import { loadData, saveData } from "../utils/storage.js"
+import { saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { isAuthenticated, startAuth, setApiKey } from "../utils/auth.js"
+import store from "../state/store.js"
 
 export function renderHome() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   // Check authentication (provider-aware)
   const selectedProvider = data.settings?.provider || "openrouter"
-  
+
   // LM Studio doesn't require authentication
   if (selectedProvider !== "lmstudio" && !isAuthenticated()) {
     app.innerHTML = renderAuthPrompt()
@@ -38,7 +39,7 @@ export function renderHome() {
         <button id="new-game-btn" class="btn">+ New Game</button>
       </div>
       
-      ${data.games.length === 0 ? renderEmptyState() : renderGameList(data.games, data.characters)}
+      ${!data.games || data.games.length === 0 ? renderEmptyState() : renderGameList(data.games, data.characters)}
     </div>
   `
 
@@ -67,9 +68,9 @@ export function renderHome() {
 }
 
 function renderAuthPrompt() {
-  const data = loadData()
+  const data = store.get()
   const currentProvider = data.settings?.provider || "openrouter"
-  
+
   return `
     <div class="container text-center mt-4">
       <h1>Welcome to D&D PWA</h1>
@@ -152,13 +153,13 @@ function renderProviderConfig(provider) {
       </div>
     `
   }
-  
+
   return ""
 }
 
 function setupAuthEventListeners() {
-  const data = loadData()
-  
+  const data = store.get()
+
   // Provider selection change
   document.getElementById("provider-select")?.addEventListener("change", (e) => {
     const provider = e.target.value
@@ -168,7 +169,7 @@ function setupAuthEventListeners() {
       setupAuthEventListeners() // Re-attach listeners for new config
     }
   })
-  
+
   // OpenRouter OAuth
   document.getElementById("auth-btn")?.addEventListener("click", async () => {
     try {
@@ -177,81 +178,81 @@ function setupAuthEventListeners() {
       alert("Authentication failed: " + error.message)
     }
   })
-  
+
   // OpenRouter API key
   document.getElementById("api-key-btn")?.addEventListener("click", () => {
     const apiKeyInput = document.getElementById("api-key-input")
     const apiKey = apiKeyInput?.value.trim()
-    
+
     if (!apiKey) {
       alert("Please enter an API key")
       return
     }
-    
+
     if (!apiKey.startsWith("sk-or-")) {
       alert("Invalid OpenRouter API key format. Should start with 'sk-or-'")
       return
     }
-    
+
     // Save provider selection
     data.settings = data.settings || {}
     data.settings.provider = "openrouter"
     saveData(data)
-    
+
     // Set API key
     setApiKey(apiKey)
-    
+
     // Reload page
     renderHome()
   })
-  
+
   // OpenAI-compatible save
   document.getElementById("openai-save-btn")?.addEventListener("click", () => {
     const baseUrl = document.getElementById("openai-base-url")?.value.trim()
     const apiKey = document.getElementById("openai-api-key")?.value.trim()
-    
+
     if (!baseUrl || !apiKey) {
       alert("Please enter both base URL and API key")
       return
     }
-    
+
     // Save configuration
     data.settings = data.settings || {}
     data.settings.provider = "openai"
     data.settings.openaiBaseUrl = baseUrl
     data.settings.openaiApiKey = apiKey
     saveData(data)
-    
+
     // Set as authenticated (using generic auth for OpenAI)
     setApiKey(apiKey)
-    
+
     // Reload page
     renderHome()
   })
-  
+
   // LM Studio save
   document.getElementById("lmstudio-save-btn")?.addEventListener("click", () => {
     const baseUrl = document.getElementById("lmstudio-url")?.value.trim()
     const contextLength = document.getElementById("lmstudio-context-length")?.value.trim()
-    
+
     if (!baseUrl) {
       alert("Please enter LM Studio server URL")
       return
     }
-    
+
     // Save configuration
     data.settings = data.settings || {}
     data.settings.provider = "lmstudio"
     data.settings.lmstudioBaseUrl = baseUrl
-    
+
     // Save context length if provided
     if (!data.settings.providers) data.settings.providers = {}
     if (!data.settings.providers.lmstudio) data.settings.providers.lmstudio = {}
     data.settings.providers.lmstudio.baseUrl = baseUrl
     data.settings.providers.lmstudio.contextLength = contextLength ? parseInt(contextLength, 10) : null
-    
+
     saveData(data)
-    
+
     // LM Studio doesn't need authentication, just reload
     renderHome()
   })
@@ -276,22 +277,22 @@ function renderGameList(games, characters) {
   return `
     <div class="grid grid-2">
       ${sortedGames
-        .map((game) => {
-          const character = characters.find((c) => c.id === game.characterId)
-          const lastPlayed = new Date(game.lastPlayedAt)
-          const now = new Date()
-          const diffMs = now - lastPlayed
-          const diffMins = Math.floor(diffMs / 60000)
-          const diffHours = Math.floor(diffMs / 3600000)
-          const diffDays = Math.floor(diffMs / 86400000)
+      .map((game) => {
+        const character = characters.find((c) => c.id === game.characterId)
+        const lastPlayed = new Date(game.lastPlayedAt)
+        const now = new Date()
+        const diffMs = now - lastPlayed
+        const diffMins = Math.floor(diffMs / 60000)
+        const diffHours = Math.floor(diffMs / 3600000)
+        const diffDays = Math.floor(diffMs / 86400000)
 
-          let timeAgo
-          if (diffMins < 1) timeAgo = "Just now"
-          else if (diffMins < 60) timeAgo = `${diffMins}m ago`
-          else if (diffHours < 24) timeAgo = `${diffHours}h ago`
-          else timeAgo = `${diffDays}d ago`
+        let timeAgo
+        if (diffMins < 1) timeAgo = "Just now"
+        else if (diffMins < 60) timeAgo = `${diffMins}m ago`
+        else if (diffHours < 24) timeAgo = `${diffHours}h ago`
+        else timeAgo = `${diffDays}d ago`
 
-          return `
+        return `
           <div class="card game-card card-clickable" data-game-id="${game.id}">
             <button class="btn-icon delete-btn" data-game-id="${game.id}" title="Delete">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -309,19 +310,18 @@ function renderGameList(games, characters) {
                 ${timeAgo}
               </span>
             </div>
-            ${
-              game.currentLocation
-                ? `
+            ${game.currentLocation
+            ? `
               <p class="text-secondary mt-2 text-sm">
                 📍 ${game.currentLocation}
               </p>
             `
-                : ""
-            }
+            : ""
+          }
           </div>
         `
-        })
-        .join("")}
+      })
+      .join("")}
     </div>
   `
 }
@@ -331,7 +331,7 @@ function deleteGame(gameId) {
     return
   }
 
-  const data = loadData()
+  const data = store.get()
   data.games = data.games.filter((g) => g.id !== gameId)
   saveData(data)
 

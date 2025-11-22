@@ -184,9 +184,9 @@ class Store {
    * Reload state from localStorage
    * Use with caution - this will overwrite any unsaved in-memory changes
    */
-  reload() {
+  async reload() {
     console.log("[Store] Reloading state from localStorage")
-    this._state = loadData()
+    this._state = await loadData()
     this._isInitialized = true
     this._notifyListeners()
   }

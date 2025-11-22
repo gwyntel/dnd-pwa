@@ -4,7 +4,7 @@
  */
 
 import { getAccessToken } from "./auth.js";
-import { loadData } from "./storage.js";
+import store from "../state/store.js";
 import { isProxyEnabled, proxyRequest } from "./proxy.js";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
@@ -15,9 +15,10 @@ const APP_TITLE = "D&D PWA";
  * Get current configuration based on settings
  */
 function getProviderConfig() {
-  const data = loadData();
-  const type = data.settings.provider || "openrouter";
-  
+  const data = store.get();
+  const settings = data.settings || {};
+  const type = settings.provider || "openrouter";
+
   let config = { type, baseUrl: "", apiKey: "", headers: {} };
 
   switch (type) {
@@ -31,15 +32,15 @@ function getProviderConfig() {
       break;
 
     case "openai":
-      config.baseUrl = (data.settings.providers?.openai?.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
-      config.apiKey = data.settings.providers?.openai?.apiKey || "";
+      config.baseUrl = (settings.providers?.openai?.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+      config.apiKey = settings.providers?.openai?.apiKey || "";
       break;
 
     case "lmstudio":
-      config.baseUrl = (data.settings.providers?.lmstudio?.baseUrl || "http://localhost:1234/v1").replace(/\/$/, "");
+      config.baseUrl = (settings.providers?.lmstudio?.baseUrl || "http://localhost:1234/v1").replace(/\/$/, "");
       config.apiKey = "not-needed"; // Local models don't use keys
       break;
-      
+
     default:
       throw new Error(`Unknown provider: ${type}`);
   }
@@ -110,11 +111,11 @@ async function handleApiError(response) {
   const err = new Error(msg);
   err.status = response.status;
   err.code = data.error?.code;
-  
+
   if (response.status === 401) err.message = "Authentication failed. Check API Key or Login.";
   if (response.status === 402) err.message = "Insufficient credits/quota.";
   if (response.status === 429) err.message = "Rate limited. Please wait a moment.";
-  
+
   throw err;
 }
 
@@ -126,10 +127,10 @@ export async function fetchModels() {
   try {
     const response = await makeRequest("/models", { method: "GET" }, config);
     const json = await response.json();
-    
+
     // Normalize list (OpenRouter .data, OpenAI .data, LMStudio varies)
     const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
-    
+
     return rawList.map(m => ({
       id: m.id,
       name: m.name || m.id,
@@ -138,10 +139,10 @@ export async function fetchModels() {
       provider: config.type,
       pricing: m.pricing || { prompt: 0, completion: 0 },
       // Check capability flags (OpenRouter) or simple string match
-      supportsReasoning: m.supported_parameters?.includes("reasoning") || 
-                         m.id.includes("reasoning") || 
-                         m.id.includes("o1") || 
-                         false,
+      supportsReasoning: m.supported_parameters?.includes("reasoning") ||
+        m.id.includes("reasoning") ||
+        m.id.includes("o1") ||
+        false,
       supportedParameters: m.supported_parameters || []
     }));
   } catch (error) {
@@ -155,7 +156,7 @@ export async function fetchModels() {
  */
 export async function sendChatCompletion(messages, model, options = {}) {
   const config = getProviderConfig();
-  
+
   // Common payload
   const payload = {
     model,
@@ -166,17 +167,17 @@ export async function sendChatCompletion(messages, model, options = {}) {
 
   // Add Reasoning Params (if applicable and enabled)
   if (options.reasoningEnabled && config.type === "openrouter") {
-     // Only OpenRouter officially exposes strict parameters for reasoning this way for now
-     // Other providers pass them transparently if supported models are used
-     payload.reasoning = {
-       effort: options.reasoningEffort || "medium"
-     };
-     if (options.reasoningMaxTokens) {
-       // Note: Some models might require integer parsing here
-       // Keeping simple logic for now
-     }
+    // Only OpenRouter officially exposes strict parameters for reasoning this way for now
+    // Other providers pass them transparently if supported models are used
+    payload.reasoning = {
+      effort: options.reasoningEffort || "medium"
+    };
+    if (options.reasoningMaxTokens) {
+      // Note: Some models might require integer parsing here
+      // Keeping simple logic for now
+    }
   }
-  
+
   // System Prompt Support (prepend if exists)
   if (options.system) {
     payload.messages = [{ role: "system", content: options.system }, ...messages];
@@ -213,7 +214,7 @@ export async function* parseStreamingResponse(response) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
+
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || ""; // Keep incomplete line
@@ -243,8 +244,8 @@ export async function* parseStreamingResponse(response) {
 export function calculateCost(usage, pricing) {
   if (!pricing) return 0;
   // OpenRouter pricing is per token (usually)
-  return (usage.promptTokens * Number(pricing.prompt || 0)) + 
-         (usage.completionTokens * Number(pricing.completion || 0));
+  return (usage.promptTokens * Number(pricing.prompt || 0)) +
+    (usage.completionTokens * Number(pricing.completion || 0));
 }
 
 /**

@@ -353,15 +353,37 @@ export function saveData(data) {
 
 /**
  * Debounced save function to prevent excessive writes
+ * Also ensures saves happen within a maximum delay even during rapid updates
  */
 let saveTimeout = null
+let lastSaveTime = 0
+const MAX_SAVE_DELAY = 2000 // Force save after 2 seconds max
+
 export function debouncedSave(data, delay = 300) {
+  const now = Date.now()
+  const timeSinceLastSave = now - lastSaveTime
+
+  // Force immediate save if we haven't saved in MAX_SAVE_DELAY
+  if (timeSinceLastSave >= MAX_SAVE_DELAY) {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+    console.log('[Storage] Forcing save due to max delay')
+    saveData(data)
+    lastSaveTime = now
+    return
+  }
+
+  // Normal debounced save
   if (saveTimeout) {
     clearTimeout(saveTimeout)
   }
 
   saveTimeout = setTimeout(() => {
     saveData(data)
+    lastSaveTime = Date.now()
+    saveTimeout = null
   }, delay)
 }
 
@@ -439,15 +461,22 @@ export function clearAllData() {
  */
 export function getStorageInfo() {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    const bytes = data ? new Blob([data]).size : 0
+    const dataStr = localStorage.getItem(STORAGE_KEY)
+    if (!dataStr) {
+      return { bytes: 0, kb: "0", characterCount: 0, gameCount: 0 }
+    }
+
+    const bytes = new Blob([dataStr]).size
     const kb = (bytes / 1024).toFixed(2)
+
+    // Parse the data to get counts (simple parsing, no migrations)
+    const data = JSON.parse(dataStr)
 
     return {
       bytes,
       kb,
-      characterCount: loadData().characters.length,
-      gameCount: loadData().games.length,
+      characterCount: Array.isArray(data.characters) ? data.characters.length : 0,
+      gameCount: Array.isArray(data.games) ? data.games.length : 0,
     }
   } catch (error) {
     console.error("Error getting storage info:", error)

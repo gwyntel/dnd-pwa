@@ -3,7 +3,7 @@
  * Dedicated page to browse and start from beginner-friendly templates.
  */
 
-import { loadData } from "../utils/storage.js"
+import store from "../state/store.js"
 import { navigateTo } from "../router.js"
 import { BEGINNER_TEMPLATES } from "../data/archetypes.js"
 
@@ -15,7 +15,7 @@ function escapeHtml(text) {
 
 export function renderCharacterTemplatesView() {
   const app = document.getElementById("app")
-  const data = loadData()
+  const data = store.get()
 
   app.innerHTML = `
     <nav>
@@ -82,8 +82,8 @@ function renderTemplateCard(t) {
         <div class="flex align-center justify-between gap-1">
           <h3>${t.icon || "🎲"} ${escapeHtml(t.name)}</h3>
           <span class="badge text-xs" style="text-transform: capitalize;">${escapeHtml(
-            t.difficulty || "beginner",
-          )}</span>
+    t.difficulty || "beginner",
+  )}</span>
         </div>
         <p class="text-secondary text-sm" style="margin:0.25rem 0 0.35rem 0;">
           Level ${t.level} ${escapeHtml(t.race)} ${escapeHtml(t.class)} • ${escapeHtml(t.role)}

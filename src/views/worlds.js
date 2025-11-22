@@ -437,7 +437,6 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
       ${isAIGenerated ? '<p class="text-secondary mb-3">Review and edit the generated world before saving.</p>' : ""}
       
       <form id="world-form">
-        <input type="hidden" id="world-monsters" value='${JSON.stringify(formData.monsters || []).replace(/'/g, "&apos;")}'>
         <div class="mb-3">
           <label class="form-label">World Name *</label>
           <input type="text" id="world-name" required placeholder="e.g., Forgotten Realms" value="${formData.name}">
@@ -531,6 +530,19 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
             placeholder="One item per line. E.g.:&#10;The Silver Hand: Monster hunters&#10;The Thieves Guild"
           >${(Array.isArray(formData.coreFactions) ? formData.coreFactions : []).join('\n')}</textarea>
         </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between align-center mb-2">
+            <label class="form-label m-0">Monsters - Optional</label>
+            <button type="button" id="add-monster-btn" class="btn btn-secondary">+ Add Monster</button>
+          </div>
+          <div id="monsters-list" class="grid gap-2">
+            ${renderMonstersList(formData.monsters || [])}
+          </div>
+          <p class="text-secondary mt-1 text-sm">
+            Add monsters that will be available in this world. Leave empty to use defaults.
+          </p>
+        </div>
         
         <div class="flex gap-1">
           <button type="submit" class="btn">${isEditing ? "Update World" : "Create World"}</button>
@@ -542,10 +554,122 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
 
   container.scrollIntoView({ behavior: "smooth" })
 
-  // Event listeners
+  // Store monsters in memory for manipulation
+  let currentMonsters = [...(formData.monsters || [])]
+
+  // Render monster list helper
+  function updateMonstersList() {
+    document.getElementById("monsters-list").innerHTML = renderMonstersList(currentMonsters)
+    attachMonsterCardHandlers()
+  }
+
+  // Attach handlers to monster cards
+  function attachMonsterCardHandlers() {
+    document.querySelectorAll(".remove-monster-btn").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        currentMonsters.splice(idx, 1)
+        updateMonstersList()
+      })
+    })
+
+    document.querySelectorAll(".edit-monster-btn").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        editMonster(idx)
+      })
+    })
+  }
+
+  // Edit monster inline
+  function editMonster(idx) {
+    const monster = currentMonsters[idx]
+    const card = document.querySelectorAll(".monster-card")[idx]
+
+    card.innerHTML = `
+      <div class="p-2 bg-surface-2 rounded">
+        <div class="grid grid-2 gap-2 mb-2">
+          <div>
+            <label class="form-label text-xs">Name</label>
+            <input type="text" id="edit-name-${idx}" placeholder="e.g., Goblin" value="${monster.name || ''}" class="text-sm">
+          </div>
+          <div>
+            <label class="form-label text-xs">ID</label>
+            <input type="text" id="edit-id-${idx}" placeholder="e.g., goblin)" value="${monster.id || ''}" class="text-sm">
+          </div>
+        </div>
+        <div class="grid grid-3 gap-2 mb-2">
+          <div>
+            <label class="form-label text-xs">Type</label>
+            <input type="text" id="edit-type-${idx}" placeholder="e.g., Humanoid" value="${monster.type || ''}" class="text-sm">
+          </div>
+          <div>
+            <label class="form-label text-xs">CR (Challenge Rating)</label>
+            <input type="text" id="edit-cr-${idx}" placeholder="e.g., 1/4" value="${monster.cr || ''}" class="text-sm">
+          </div>
+          <div>
+            <label class="form-label text-xs">HP (Hit Points)</label>
+            <input type="number" id="edit-hp-${idx}" placeholder="10" value="${monster.hp || 10}" class="text-sm">
+          </div>
+        </div>
+        <div class="grid grid-2 gap-2 mb-2">
+          <div>
+            <label class="form-label text-xs">AC (Armor Class)</label>
+            <input type="number" id="edit-ac-${idx}" placeholder="10" value="${monster.ac || 10}" class="text-sm">
+          </div>
+          <div>
+            <label class="form-label text-xs">Stats (comma-separated)</label>
+            <input type="text" id="edit-stats-${idx}" placeholder="str:10,dex:14,con:10,int:10,wis:8,cha:8" value="${formatStats(monster.stats)}" class="text-sm">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn-secondary flex-1" onclick="window.saveMonsterEdit(${idx})">Save</button>
+          <button type="button" class="btn-secondary flex-1" onclick="window.cancelMonsterEdit()">Cancel</button>
+        </div>
+      </div>
+    `
+  }
+
+  // Save edited monster
+  window.saveMonsterEdit = (idx) => {
+    const monster = currentMonsters[idx]
+    monster.name = document.getElementById(`edit-name-${idx}`).value.trim()
+    monster.id = document.getElementById(`edit-id-${idx}`).value.trim() || monster.name.toLowerCase().replace(/\s+/g, '_')
+    monster.type = document.getElementById(`edit-type-${idx}`).value.trim()
+    monster.cr = document.getElementById(`edit-cr-${idx}`).value.trim()
+    monster.hp = parseInt(document.getElementById(`edit-hp-${idx}`).value) || 10
+    monster.ac = parseInt(document.getElementById(`edit-ac-${idx}`).value) || 10
+
+    const statsStr = document.getElementById(`edit-stats-${idx}`).value.trim()
+    monster.stats = parseStats(statsStr)
+
+    updateMonstersList()
+  }
+
+  window.cancelMonsterEdit = () => {
+    updateMonstersList()
+  }
+
+  // Add monster button
+  document.getElementById("add-monster-btn").addEventListener("click", () => {
+    const newMonster = {
+      id: `monster_${Date.now()}`,
+      name: "New Monster",
+      type: "Humanoid",
+      cr: "1",
+      hp: 10,
+      ac: 10,
+      stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      actions: []
+    }
+    currentMonsters.push(newMonster)
+    updateMonstersList()
+  })
+
+  // Initial attach
+  attachMonsterCardHandlers()
+
   document.getElementById("world-form").addEventListener("submit", (e) => {
     e.preventDefault()
-    saveWorld(isEditing ? world.id : null)
+    saveWorld(isEditing ? world.id : null, currentMonsters)
   })
 
   document.getElementById("cancel-world-btn").addEventListener("click", () => {
@@ -554,7 +678,7 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
   })
 }
 
-function saveWorld(existingWorldId = null) {
+function saveWorld(existingWorldId = null, monsters = []) {
   const name = document.getElementById("world-name").value.trim()
   const briefDescription = document.getElementById("world-description").value.trim()
   const fullDescription = document.getElementById("world-full-description").value.trim()
@@ -569,15 +693,7 @@ function saveWorld(existingWorldId = null) {
   const coreLocations = document.getElementById("world-locations").value.trim().split('\n').filter(l => l.trim())
   const coreFactions = document.getElementById("world-factions").value.trim().split('\n').filter(l => l.trim())
 
-  let monsters = []
-  try {
-    const monstersInput = document.getElementById("world-monsters")
-    if (monstersInput) {
-      monsters = JSON.parse(monstersInput.value)
-    }
-  } catch (e) {
-    console.warn("Failed to parse monsters data", e)
-  }
+  // Monsters are passed as parameter from the form
 
   if (!name || !briefDescription) {
     alert("Please fill in all required fields.")
@@ -601,6 +717,7 @@ function saveWorld(existingWorldId = null) {
         world.worldOverview = worldOverview
         world.coreLocations = coreLocations
         world.coreFactions = coreFactions
+        world.monsters = monsters
         // Remove legacy field if present
         delete world.systemPrompt
       }
@@ -631,4 +748,57 @@ function saveWorld(existingWorldId = null) {
 
   editingWorldId = null
   renderWorlds()
+}
+
+// Helper functions for monster management
+function renderMonstersList(monsters) {
+  if (!monsters || monsters.length === 0) {
+    return '<p class="text-secondary text-sm">No monsters added yet. Click "+ Add Monster" to get started.</p>'
+  }
+
+  return monsters.map((monster, idx) => `
+    <div class="monster-card card card-padded-sm bg-surface-1">
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <strong>${monster.name || 'Unnamed'}</strong>
+          <span class="text-secondary text-sm ml-2">(CR ${monster.cr || '?'})</span>
+          <div class="text-sm text-secondary mt-1">
+            ${monster.type || 'Unknown'} • HP: ${monster.hp || '?'} • AC: ${monster.ac || '?'}
+          </div>
+        </div>
+        <div class="flex gap-1">
+          <button type="button" class="btn-icon edit-monster-btn" title="Edit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button type="button" class="btn-icon remove-monster-btn" title="Remove">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('')
+}
+
+function formatStats(stats) {
+  if (!stats || typeof stats !== 'object') return ''
+  return Object.entries(stats).map(([key, val]) => `${key}:${val}`).join(',')
+}
+
+function parseStats(statsStr) {
+  if (!statsStr) return { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+
+  const stats = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+  statsStr.split(',').forEach(pair => {
+    const [key, val] = pair.split(':').map(s => s.trim())
+    if (key && val) {
+      stats[key.toLowerCase()] = parseInt(val) || 10
+    }
+  })
+  return stats
 }

@@ -15,13 +15,15 @@ let selectedASI = { type: null, stats: [], feat: null } // { type: 'feat' | 'asi
 
 export function renderLevelUpModal(character, onClose) {
     const nextLevel = character.level + 1
-    const classData = CLASS_PROGRESSION[character.class]
+    // Check for custom progression first, then fall back to CLASS_PROGRESSION
+    const classData = character.customProgression || CLASS_PROGRESSION[character.class]
     const levelData = classData ? classData[nextLevel] : null
 
     if (!levelData) {
         return `<div class="modal-content">
       <h3>Level Up Error</h3>
       <p>No progression data found for ${character.class} Level ${nextLevel}.</p>
+      <p class="text-secondary text-sm mt-2">This may be a custom class that needs progression data generated.</p>
       <button class="btn btn-primary" onclick="window.closeLevelUp()">Close</button>
     </div>`
     }
@@ -192,7 +194,7 @@ export function renderLevelUpModal(character, onClose) {
 export function attachLevelUpHandlers(game, character, onClose) {
     window.nextLevelStep = () => {
         const nextLevel = character.level + 1
-        const classData = CLASS_PROGRESSION[character.class]
+        const classData = character.customProgression || CLASS_PROGRESSION[character.class]
         const levelData = classData ? classData[nextLevel] : null
 
         // Logic to skip steps if not applicable
@@ -248,7 +250,7 @@ export function attachLevelUpHandlers(game, character, onClose) {
 
     window.finalizeLevelUp = async () => {
         const nextLevel = character.level + 1
-        const classData = CLASS_PROGRESSION[character.class]
+        const classData = character.customProgression || CLASS_PROGRESSION[character.class]
 
         // Calculate new HP
         let hpIncrease = 0

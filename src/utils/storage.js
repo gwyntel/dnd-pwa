@@ -7,7 +7,7 @@ import { WORLD_TEMPLATES } from "../data/worlds.js"
 import { showMigrationPopup, hideMigrationPopup } from "../components/MigrationPopup.js"
 
 const STORAGE_KEY = "dnd_pwa_data"
-const SCHEMA_VERSION = "1.1.0"
+const SCHEMA_VERSION = "1.2.0"
 
 // Default data structure
 const DEFAULT_DATA = {
@@ -133,9 +133,9 @@ export function normalizeCharacter(character) {
 
 /**
  * Load data from localStorage
- * @returns {Object} The stored data or default data if none exists
+ * @returns {Promise<Object>} The stored data or default data if none exists
  */
-export function loadData() {
+export async function loadData() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) {
@@ -217,6 +217,34 @@ export function loadData() {
             }
             return char
           })
+        }
+
+        migrated = true
+      }
+
+      // 1.2.0 Migration: Generate progression for custom classes
+      if (!data.version || data.version < "1.2.0") {
+        console.log('[Migration] Running 1.2.0 migration: generating custom class progressions')
+
+        // Import here to avoid circular dependencies
+        const { CLASS_PROGRESSION } = await import('../data/classes.js')
+        const { generateClassProgression } = await import('../utils/class-progression-generator.js')
+
+        if (Array.isArray(data.characters)) {
+          // Process characters sequentially to avoid overwhelming API
+          for (const char of data.characters) {
+            // Check if character has a custom class (not in CLASS_PROGRESSION)
+            if (char.class && !CLASS_PROGRESSION[char.class] && !char.customProgression) {
+              console.log(`[Migration] Generating progression for custom class: ${char.class}`)
+              try {
+                char.customProgression = await generateClassProgression(char.class, char.description || '')
+                console.log(`[Migration] Successfully generated progression for ${char.class}`)
+              } catch (error) {
+                console.error(`[Migration] Failed to generate progression for ${char.class}:`, error)
+                // Character will use fallback during level up
+              }
+            }
+          }
         }
 
         migrated = true

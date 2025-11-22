@@ -26,7 +26,7 @@ async function init() {
   console.log("D&D PWA - Initializing...")
 
   // Initialize the centralized store first
-  store.initialize()
+  await store.initialize()
 
   // Try auto-login from environment variable
   autoLogin()

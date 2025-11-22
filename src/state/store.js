@@ -14,19 +14,14 @@ class Store {
   }
 
   /**
-   * Initialize the store by loading data once from localStorage
-   * Should be called during app startup
+   * Initialize the store with data from localStorage
    */
-  initialize() {
-    if (this._isInitialized) {
-      console.warn("[Store] Already initialized")
-      return
-    }
-
-    console.log("[Store] Initializing store from localStorage")
-    this._state = loadData()
+  async initialize() {
+    if (this._isInitialized) return
+    console.log('[Store] Initializing...')
+    this._state = await loadData()
     this._isInitialized = true
-    console.log("[Store] Store initialized", {
+    console.log('[Store] Initialized with data:', {
       characters: this._state.characters?.length || 0,
       games: this._state.games?.length || 0,
       worlds: this._state.worlds?.length || 0,

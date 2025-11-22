@@ -13,6 +13,13 @@ let hpRoll = null
 let selectedSpells = []
 let selectedASI = { type: null, stats: [], feat: null } // { type: 'feat' | 'asi', stats: ['str', 'dex'], feat: 'Alert' }
 
+export function resetLevelUpState() {
+    currentStep = 0
+    hpRoll = null
+    selectedSpells = []
+    selectedASI = { type: null, stats: [], feat: null }
+}
+
 export function renderLevelUpModal(character, onClose) {
     const nextLevel = character.level + 1
     // Check for custom progression first, then fall back to CLASS_PROGRESSION
@@ -63,15 +70,13 @@ export function renderLevelUpModal(character, onClose) {
         <p class="mb-4">Your maximum hit points increase. You can take the average or roll for it.</p>
         
         <div class="grid grid-cols-2 gap-4 mb-4">
-          <button class="card p-4 text-center hover:border-primary cursor-pointer ${hpRoll === 'avg' ? 'border-primary' : ''}" 
-                  onclick="window.setLevelUpHP('avg', ${average + conMod})">
+          <button id="btn-hp-avg" class="card p-4 text-center hover:border-primary cursor-pointer ${hpRoll === 'avg' ? 'border-primary' : ''}">
             <div class="text-xl font-bold mb-1">Take Average</div>
             <div class="text-3xl text-primary">${average + conMod}</div>
             <div class="text-sm text-secondary">(${average} + ${conMod} CON)</div>
           </button>
           
-          <button class="card p-4 text-center hover:border-primary cursor-pointer ${hpRoll && typeof hpRoll === 'object' ? 'border-primary' : ''}"
-                  onclick="window.rollLevelUpHP('${classData.hp_die}', ${conMod})"
+          <button id="btn-hp-roll" class="card p-4 text-center hover:border-primary cursor-pointer ${hpRoll && typeof hpRoll === 'object' ? 'border-primary' : ''}"
                   ${hpRoll && typeof hpRoll === 'object' ? 'disabled' : ''}>
             <div class="text-xl font-bold mb-1">Roll Dice</div>
             <div class="text-3xl text-primary">${hpRoll && typeof hpRoll === 'object' ? hpRoll.total : '?'}</div>
@@ -206,15 +211,38 @@ export function attachLevelUpHandlers(game, character, onClose) {
         onClose() // Re-render
     }
 
-    window.setLevelUpHP = (type, value) => {
-        hpRoll = type === 'avg' ? 'avg' : { total: value }
-        onClose()
+    // Step 1: HP Handlers
+    const btnHpAvg = document.getElementById('btn-hp-avg')
+    if (btnHpAvg) {
+        const conMod = Math.floor((character.stats.constitution - 10) / 2)
+        const classData = character.customProgression || CLASS_PROGRESSION[character.class]
+        const dieSize = parseInt(classData.hp_die.substring(2))
+        const average = Math.floor(dieSize / 2) + 1
+
+        btnHpAvg.onclick = () => {
+            // Visual feedback immediately
+            btnHpAvg.classList.add('border-primary')
+            document.getElementById('btn-hp-roll')?.classList.remove('border-primary')
+
+            hpRoll = 'avg'
+            onClose()
+        }
     }
 
-    window.rollLevelUpHP = (die, mod) => {
-        const roll = rollDice(die)
-        hpRoll = { total: roll.total + mod, raw: roll.total }
-        onClose()
+    const btnHpRoll = document.getElementById('btn-hp-roll')
+    if (btnHpRoll) {
+        const conMod = Math.floor((character.stats.constitution - 10) / 2)
+        const classData = character.customProgression || CLASS_PROGRESSION[character.class]
+
+        btnHpRoll.onclick = () => {
+            // Visual feedback immediately
+            btnHpRoll.classList.add('border-primary')
+            document.getElementById('btn-hp-avg')?.classList.remove('border-primary')
+
+            const roll = rollDice(classData.hp_die)
+            hpRoll = { total: roll.total + conMod, raw: roll.total }
+            onClose()
+        }
     }
 
     // ASI Handlers
@@ -263,6 +291,8 @@ export function attachLevelUpHandlers(game, character, onClose) {
 
         await store.update(state => {
             const char = state.characters.find(c => c.id === character.id)
+            const gameObj = state.games.find(g => g.id === game.id)
+
             if (char) {
                 char.level = nextLevel
                 char.maxHP += hpIncrease
@@ -281,14 +311,16 @@ export function attachLevelUpHandlers(game, character, onClose) {
                 }
 
                 // Apply ASI or Feat
-                if (levelData && levelData.asi) {
-                    if (selectedASI.type === 'feat' && selectedASI.feat) {
-                        const feat = FEATS.find(f => f.name === selectedASI.feat)
-                        if (feat) {
-                            if (!char.features) char.features = []
-                            char.features.push(`Feat: ${feat.name}`)
-                        }
-                    } else if (selectedASI.stats.length === 2) {
+                if (selectedASI.type === 'feat' && selectedASI.feat) {
+                    if (!char.feats) char.feats = []
+                    char.feats.push(selectedASI.feat)
+                } else if (selectedASI.type === 'asi' && selectedASI.stats.length > 0) {
+                    if (!char.stats) char.stats = {}
+                    if (selectedASI.stats.length === 1) {
+                        // Single stat twice = +2
+                        char.stats[selectedASI.stats[0]] = (char.stats[selectedASI.stats[0]] || 10) + 2
+                    } else {
+                        // Two different stats = +1 each
                         selectedASI.stats.forEach(stat => {
                             char.stats[stat] = (char.stats[stat] || 10) + 1
                         })
@@ -304,6 +336,11 @@ export function attachLevelUpHandlers(game, character, onClose) {
                         char.spellSlots[lvl].current = count // Refill on level up
                     })
                 }
+            }
+
+            // CRITICAL: Update game.currentHP to match character.currentHP
+            if (gameObj && char) {
+                gameObj.currentHP = char.currentHP
             }
         })
 

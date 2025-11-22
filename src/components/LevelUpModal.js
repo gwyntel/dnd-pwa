@@ -342,7 +342,7 @@ export function attachLevelUpHandlers(game, character, onClose) {
             if (gameObj && char) {
                 gameObj.currentHP = char.currentHP
             }
-        })
+        }, { immediate: true })
 
         // Reset local state
         currentStep = 0

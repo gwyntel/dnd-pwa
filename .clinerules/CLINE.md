@@ -17,14 +17,14 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
   - Handles serialization/deserialization and data migration
   - Provides `normalizeCharacter()` for backward compatibility
 - **Data schema** stored in `localStorage` key `"data"`:
-  - `characters[]` — Created character sheets with full D&D 5e stats (including spell slots, hit dice, XP progress)
+  - `characters[]` — Created character sheets with full D&D 5e stats (including spell slots, hit dice, XP progress, custom progressions, feats)
   - `worlds[]` — Campaign worlds with system prompts (guides AI behavior)
   - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage, combat data, relationship tracking
   - `settings` — User preferences (AI provider selection, model settings, UI theme, reasoning tokens)
   - `models[]` — Cached AI model metadata (fetched on-demand, includes pricing & reasoning support)
-- **Migration system** (`src/utils/ai-migration.js`): Handles breaking changes to data schema
+- **Migration system** (`src/utils/ai-migration.js`): Handles breaking changes to data schema + `MigrationPopup` component for user feedback
 - **No persistence backend**; all state local to browser with export/import capability
-- Normalization via `normalizeCharacter()` and migration scripts handle version upgrades
+- Normalization via `normalizeCharacter()` and migration scripts handle version upgrades + supports character.customProgression for AI-generated classes
 
 ### Game Loop & Message Flow (`src/views/game.js` and `src/engine/GameLoop.js`)
 1. Player sends text input → `handlePlayerInput()` adds user message to `game.messages` (in `game.js`).
@@ -74,11 +74,14 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 
 ### Levelling System (`src/components/LevelUpModal.js` & `src/data/classes.js`)
 - **Class progression data** in `CLASS_PROGRESSION` with features + spell slots per level
+- **AI-generated custom class progressions** (`src/utils/class-progression-generator.js`): Generates full 1-20 level progression for custom/homebrew classes using structured output
 - **XP thresholds** define when level-ups occur (currently simplified to predetermined levels)
-- **Level-up wizard**: Multi-step modal for HP, features, ASI (Ability Score Improvement), spells
+- **Custom class support**: `character.customProgression` stores AI-generated class data with hp_die, features, ASI flags, spell slots
+- **Feat selection**: Available during Ability Score Improvement; uses `FEATS` array from `src/data/feats.js`
+- **Level-up wizard**: Multi-step modal for HP, features, ASI (Ability Score Improvement), feats, spells
 - **Hit point calculation**: Classes get hit dice (e.g., "1d10") + CON modifier on level-up
 - **Spell slot progression**: Stored in `character.spellSlots[level].current/max`
-- **Feature tracking**: `character.features[]` array accumulates over levels
+- **Feature tracking**: `character.features[]` array accumulates over levels; `character.feats[]` tracks chosen feats
 
 ### Spellcasting (`src/engine/SpellcastingManager.js` & `src/data/spells.js`)
 - **Spell slot tracking**: `character.spellSlots{}` with current/max per level (1-9)
@@ -186,9 +189,11 @@ src/
     icons.js — UI icons and emoji utilities
     classes.js — D&D 5e class progression data (XP thresholds, features, spell slots)
     spells.js — Common spells database definitions
+    feats.js — Standard OGL D&D 5e feats database (FEATS array)
  engine/
     GameLoop.js — Game loop and AI streaming logic
     TagParser.js — Low-level tag extraction and sanitization utility
+    TagParser.spec.js — Tests for TagParser utility
     TagProcessor.js — Game tag parsing and execution
     CombatManager.js — Combat state and initiative tracking
     SpellcastingManager.js — Spell casting and slot management
@@ -207,6 +212,7 @@ src/
     ai-migration.js — Data schema migration scripts
     cors-detector.js — CORS detection utilities
     character-validation.js — Character creation validation
+    class-progression-generator.js — AI-powered custom class progression generator
     ui-templates.js — UI template utilities
     prompts/
       character-prompts.js — Character generation prompts

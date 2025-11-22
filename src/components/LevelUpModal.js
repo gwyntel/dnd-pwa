@@ -225,6 +225,7 @@ export function attachLevelUpHandlers(game, character, onClose) {
             document.getElementById('btn-hp-roll')?.classList.remove('border-primary')
 
             hpRoll = 'avg'
+            currentStep++ // Advance to next step
             onClose()
         }
     }
@@ -241,6 +242,7 @@ export function attachLevelUpHandlers(game, character, onClose) {
 
             const roll = rollDice(classData.hp_die)
             hpRoll = { total: roll.total + conMod, raw: roll.total }
+            currentStep++ // Advance to next step
             onClose()
         }
     }

@@ -1187,7 +1187,7 @@ async function sendMessage(game, userText, data) {
 
     // Combat reminder system: If combat is still active after AI response, inject reminder
     if (gameRef.combat.active) {
-      const hasCombatEnd = REGEX.COMBAT_END_TEST.test(assistantMessage)
+      const hasCombatEnd = assistantMessage.includes('COMBAT_END[')
 
       if (!hasCombatEnd) {
         // Combat is ongoing - add reminder message

@@ -81,7 +81,6 @@ export function CharacterHUD(game, character) {
     ${renderCombatIndicator(game)}
     ${renderSpellSlots(character)}
     ${renderSpellList(character)}
-    ${renderHitDice(character)}
     ${renderConcentration(game)}
     ${renderClassResources(character)}
   `

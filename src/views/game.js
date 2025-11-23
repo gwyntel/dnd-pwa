@@ -354,6 +354,11 @@ export async function renderGame(state = {}) {
           ${CharacterHUD(game, character)}
         </div>
 
+        <!-- Combat HUD positioned below character card -->
+        <div id="combat-hud-container">
+          ${renderCombatHUD(game)}
+        </div>
+
         <div class="card rest-controls">
           <h3>Rest</h3>
           <div class="flex gap-2">

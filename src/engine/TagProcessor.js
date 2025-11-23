@@ -524,7 +524,7 @@ function createBadgeForTag(tag) {
       return createBadgeToken('roll', { notation: parts[0] || '' })
     }
     case 'COMBAT_START': return createBadgeToken('combat', { action: 'start', desc: tag.content.trim() })
-    case 'COMBAT_CONTINUE': return createBadgeToken('combat', { action: 'continue' })
+    case 'COMBAT_CONTINUE': return '' // Silent tag - no badge, just removes from text
     case 'COMBAT_END': return createBadgeToken('combat', { action: 'end', desc: tag.content.trim() })
     case 'DAMAGE': {
       const [target, amount] = tag.content.split('|').map(s => s.trim())

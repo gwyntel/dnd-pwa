@@ -351,7 +351,10 @@ export async function processGameTags(game, character, text, processedTags, data
       }
       case 'COMBAT_START': {
         if (!game.combat.active) {
-          const msgs = startCombat(game, character, tag.content)
+          // Get world from data
+          const worldId = game.worldId
+          const world = data.worlds ? data.worlds.find(w => w.id === worldId) : null
+          const msgs = startCombat(game, character, world, tag.content)
           game.messages.push(...msgs)
           processed = true
         }

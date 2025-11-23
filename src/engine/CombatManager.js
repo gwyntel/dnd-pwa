@@ -122,6 +122,17 @@ export function startCombat(game, character, world, description = "") {
  * @returns {Object} - The spawned enemy object
  */
 export function spawnEnemy(game, world, monsterId, nameOverride = null) {
+  // Initialize combat structure if it doesn't exist
+  if (!game.combat) {
+    game.combat = { active: false, round: 0, enemies: [], initiative: [], currentTurnIndex: 0 }
+  }
+  if (!Array.isArray(game.combat.enemies)) {
+    game.combat.enemies = []
+  }
+  if (!Array.isArray(game.combat.initiative)) {
+    game.combat.initiative = []
+  }
+
   // 1. Lookup in World Monster Manual
   let template = world?.monsters?.find(m => m.id === monsterId || m.name.toLowerCase() === monsterId.toLowerCase())
 

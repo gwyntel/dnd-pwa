@@ -306,14 +306,9 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         break
       }
       case 'ENEMY_SPAWN': {
-        // We handle spawning in processGameTags (not realtime) to ensure we have world context if needed?
-        // Actually, we need 'world' object to look up monsters.
-        // processGameTagsRealtime signature: (game, character, text, processedTags, callbacks)
-        // It doesn't have 'world'.
-        // We should handle this in processGameTags which has 'data' (store) access?
-        // processGameTags signature: (game, character, text, processedTags, data)
-        // Yes, let's handle it there.
-        processed = true
+        // IMPORTANT: Do NOT mark as processed here!
+        // This tag MUST be handled by processGameTags (which has world/data access).
+        // If we mark it processed here, processGameTags will skip it and enemies won't spawn.
         break
       }
     }
@@ -398,6 +393,15 @@ export async function processGameTags(game, character, text, processedTags, data
         // Find the current world.
         const worldId = game.worldId
         const world = data.worlds ? data.worlds.find(w => w.id === worldId) : null
+
+        console.log('[TagProcessor] ENEMY_SPAWN processing:', {
+          templateId,
+          nameOverride,
+          gameWorldId: game.worldId,
+          foundWorld: !!world,
+          worldName: world?.name,
+          monstersCount: world?.monsters?.length
+        })
 
         const enemy = spawnEnemy(game, world, templateId, nameOverride)
 

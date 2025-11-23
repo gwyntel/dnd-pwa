@@ -1171,9 +1171,25 @@ async function sendMessage(game, userText, data) {
 
 
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
+    const messagesBeforeTagProcessing = gameRef.messages.length
     await processGameTags(gameRef, character, assistantMessage, processedTags, data)
 
+    // Render any new system messages added by tag processing (e.g., combat start, initiative)
+    const messagesAfterTagProcessing = gameRef.messages.length
+    if (messagesAfterTagProcessing > messagesBeforeTagProcessing) {
+      const newSystemMessages = gameRef.messages.slice(messagesBeforeTagProcessing)
+      console.log('[flow] sendMessage: rendering new system messages from tag processing', {
+        count: newSystemMessages.length,
+        messages: newSystemMessages.map(m => ({ id: m.id, content: m.content }))
+      })
+      newSystemMessages.forEach(msg => appendMessage(msg))
 
+      // Scroll to show the new messages
+      const messagesContainer = document.getElementById("messages-container")
+      if (messagesContainer) {
+        smartScrollToBottom(messagesContainer)
+      }
+    }
 
     // Update Combat HUD if combat state changed (e.g., enemies spawned)
     const combatHudContainer = document.getElementById('combat-hud-container')

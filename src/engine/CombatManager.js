@@ -64,6 +64,26 @@ export function startCombat(game, character, world, description = "") {
     })
   }
 
+  // Add system messages for any enemy initiative rolls that already happened
+  // (from ENEMY_SPAWN tags that ran before COMBAT_START)
+  const enemyInitiatives = initiativeEntries.filter(entry => entry.type === 'npc')
+  enemyInitiatives.forEach(enemyInit => {
+    messages.push({
+      id: `msg_${enemyInit.rollId || Date.now()}_initiative_${enemyInit.enemyId}`,
+      role: "system",
+      content: `⚔️ Initiative (${enemyInit.name}): ${formatRoll(enemyInit.roll)}`,
+      timestamp: enemyInit.timestamp || new Date().toISOString(),
+      hidden: false,
+      metadata: {
+        diceRoll: enemyInit.roll,
+        type: "initiative",
+        actorType: "npc",
+        actorName: enemyInit.name,
+        rollId: enemyInit.rollId
+      },
+    })
+  })
+
   // Parse enemy names from description for legacy support or initial flavor
   // Note: Real spawning happens via ENEMY_SPAWN tags now, but we keep this for fallback
   const enemyNames = parseEnemyNames(description)

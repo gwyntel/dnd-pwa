@@ -20,7 +20,11 @@ export function startCombat(game, character, world, description = "") {
 
   game.combat.active = true
   game.combat.round = 1
-  game.combat.enemies = [] // Initialize enemy list
+  // Don't reset enemies array if it already has enemies! (from ENEMY_SPAWN tags)
+  if (!Array.isArray(game.combat.enemies)) {
+    game.combat.enemies = []
+  }
+
 
   // Build initiative entries (player + optional hinted NPCs)
   const initiativeEntries = []

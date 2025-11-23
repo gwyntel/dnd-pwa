@@ -306,11 +306,6 @@ export async function renderGame(state = {}) {
             </div>
           </div>
 
-          <!-- Combat HUD -->
-          <div id="combat-hud-container">
-            ${renderCombatHUD(game)}
-          </div>
-
           <div id="messages-container" class="messages-container">
             ${renderMessages(game.messages)}
           </div>

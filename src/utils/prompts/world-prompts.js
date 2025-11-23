@@ -37,6 +37,42 @@ export const WORLD_GENERATION_SCHEMA = {
     worldOverview: { type: "array", items: { type: "string" } },
     coreLocations: { type: "array", items: { type: "string" } },
     coreFactions: { type: "array", items: { type: "string" } },
+    monsters: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "name", "type", "cr", "hp", "ac", "stats"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          type: { type: "string" },
+          cr: { type: "string" },
+          hp: { type: "integer" },
+          ac: { type: "integer" },
+          stats: {
+            type: "object",
+            properties: {
+              str: { type: "integer" },
+              dex: { type: "integer" },
+              con: { type: "integer" },
+              int: { type: "integer" },
+              wis: { type: "integer" },
+              cha: { type: "integer" },
+            },
+          },
+          actions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                desc: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
   },
 }
 

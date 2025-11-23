@@ -361,11 +361,15 @@ export async function processGameTags(game, character, text, processedTags, data
         break
       }
       case 'COMBAT_END': {
-        const msg = endCombat(game, tag.content)
-        game.messages.push(msg)
-        processed = true
+        // Only end combat if it's actually active (prevents reprocessing on reload)
+        if (game.combat.active) {
+          const msg = endCombat(game, tag.content)
+          game.messages.push(msg)
+          processed = true
+        }
         break
       }
+
       case 'DAMAGE': {
         const [target, amount] = tag.content.split('|').map(s => s.trim())
         const dmg = parseInt(amount, 10)

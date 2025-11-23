@@ -1168,16 +1168,16 @@ async function sendMessage(game, userText, data) {
     console.log('[flow] sendMessage: stream complete, running final processGameCommands')
     await processGameTags(gameRef, character, assistantMessage, processedTags, data)
 
+
     // Update Combat HUD if combat state changed (e.g., enemies spawned)
-    const combatHudContainer = document.getElementById('combat-hud-container')
-    if (combatHudContainer) {
-      console.log('[game.js] Updating Combat HUD after processGameTags', {
+    // Combat HUD is now part of the character card
+    const characterCard = document.getElementById('character-card')
+    if (characterCard) {
+      console.log('[game.js] Updating Character Card (includes Combat HUD) after processGameTags', {
         combatActive: gameRef.combat.active,
         enemyCount: gameRef.combat.enemies?.length || 0
       })
-      combatHudContainer.innerHTML = renderCombatHUD(gameRef)
-    } else {
-      console.warn('[game.js] combat-hud-container not found!')
+      characterCard.innerHTML = CharacterHUD(gameRef, character)
     }
 
     // Note: <think> tag extraction is now handled during streaming, no post-processing needed

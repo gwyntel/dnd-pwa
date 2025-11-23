@@ -4,12 +4,24 @@
  */
 
 export function renderCombatHUD(game) {
-    if (!game.combat.active) return ""
+  console.log('[CombatHUD] Rendering', {
+    active: game.combat.active,
+    enemyCount: game.combat.enemies?.length || 0,
+    enemies: game.combat.enemies
+  })
 
-    const enemies = game.combat.enemies || []
-    if (enemies.length === 0) return ""
+  if (!game.combat.active) {
+    console.log('[CombatHUD] Combat not active, hiding HUD')
+    return ""
+  }
 
-    return `
+  const enemies = game.combat.enemies || []
+  if (enemies.length === 0) {
+    console.log('[CombatHUD] No enemies, hiding HUD')
+    return ""
+  }
+
+  return `
     <div class="combat-hud card card-padded-sm mb-3">
       <div class="flex justify-between items-center mb-2">
         <h3 class="text-sm uppercase tracking-wider text-secondary m-0">Combat Tracker</h3>
@@ -24,15 +36,15 @@ export function renderCombatHUD(game) {
 }
 
 function renderEnemyCard(enemy) {
-    const isDead = enemy.hp.current <= 0
-    const hpPercent = Math.max(0, Math.min(100, (enemy.hp.current / enemy.hp.max) * 100))
+  const isDead = enemy.hp.current <= 0
+  const hpPercent = Math.max(0, Math.min(100, (enemy.hp.current / enemy.hp.max) * 100))
 
-    let hpColor = "bg-green-500"
-    if (hpPercent < 50) hpColor = "bg-yellow-500"
-    if (hpPercent < 20) hpColor = "bg-red-500"
-    if (isDead) hpColor = "bg-gray-500"
+  let hpColor = "bg-green-500"
+  if (hpPercent < 50) hpColor = "bg-yellow-500"
+  if (hpPercent < 20) hpColor = "bg-red-500"
+  if (isDead) hpColor = "bg-gray-500"
 
-    return `
+  return `
     <div class="enemy-card p-2 border rounded ${isDead ? 'opacity-50 grayscale' : 'bg-surface-2'}">
       <div class="flex justify-between items-center mb-1">
         <strong class="${isDead ? 'line-through text-secondary' : ''}">${enemy.name}</strong>

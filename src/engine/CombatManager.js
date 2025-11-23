@@ -179,6 +179,13 @@ export function spawnEnemy(game, world, monsterId, nameOverride = null) {
   // Re-sort initiative
   game.combat.initiative.sort((a, b) => b.total - a.total)
 
+  console.log('[CombatManager] Enemy spawned:', {
+    enemy,
+    totalEnemies: game.combat.enemies.length,
+    combatActive: game.combat.active,
+    initiative: game.combat.initiative
+  })
+
   return enemy
 }
 

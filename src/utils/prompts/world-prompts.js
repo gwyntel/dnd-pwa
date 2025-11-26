@@ -73,6 +73,36 @@ export const WORLD_GENERATION_SCHEMA = {
         },
       },
     },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "name", "category", "rarity"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          category: { type: "string", enum: ["weapon", "armor", "consumable", "magic_item", "gear"] },
+          rarity: { type: "string", enum: ["common", "uncommon", "rare", "very_rare", "legendary"] },
+          // Weapon fields
+          weaponType: { type: "string" },
+          damage: { type: "string" },
+          versatileDamage: { type: "string" },
+          damageType: { type: "string" },
+          properties: { type: "array", items: { type: "string" } },
+          // Armor fields
+          armorType: { type: "string" },
+          baseAC: { type: "integer" },
+          acBonus: { type: "integer" },
+          // Consumable fields
+          consumable: { type: "boolean" },
+          effects: { type: "array", items: { type: "string" } },
+          // Common fields
+          weight: { type: "number" },
+          value: { type: "integer" },
+          description: { type: "string" }
+        }
+      }
+    }
   },
 }
 
@@ -95,6 +125,13 @@ You MUST:
     - Generate 10-15 themed monsters appropriate for this world.
     - Ensure stats are consistent with 5e SRD standards.
     - Include a mix of low-level (CR 0-2), mid-level (CR 3-5), and a boss (CR 5+).
+  - **items**: IMPORTANT:
+    - Generate 15-20 themed items appropriate for the world.
+    - Mix: ~8 weapons, ~5 armor pieces, ~5 consumables, ~2-3 magic items.
+    - Example (sea world): Trident, Coral Armor, Potion of Water Breathing, Pearl of Power
+    - Example (desert world): Scimitar, Sand Cloak, Potion of Endure Heat, Scarab of Protection
+    - Ensure stats match 5e standards for weapons/armor.
+    - Give each item a unique, thematic name.
 
 When using the user's idea:
 - Respect their pitch and genre.

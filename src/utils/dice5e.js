@@ -12,11 +12,270 @@
  */
 
 import { getModifier, roll } from "./dice.js"
+import { resolveItem } from "../engine/EquipmentManager.js"
+
+// ... (SKILL_ABILITY_MAP and helpers remain unchanged)
 
 /**
- * Map of 5e skill names to their governing abilities.
- * Keys are normalized to lower-case for lookups.
+ * Build attack entries from equipped weapons / obvious items.
+ *
+ * Input (best-effort):
+ * - character.inventory: array of items
+ * - character.stats, proficiencyBonus: to compute toHit if not explicitly encoded.
+ * - world: to resolve item IDs to stats
+ *
+ * Output:
+ * - attacks: [
+ *     {
+ *       id: string,          // stable key, e.g. "longsword" or "longsword_1"
+ *       name: string,        // display name
+ *       ability: "str"|"dex"|"int"|"wis"|"cha"|null,
+ *       toHit: number|null,  // attack bonus
+ *       damage: string|null, // damage dice notation (e.g., "1d8+3")
+ *       damageType: string|undefined
+ *     },
+ *   ]
  */
+function buildAttacks(character, abilities, world) {
+  const inventory = Array.isArray(character.inventory) ? character.inventory : []
+  const prof = typeof character.proficiencyBonus === "number" ? character.proficiencyBonus : 0
+  const attacks = []
+
+  // Helper to resolve item data
+  const getItemData = (slot) => {
+    if (!slot) return null
+    // If we have a world, try to resolve by ID or name
+    if (world) {
+      return resolveItem(slot.id || slot.item, world)
+    }
+    // Fallback: if slot has embedded data (legacy or simple objects)
+    return slot
+  }
+
+  for (const slot of inventory) {
+    if (!slot) continue
+
+    // Check if equipped
+    if (!slot.equipped) continue
+
+    const itemData = getItemData(slot)
+    if (!itemData) continue
+
+    // Must be a weapon
+    if (itemData.category !== 'weapon' && !itemData.weaponType) {
+      // Legacy fallback: check name heuristics if we didn't resolve a real item object
+      const name = (itemData.name || itemData.item || "").toLowerCase()
+      const looksLikeWeapon = name.includes("sword") || name.includes("bow") || name.includes("axe") || name.includes("mace") || name.includes("staff") || name.includes("dagger") || name.includes("crossbow") || name.includes("spear") || name.includes("hammer")
+      if (!looksLikeWeapon) continue
+    }
+
+    const name = itemData.name || itemData.item || "Unknown Weapon"
+    const id = (itemData.id || name).toLowerCase().replace(/\s+/g, "_")
+
+    // Determine ability
+    let ability = "str"
+    const props = itemData.properties || []
+    const isFinesse = props.includes("finesse")
+    const isRanged = itemData.weaponType && itemData.weaponType.includes("ranged")
+
+    if (isRanged) {
+      ability = "dex"
+    } else if (isFinesse) {
+      // Use higher of STR or DEX
+      const strMod = abilities.str || 0
+      const dexMod = abilities.dex || 0
+      ability = dexMod > strMod ? "dex" : "str"
+    }
+
+    const abilityMod = abilities[ability] || 0
+    const isProficient = true // Assume proficient with equipped weapons for now (or check class)
+
+    // Calculate bonuses
+    let toHitBonus = abilityMod + (isProficient ? prof : 0)
+    let damageBonus = abilityMod
+
+    // Magic item bonuses
+    if (itemData.toHitBonus) toHitBonus += itemData.toHitBonus
+    if (itemData.damageBonus) damageBonus += itemData.damageBonus
+
+    // Construct damage string
+    let damage = itemData.damage
+    if (damage) {
+      // Append modifier if not already present in some form (simple heuristic)
+      if (!damage.includes('+') && !damage.includes('-') && damageBonus !== 0) {
+        damage = `${damage}${damageBonus >= 0 ? '+' : ''}${damageBonus}`
+      }
+    }
+
+    attacks.push({
+      id,
+      name,
+      ability,
+      toHit: toHitBonus,
+      damage,
+      damageType: itemData.damageType,
+      properties: props
+    })
+  }
+
+  // If no attacks found, add Unarmed Strike
+  if (attacks.length === 0) {
+    const strMod = abilities.str || 0
+    attacks.push({
+      id: "unarmed_strike",
+      name: "Unarmed Strike",
+      ability: "str",
+      toHit: strMod + prof,
+      damage: `${1 + strMod}`,
+      damageType: "bludgeoning"
+    })
+  }
+
+  return attacks
+}
+
+// ... (buildSpellcasting remains unchanged)
+
+/**
+ * Build a comprehensive dice profile for a character.
+ *
+ * Input:
+ * - character: normalized character object
+ * - world: (optional) world object for item resolution
+ */
+export function buildDiceProfile(character, world = null) {
+  if (!character || typeof character !== "object") {
+    throw new Error("buildDiceProfile requires a character object")
+  }
+
+  const abilities = buildAbilityModifiers(character.stats || {})
+  const saves = buildSavingThrows(character, abilities)
+  const skills = buildSkills(character, abilities)
+  const attacks = buildAttacks(character, abilities, world)
+  const spellcasting = buildSpellcasting(character, abilities)
+
+  return {
+    abilities,
+    saves,
+    skills,
+    attacks,
+    spellcasting,
+  }
+}
+
+// ... (SemanticRollResult typedef)
+
+// ... (rollSkillCheck, rollSavingThrow remain unchanged)
+
+/**
+ * Roll an attack using the character's profile.
+ *
+ * @param {Object} character - normalized character
+ * @param {string} attackIdOrName - matches attack.id or attack.name
+ * @param {Object} [options]
+ * @param {Object} [world] - World object for item resolution
+ */
+export function rollAttack(character, attackIdOrName, options = {}, world = null) {
+  const profile = buildDiceProfile(character, world)
+  // ... (rest of rollAttack implementation)
+  const query = (attackIdOrName || "").toString().trim().toLowerCase()
+
+  const attack =
+    profile.attacks.find(
+      (a) =>
+        (typeof a.id === "string" && a.id.toLowerCase() === query) ||
+        (typeof a.name === "string" && a.name.toLowerCase() === query),
+    ) || profile.attacks[0]
+
+  if (!attack) {
+    // ... (fallback logic)
+    // Copied from original but using profile.abilities
+    const abilities = profile.abilities
+    const mod = abilities.str || 0
+    const notation = `1d20${mod >= 0 ? `+${mod}` : mod}`
+
+    const basicCore = roll({
+      count: 1,
+      sides: 20,
+      modifier: mod,
+      advantage: !!options.advantage,
+      disadvantage: !!options.disadvantage,
+      rollType: "attack",
+      label: "basic weapon attack",
+      notation,
+    })
+
+    const targetAC = typeof options.targetAC === "number" ? options.targetAC : null
+    const hit = targetAC != null ? basicCore.total >= targetAC : null
+
+    return {
+      attack: {
+        id: "basic_attack",
+        name: "Basic Attack",
+        ability: "str",
+        toHit: mod,
+        damage: null,
+      },
+      toHit: {
+        ...basicCore,
+        type: "attack",
+        key: "basic_attack",
+        targetAC,
+        success: hit,
+      },
+      damage: null,
+    }
+  }
+
+  const toHitBonus = Number.isFinite(attack.toHit) ? attack.toHit : 0
+  const toHitNotation = `1d20${toHitBonus >= 0 ? `+${toHitBonus}` : toHitBonus}`
+
+  const toHitCore = roll({
+    count: 1,
+    sides: 20,
+    modifier: toHitBonus,
+    advantage: !!options.advantage,
+    disadvantage: !!options.disadvantage,
+    rollType: "attack",
+    label: `${attack.name} attack roll`,
+    notation: toHitNotation,
+  })
+
+  const targetAC = typeof options.targetAC === "number" ? options.targetAC : null
+  const hit = targetAC != null ? toHitCore.total >= targetAC : null
+
+  let damageResult = null
+  if (hit !== false && typeof attack.damage === "string" && attack.damage.trim()) {
+    const damageCore = roll({
+      ...parseDamageNotation(attack.damage.trim()),
+      rollType: "attack",
+      label: `${attack.name} damage`,
+    })
+
+    damageResult = {
+      ...damageCore,
+      type: "attack",
+      key: `${attack.id || attack.name}_damage`,
+      dc: null,
+      success: null,
+    }
+  }
+
+  return {
+    attack,
+    toHit: {
+      ...toHitCore,
+      type: "attack",
+      key: attack.id || attack.name,
+      targetAC,
+      success: hit,
+    },
+    damage: damageResult,
+  }
+}
+
+// ... (parseDamageNotation remains unchanged)
+
 const SKILL_ABILITY_MAP = {
   // Strength
   athletics: "str",
@@ -118,12 +377,12 @@ function buildSavingThrows(character, abilities) {
 
     const key =
       v.startsWith("str") ? "str" :
-      v.startsWith("dex") ? "dex" :
-      v.startsWith("con") ? "con" :
-      v.startsWith("int") ? "int" :
-      v.startsWith("wis") ? "wis" :
-      v.startsWith("cha") ? "cha" :
-      null
+        v.startsWith("dex") ? "dex" :
+          v.startsWith("con") ? "con" :
+            v.startsWith("int") ? "int" :
+              v.startsWith("wis") ? "wis" :
+                v.startsWith("cha") ? "cha" :
+                  null
 
     if (key && typeof saves[key] === "number") {
       saves[key] = saves[key] + prof
@@ -197,8 +456,8 @@ function buildSkills(character, abilities) {
         typeof abilities.dex === "number"
           ? abilities.dex
           : typeof abilities.int === "number"
-          ? abilities.int
-          : 0
+            ? abilities.int
+            : 0
       result[key] = fallback + prof
       continue
     }
@@ -212,94 +471,7 @@ function buildSkills(character, abilities) {
   return result
 }
 
-/**
- * Build attack entries from equipped weapons / obvious items.
- *
- * Input (best-effort):
- * - character.inventory: array of items:
- *   - { item: "Longsword", equipped: true, damage: "1d8+3" }
- * - character.stats, proficiencyBonus: to compute toHit if not explicitly encoded.
- *
- * Output:
- * - attacks: [
- *     {
- *       id: string,          // stable key, e.g. "longsword" or "longsword_1"
- *       name: string,        // display name
- *       ability: "str"|"dex"|"int"|"wis"|"cha"|null,
- *       toHit: number|null,  // attack bonus
- *       damage: string|null, // damage dice notation (e.g., "1d8+3")
- *       damageType: string|undefined
- *     },
- *   ]
- *
- * Notes:
- * - We avoid overfitting; only derive simple, obvious attacks.
- * - If damage is provided, we respect it.
- * - toHit is approximated as ability mod + proficiency (if it's a "weapon-like" item).
- */
-function buildAttacks(character, abilities) {
-  const inventory = Array.isArray(character.inventory) ? character.inventory : []
-  const prof = typeof character.proficiencyBonus === "number" ? character.proficiencyBonus : 0
-  const attacks = []
 
-  const addAttack = (name, base) => {
-    if (!name) return
-    const id = name.toLowerCase().replace(/\s+/g, "_")
-    attacks.push({
-      id,
-      name,
-      ability: base.ability || null,
-      toHit:
-        typeof base.toHit === "number"
-          ? base.toHit
-          : base.ability && typeof abilities[base.ability] === "number"
-          ? abilities[base.ability] + (base.proficient ? prof : 0)
-          : null,
-      damage: base.damage || null,
-      damageType: base.damageType,
-    })
-  }
-
-  for (const it of inventory) {
-    if (!it || typeof it.item !== "string") continue
-    const name = it.item
-    const lower = name.toLowerCase()
-    const equipped = !!it.equipped
-
-    // Only consider equipped or obviously weapon-like items
-    const looksLikeWeapon =
-      lower.includes("sword") ||
-      lower.includes("bow") ||
-      lower.includes("axe") ||
-      lower.includes("mace") ||
-      lower.includes("staff") ||
-      lower.includes("dagger") ||
-      lower.includes("crossbow") ||
-      lower.includes("spear") ||
-      lower.includes("hammer")
-
-    if (!equipped && !looksLikeWeapon) continue
-
-    const damage = typeof it.damage === "string" ? it.damage.trim() : null
-
-    // Guess ability: simple finesse/ ranged vs. strength heuristic
-    let ability = "str"
-    if (lower.includes("dagger") || lower.includes("rapier") || lower.includes("shortsword")) {
-      ability = "dex"
-    }
-    if (lower.includes("bow") || lower.includes("crossbow")) {
-      ability = "dex"
-    }
-
-    addAttack(name, {
-      ability,
-      proficient: true,
-      damage,
-    })
-  }
-
-  return attacks
-}
 
 /**
  * Build spellcasting info and spell save DC if possible.
@@ -336,44 +508,7 @@ function buildSpellcasting(character, abilities) {
   }
 }
 
-/**
- * Build a comprehensive dice profile for a character.
- *
- * Input:
- * - character: normalized character object (use normalizeCharacter before calling).
- *
- * Output shape (stable, additive):
- * {
- *   abilities: { str, dex, con, int, wis, cha },
- *   saves:     { str, dex, con, int, wis, cha },
- *   skills:    { [skillNameLower]: bonus },
- *   attacks:   [ { id, name, ability, toHit, damage, damageType? } ],
- *   spellcasting: {
- *     spellcastingAbility: "str"|"dex"|"con"|"int"|"wis"|"cha"|null,
- *     spellSaveDC: number|null,
- *     spellAttackBonus: number|null
- *   }
- * }
- */
-export function buildDiceProfile(character) {
-  if (!character || typeof character !== "object") {
-    throw new Error("buildDiceProfile requires a character object")
-  }
 
-  const abilities = buildAbilityModifiers(character.stats || {})
-  const saves = buildSavingThrows(character, abilities)
-  const skills = buildSkills(character, abilities)
-  const attacks = buildAttacks(character, abilities)
-  const spellcasting = buildSpellcasting(character, abilities)
-
-  return {
-    abilities,
-    saves,
-    skills,
-    attacks,
-    spellcasting,
-  }
-}
 
 /**
  * Common result metadata shape for semantic helpers.
@@ -455,16 +590,16 @@ export function rollSavingThrow(character, abilityKey, options = {}) {
     raw === "str" || raw.startsWith("strength")
       ? "str"
       : raw === "dex" || raw.startsWith("dexterity")
-      ? "dex"
-      : raw === "con" || raw.startsWith("constitution")
-      ? "con"
-      : raw === "int" || raw.startsWith("intelligence")
-      ? "int"
-      : raw === "wis" || raw.startsWith("wisdom")
-      ? "wis"
-      : raw === "cha" || raw.startsWith("charisma")
-      ? "cha"
-      : null
+        ? "dex"
+        : raw === "con" || raw.startsWith("constitution")
+          ? "con"
+          : raw === "int" || raw.startsWith("intelligence")
+            ? "int"
+            : raw === "wis" || raw.startsWith("wisdom")
+              ? "wis"
+              : raw === "cha" || raw.startsWith("charisma")
+                ? "cha"
+                : null
 
   const bonus = key ? profile.saves[key] ?? profile.abilities[key] ?? 0 : 0
   const mod = Number.isFinite(bonus) ? bonus : 0
@@ -493,125 +628,7 @@ export function rollSavingThrow(character, abilityKey, options = {}) {
   }
 }
 
-/**
- * Roll an attack using the character's profile.
- *
- * @param {Object} character - normalized character
- * @param {string} attackIdOrName - matches attack.id or attack.name (case-insensitive)
- * @param {Object} [options]
- * @param {number} [options.targetAC]       - target Armor Class
- * @param {boolean} [options.advantage]
- * @param {boolean} [options.disadvantage]
- * @returns {{
- *   attack: {
- *     id: string,
- *     name: string,
- *     ability: string|null,
- *     toHit: number|null,
- *     damage: string|null,
- *     damageType?: string
- *   },
- *   toHit: SemanticRollResult,
- *   damage: (SemanticRollResult | null)
- * }}
- */
-export function rollAttack(character, attackIdOrName, options = {}) {
-  const profile = buildDiceProfile(character)
-  const query = (attackIdOrName || "").toString().trim().toLowerCase()
 
-  const attack =
-    profile.attacks.find(
-      (a) =>
-        (typeof a.id === "string" && a.id.toLowerCase() === query) ||
-        (typeof a.name === "string" && a.name.toLowerCase() === query),
-    ) || profile.attacks[0] // fallback to first known attack if not found
-
-  if (!attack) {
-    // No recognizable attacks; degrade gracefully to a basic STR attack.
-    const abilities = profile.abilities
-    const mod = abilities.str || 0
-    const notation = `1d20${mod >= 0 ? `+${mod}` : mod}`
-
-    const basicCore = roll({
-      count: 1,
-      sides: 20,
-      modifier: mod,
-      advantage: !!options.advantage,
-      disadvantage: !!options.disadvantage,
-      rollType: "attack",
-      label: "basic weapon attack",
-      notation,
-    })
-
-    const targetAC = typeof options.targetAC === "number" ? options.targetAC : null
-    const hit = targetAC != null ? basicCore.total >= targetAC : null
-
-    return {
-      attack: {
-        id: "basic_attack",
-        name: "Basic Attack",
-        ability: "str",
-        toHit: mod,
-        damage: null,
-      },
-      toHit: {
-        ...basicCore,
-        type: "attack",
-        key: "basic_attack",
-        targetAC,
-        success: hit,
-      },
-      damage: null,
-    }
-  }
-
-  const toHitBonus = Number.isFinite(attack.toHit) ? attack.toHit : 0
-  const toHitNotation = `1d20${toHitBonus >= 0 ? `+${toHitBonus}` : toHitBonus}`
-
-  const toHitCore = roll({
-    count: 1,
-    sides: 20,
-    modifier: toHitBonus,
-    advantage: !!options.advantage,
-    disadvantage: !!options.disadvantage,
-    rollType: "attack",
-    label: `${attack.name} attack roll`,
-    notation: toHitNotation,
-  })
-
-  const targetAC = typeof options.targetAC === "number" ? options.targetAC : null
-  const hit = targetAC != null ? toHitCore.total >= targetAC : null
-
-  let damageResult = null
-  if (hit !== false && typeof attack.damage === "string" && attack.damage.trim()) {
-    // Use parseNotation via roll(string) for the damage roll; no advantage/disadvantage by default.
-    const damageCore = roll({
-      ...parseDamageNotation(attack.damage.trim()),
-      rollType: "attack",
-      label: `${attack.name} damage`,
-    })
-
-    damageResult = {
-      ...damageCore,
-      type: "attack",
-      key: `${attack.id || attack.name}_damage`,
-      dc: null,
-      success: null,
-    }
-  }
-
-  return {
-    attack,
-    toHit: {
-      ...toHitCore,
-      type: "attack",
-      key: attack.id || attack.name,
-      targetAC,
-      success: hit,
-    },
-    damage: damageResult,
-  }
-}
 
 /**
  * Parse a damage-like notation into { count, sides, modifier } for use with roll().

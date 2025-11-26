@@ -8,6 +8,7 @@ import { initRouter, registerRoute, navigateTo } from "./router.js"
 import { renderHome } from "./views/home.js"
 import { renderSettings } from "./views/settings.js"
 import { migrateMonsters } from "./utils/migrations/backfill-monsters.js"
+import { migrateInventoryV2 } from "./utils/migrations/convert-inventory-v2.js"
 
 // Run migrations
 // migrateMonsters() called in init() after store is ready
@@ -35,6 +36,7 @@ async function init() {
 
   // Run migrations that depend on store
   migrateMonsters()
+  migrateInventoryV2()
 
   // Try auto-login from environment variable
   autoLogin()

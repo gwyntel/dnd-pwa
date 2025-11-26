@@ -20,10 +20,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 16,
     skills: ["Athletics", "Intimidation"],
     inventory: [
-      { item: "Longsword", equipped: true },
-      { item: "Shield", equipped: true },
-      { item: "Chain Mail", equipped: true },
-      { item: "Adventurer's Pack", equipped: false }
+      { id: "longsword", name: "Longsword", equipped: true, quantity: 1 },
+      { id: "shield", name: "Shield", equipped: true, quantity: 1 },
+      { id: "chain_mail", name: "Chain Mail", equipped: true, quantity: 1 },
+      { id: "adventurers_pack", name: "Adventurer's Pack", equipped: false, quantity: 1 }
     ],
     backstory: "You trained in the city guard and now seek adventure to prove your worth as a true warrior.",
     playstyleDesc: "Get close, draw aggro, and protect allies. Straightforward melee tank and damage dealer.",
@@ -49,10 +49,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 14,
     skills: ["Stealth", "Sleight of Hand", "Perception", "Deception"],
     inventory: [
-      { item: "Shortsword", equipped: true },
-      { item: "Dagger", equipped: true },
-      { item: "Leather Armor", equipped: true },
-      { item: "Thieves' Tools", equipped: false }
+      { id: "shortsword", name: "Shortsword", equipped: true, quantity: 1 },
+      { id: "dagger", name: "Dagger", equipped: true, quantity: 1 },
+      { id: "leather_armor", name: "Leather Armor", equipped: true, quantity: 1 },
+      { id: "thieves_tools", name: "Thieves' Tools", equipped: false, quantity: 1 }
     ],
     backstory: "You grew up on the streets, using quick wits and quicker hands to survive. Now you sell your talents to the highest bidder.",
     playstyleDesc: "Flank enemies, use Sneak Attack, and handle traps and locks.",
@@ -75,11 +75,11 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 18,
     skills: ["Medicine", "Insight", "Religion"],
     inventory: [
-      { item: "Mace", equipped: true },
-      { item: "Shield", equipped: true },
-      { item: "Chain Mail", equipped: true },
-      { item: "Holy Symbol", equipped: false },
-      { item: "Healer's Kit", equipped: false }
+      { id: "mace", name: "Mace", equipped: true, quantity: 1 },
+      { id: "shield", name: "Shield", equipped: true, quantity: 1 },
+      { id: "chain_mail", name: "Chain Mail", equipped: true, quantity: 1 },
+      { id: "holy_symbol", name: "Holy Symbol", equipped: false, quantity: 1 },
+      { id: "healers_kit", name: "Healer's Kit", equipped: false, quantity: 1 }
     ],
     backstory: "You served faithfully at your temple, called now to bring your deity's light to dark places.",
     playstyleDesc: "Heal allies, bless the party, and hold the line in armor.",
@@ -126,10 +126,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 12,
     skills: ["Arcana", "Investigation", "History"],
     inventory: [
-      { item: "Quarterstaff", equipped: true },
-      { item: "Spellbook", equipped: false },
-      { item: "Component Pouch", equipped: false },
-      { item: "Scholar's Pack", equipped: false }
+      { id: "quarterstaff", name: "Quarterstaff", equipped: true, quantity: 1 },
+      { id: "spellbook", name: "Spellbook", equipped: false, quantity: 1 },
+      { id: "component_pouch", name: "Component Pouch", equipped: false, quantity: 1 },
+      { id: "scholars_pack", name: "Scholar's Pack", equipped: false, quantity: 1 }
     ],
     backstory: "You delved too deep into forbidden tomes, now driven to test your theories on the open road.",
     playstyleDesc: "Fragile but powerful caster. Control the battlefield and solve problems with spells.",
@@ -187,10 +187,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 15,
     skills: ["Survival", "Nature", "Stealth", "Animal Handling"],
     inventory: [
-      { item: "Longbow", equipped: true },
-      { item: "Shortsword", equipped: true },
-      { item: "Leather Armor", equipped: true },
-      { item: "Explorer's Pack", equipped: false }
+      { id: "longbow", name: "Longbow", equipped: true, quantity: 1 },
+      { id: "shortsword", name: "Shortsword", equipped: true, quantity: 1 },
+      { id: "leather_armor", name: "Leather Armor", equipped: true, quantity: 1 },
+      { id: "explorers_pack", name: "Explorer's Pack", equipped: false, quantity: 1 }
     ],
     backstory: "You have walked the deep forests since childhood, guiding travelers and hunting those who would harm the wild.",
     playstyleDesc: "Stay at range, support the party with scouting and tracking.",
@@ -212,10 +212,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 14,
     skills: ["Persuasion", "Performance", "Deception", "Insight"],
     inventory: [
-      { item: "Rapier", equipped: true },
-      { item: "Lute", equipped: false },
-      { item: "Leather Armor", equipped: true },
-      { item: "Diplomat's Pack", equipped: false }
+      { id: "rapier", name: "Rapier", equipped: true, quantity: 1 },
+      { id: "lute", name: "Lute", equipped: false, quantity: 1 },
+      { id: "leather_armor", name: "Leather Armor", equipped: true, quantity: 1 },
+      { id: "diplomats_pack", name: "Diplomat's Pack", equipped: false, quantity: 1 }
     ],
     backstory: "You left home to chase stories, fame, and forbidden verses—your songs hide half-truths and rumors.",
     playstyleDesc: "Control conversations, inspire allies, and provide utility.",
@@ -237,10 +237,10 @@ export const BEGINNER_TEMPLATES = [
     armorClass: 14,
     skills: ["Athletics", "Intimidation", "Survival"],
     inventory: [
-      { item: "Greataxe", equipped: true },
-      { item: "Javelins", equipped: false },
-      { item: "Hide Armor", equipped: true },
-      { item: "Explorer's Pack", equipped: false }
+      { id: "greataxe", name: "Greataxe", equipped: true, quantity: 1 },
+      { id: "javelin", name: "Javelin", equipped: false, quantity: 4 },
+      { id: "hide_armor", name: "Hide Armor", equipped: true, quantity: 1 },
+      { id: "explorers_pack", name: "Explorer's Pack", equipped: false, quantity: 1 }
     ],
     backstory: "You proved your might in brutal tribal trials, now seeking greater foes to test your rage.",
     playstyleDesc: "Point at enemy. Rage. Run forward. Hit.",

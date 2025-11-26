@@ -14,7 +14,7 @@ const DND_MECHANICS_EXAMPLES = {
   spawn_enemy: "You encounter 3 Goblins. ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] COMBAT_START[Ambush!]",
   enemy_damage: "You hit the Goblin! DAMAGE[goblin_1|6]",
   initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
-  healing: "You drink healing potion. INVENTORY_REMOVE[Healing Potion|1] HEAL[player|10]",
+  use_item: "You drink potion. USE_ITEM[Healing Potion]",
   loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]",
   cast_spell: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10]",
   concentration: "You cast Bless. CAST_SPELL[Bless|1] CONCENTRATION_START[Bless]",
@@ -25,11 +25,12 @@ const DND_MECHANICS_EXAMPLES = {
 function compressInventoryForPrompt(inventory) {
   if (!Array.isArray(inventory) || inventory.length === 0) return "(empty)"
   return inventory
-    .filter(it => it && typeof it.item === "string")
+    .filter(it => it && (typeof it.item === "string" || typeof it.name === "string" || typeof it.id === "string"))
     .map(it => {
+      const name = it.name || it.item || it.id
       const qty = typeof it.quantity === "number" ? it.quantity : 1
       const equipped = it.equipped ? "*" : ""
-      return `${it.item}:${qty}${equipped}`
+      return `${name}:${qty}${equipped}`
     })
     .join(',')
   // Result: "Longsword:1*,Shield:1,Rations:5"
@@ -91,6 +92,7 @@ export function buildGameDMPrompt(character, game, world) {
       world.coreLocations ? `**Key Locations:**\n${formatList(world.coreLocations)}` : null,
       world.coreFactions ? `**Key Factions:**\n${formatList(world.coreFactions)}` : null,
       world.monsters && world.monsters.length > 0 ? formatMonsterList(world.monsters) : null,
+      world.items && world.items.length > 0 ? formatItemList(world.items) : null,
     ].filter(Boolean).join('\n\n');
     worldPrompt = `${sections}\n\n`;
   }
@@ -193,6 +195,7 @@ The app is a GAME ENGINE, not a chat bot. State updates ONLY through tags. Witho
 - [ ] Gold/payment mentioned? → Used GOLD_CHANGE
 - [ ] Condition applied/removed? → Used STATUS_ADD/REMOVE
 - [ ] Equipment changed? → Used INVENTORY_EQUIP/UNEQUIP
+- [ ] Consumable used? → Used USE_ITEM
 
 If you narrated ANY resource change without the corresponding tag, you made an ERROR and broke the game.
 
@@ -215,7 +218,7 @@ ${JSON.stringify(TAG_REFERENCE, null, 2)}
 - NEVER write "LONG_REST" alone - ALWAYS write "LONG_REST[8]"
 - NEVER write "CAST_SPELL Magic Missile" - ALWAYS write "CAST_SPELL[Magic Missile|1]"
 - Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant.
-- Consumable items MUST be removed with INVENTORY_REMOVE when used.
+- Consumable items MUST be removed with USE_ITEM (preferred) or INVENTORY_REMOVE when used.
 
 **REWARDS & PROGRESSION (XP CURVE):**
 Use standard 5e XP thresholds. Award XP generously for milestones and combat.
@@ -307,4 +310,14 @@ function formatMonsterList(monsters) {
     .join(', ')
 
   return `**Available Monsters:**\nUse ENEMY_SPAWN[id] to spawn these creatures: ${monsterSummary}\n(Example: ENEMY_SPAWN[goblin] or ENEMY_SPAWN[goblin|Goblin Leader])`
+}
+
+function formatItemList(items) {
+  if (!items || !Array.isArray(items) || items.length === 0) return ""
+
+  const itemSummary = items
+    .map(i => `${i.id} (${i.name}, ${i.rarity})`)
+    .join(', ')
+
+  return `**Available Items:**\nUse INVENTORY_ADD[name|qty] to give these items: ${itemSummary}\n(Example: INVENTORY_ADD[Healing Potion|1] or INVENTORY_ADD[Longsword|1])`
 }

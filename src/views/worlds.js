@@ -394,7 +394,9 @@ async function generateWorldWithAI() {
       worldOverview: generatedWorld.worldOverview || [],
       coreLocations: generatedWorld.coreLocations || [],
       coreFactions: generatedWorld.coreFactions || [],
+      coreFactions: generatedWorld.coreFactions || [],
       monsters: generatedWorld.monsters || [],
+      items: generatedWorld.items || [],
     }
 
     renderWorldForm(worldTemplate, false, true)
@@ -543,6 +545,19 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
             Add monsters that will be available in this world. Leave empty to use defaults.
           </p>
         </div>
+
+        <div class="mb-3">
+          <div class="flex justify-between align-center mb-2">
+            <label class="form-label m-0">Items - Optional</label>
+            <button type="button" id="add-item-btn" class="btn btn-secondary">+ Add Item</button>
+          </div>
+          <div id="items-list" class="grid gap-2">
+            ${renderItemsList(formData.items || [])}
+          </div>
+          <p class="text-secondary mt-1 text-sm">
+            Add themed items (weapons, armor, magic items) for this world.
+          </p>
+        </div>
         
         <div class="flex gap-1">
           <button type="submit" class="btn">${isEditing ? "Update World" : "Create World"}</button>
@@ -555,7 +570,9 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
   container.scrollIntoView({ behavior: "smooth" })
 
   // Store monsters in memory for manipulation
+  // Store monsters and items in memory for manipulation
   let currentMonsters = [...(formData.monsters || [])]
+  let currentItems = [...(formData.items || [])]
 
   // Render monster list helper
   function updateMonstersList() {
@@ -664,12 +681,119 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
     updateMonstersList()
   })
 
+  // Render items list helper
+  function updateItemsList() {
+    document.getElementById("items-list").innerHTML = renderItemsList(currentItems)
+    attachItemCardHandlers()
+  }
+
+  // Attach handlers to item cards
+  function attachItemCardHandlers() {
+    document.querySelectorAll(".remove-item-btn").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        currentItems.splice(idx, 1)
+        updateItemsList()
+      })
+    })
+
+    document.querySelectorAll(".edit-item-btn").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        editItem(idx)
+      })
+    })
+  }
+
+  // Edit item inline
+  function editItem(idx) {
+    const item = currentItems[idx]
+    const card = document.querySelectorAll(".item-card")[idx]
+
+    card.innerHTML = `
+      <div class="p-2 bg-surface-2 rounded">
+        <div class="grid grid-2 gap-2 mb-2">
+          <div>
+            <label class="form-label text-xs">Name</label>
+            <input type="text" id="edit-item-name-${idx}" value="${item.name || ''}" class="text-sm">
+          </div>
+          <div>
+            <label class="form-label text-xs">ID</label>
+            <input type="text" id="edit-item-id-${idx}" value="${item.id || ''}" class="text-sm">
+          </div>
+        </div>
+        <div class="grid grid-3 gap-2 mb-2">
+          <div>
+            <label class="form-label text-xs">Category</label>
+            <select id="edit-item-category-${idx}" class="text-sm">
+              <option value="weapon" ${item.category === 'weapon' ? 'selected' : ''}>Weapon</option>
+              <option value="armor" ${item.category === 'armor' ? 'selected' : ''}>Armor</option>
+              <option value="consumable" ${item.category === 'consumable' ? 'selected' : ''}>Consumable</option>
+              <option value="magic_item" ${item.category === 'magic_item' ? 'selected' : ''}>Magic Item</option>
+              <option value="gear" ${item.category === 'gear' ? 'selected' : ''}>Gear</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label text-xs">Rarity</label>
+            <select id="edit-item-rarity-${idx}" class="text-sm">
+              <option value="common" ${item.rarity === 'common' ? 'selected' : ''}>Common</option>
+              <option value="uncommon" ${item.rarity === 'uncommon' ? 'selected' : ''}>Uncommon</option>
+              <option value="rare" ${item.rarity === 'rare' ? 'selected' : ''}>Rare</option>
+              <option value="very_rare" ${item.rarity === 'very_rare' ? 'selected' : ''}>Very Rare</option>
+              <option value="legendary" ${item.rarity === 'legendary' ? 'selected' : ''}>Legendary</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label text-xs">Value (gp)</label>
+            <input type="number" id="edit-item-value-${idx}" value="${item.value || 0}" class="text-sm">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label text-xs">Description</label>
+          <input type="text" id="edit-item-desc-${idx}" value="${item.description || ''}" class="text-sm">
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn-secondary flex-1" onclick="window.saveItemEdit(${idx})">Save</button>
+          <button type="button" class="btn-secondary flex-1" onclick="window.cancelItemEdit()">Cancel</button>
+        </div>
+      </div>
+    `
+  }
+
+  window.saveItemEdit = (idx) => {
+    const item = currentItems[idx]
+    item.name = document.getElementById(`edit-item-name-${idx}`).value.trim()
+    item.id = document.getElementById(`edit-item-id-${idx}`).value.trim() || item.name.toLowerCase().replace(/\s+/g, '_')
+    item.category = document.getElementById(`edit-item-category-${idx}`).value
+    item.rarity = document.getElementById(`edit-item-rarity-${idx}`).value
+    item.value = parseInt(document.getElementById(`edit-item-value-${idx}`).value) || 0
+    item.description = document.getElementById(`edit-item-desc-${idx}`).value.trim()
+    updateItemsList()
+  }
+
+  window.cancelItemEdit = () => {
+    updateItemsList()
+  }
+
+  document.getElementById("add-item-btn").addEventListener("click", () => {
+    const newItem = {
+      id: `item_${Date.now()}`,
+      name: "New Item",
+      category: "gear",
+      rarity: "common",
+      value: 10,
+      weight: 1,
+      description: ""
+    }
+    currentItems.push(newItem)
+    updateItemsList()
+  })
+
   // Initial attach
   attachMonsterCardHandlers()
+  attachItemCardHandlers()
 
   document.getElementById("world-form").addEventListener("submit", (e) => {
     e.preventDefault()
-    saveWorld(isEditing ? world.id : null, currentMonsters)
+    saveWorld(isEditing ? world.id : null, currentMonsters, currentItems)
   })
 
   document.getElementById("cancel-world-btn").addEventListener("click", () => {
@@ -678,7 +802,7 @@ function renderWorldForm(world = null, isTemplate = false, isAIGenerated = false
   })
 }
 
-function saveWorld(existingWorldId = null, monsters = []) {
+function saveWorld(existingWorldId = null, monsters = [], items = []) {
   const name = document.getElementById("world-name").value.trim()
   const briefDescription = document.getElementById("world-description").value.trim()
   const fullDescription = document.getElementById("world-full-description").value.trim()
@@ -693,7 +817,7 @@ function saveWorld(existingWorldId = null, monsters = []) {
   const coreLocations = document.getElementById("world-locations").value.trim().split('\n').filter(l => l.trim())
   const coreFactions = document.getElementById("world-factions").value.trim().split('\n').filter(l => l.trim())
 
-  // Monsters are passed as parameter from the form
+  // Monsters and items are passed as parameters from the form
 
   if (!name || !briefDescription) {
     alert("Please fill in all required fields.")
@@ -717,7 +841,9 @@ function saveWorld(existingWorldId = null, monsters = []) {
         world.worldOverview = worldOverview
         world.coreLocations = coreLocations
         world.coreFactions = coreFactions
+        world.coreFactions = coreFactions
         world.monsters = monsters
+        world.items = items
         // Remove legacy field if present
         delete world.systemPrompt
       }
@@ -738,7 +864,9 @@ function saveWorld(existingWorldId = null, monsters = []) {
         worldOverview,
         coreLocations,
         coreFactions,
+        coreFactions,
         monsters,
+        items,
         createdAt: new Date().toISOString(),
         isDefault: false,
       }
@@ -802,3 +930,38 @@ function parseStats(statsStr) {
   })
   return stats
 }
+
+function renderItemsList(items) {
+  if (!items || items.length === 0) {
+    return '<p class="text-secondary text-sm">No items added yet. Click "+ Add Item" to get started.</p>'
+  }
+
+  return items.map((item, idx) => `
+    <div class="item-card card card-padded-sm bg-surface-1">
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <strong>${item.name || 'Unnamed'}</strong>
+          <span class="text-secondary text-sm ml-2">(${item.rarity || 'common'})</span>
+          <div class="text-sm text-secondary mt-1">
+            ${item.category || 'gear'} • ${item.value || 0} gp
+          </div>
+        </div>
+        <div class="flex gap-1">
+          <button type="button" class="btn-icon edit-item-btn" title="Edit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button type="button" class="btn-icon remove-item-btn" title="Remove">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('')
+}
+

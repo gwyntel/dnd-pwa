@@ -183,6 +183,16 @@ export const TAG_REFERENCE = {
     note: "Award XP for combat victories or milestones."
   },
 
+  USE_ITEM: {
+    pattern: "USE_ITEM[item_name]",
+    examples: [
+      "You drink potion. USE_ITEM[Healing Potion]",
+      "You read scroll. USE_ITEM[Scroll of Fireball]"
+    ],
+    required: true,
+    note: "Consumes item and applies its effects."
+  },
+
   LEARN_SPELL: {
     pattern: "LEARN_SPELL[spell_name]",
     examples: ["LEARN_SPELL[Fireball]", "LEARN_SPELL[Identify]"],

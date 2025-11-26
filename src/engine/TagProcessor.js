@@ -11,6 +11,8 @@ import { createRollMetadata } from "./GameLoop.js"
 import { startCombat, endCombat, spawnEnemy, applyDamage } from "./CombatManager.js"
 import { castSpell, startConcentration, endConcentration } from "./SpellcastingManager.js"
 import { shortRest, longRest, spendHitDice } from "./RestManager.js"
+import { useConsumable, resolveItem, calculateAC } from "./EquipmentManager.js"
+import store from "../state/store.js"
 
 /**
  * Process game tags in real-time as they stream in
@@ -26,7 +28,9 @@ export async function processGameTagsRealtime(game, character, text, processedTa
   const newMessages = []
 
   // Precompute dice profile if we have a character
-  const diceProfile = character ? buildDiceProfile(character) : null
+  const data = store.get()
+  const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
+  const diceProfile = character ? buildDiceProfile(character, world) : null
 
   // Helpers
   const ensureInventory = () => {
@@ -44,12 +48,31 @@ export async function processGameTagsRealtime(game, character, text, processedTa
     const name = (rawName || "").replace(/[\r\n]+/g, ' ').trim()
     if (!name) return null
 
-    const findIndex = () => game.inventory.findIndex((it) => typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase())
+    // Resolve item to ID if possible
+    // We already fetched world above
+    const resolvedItem = resolveItem(name, world)
+    const itemId = resolvedItem ? resolvedItem.id : name.toLowerCase().replace(/\s+/g, '_') // Fallback ID generation
+
+    // Find by ID first, then legacy name match
+    const findIndex = () => game.inventory.findIndex((it) => {
+      if (it.id === itemId) return true
+      if (it.id === name) return true // Check against raw name as ID
+      // Legacy check
+      return typeof it.item === "string" && it.item.toLowerCase() === name.toLowerCase()
+    })
+
     let idx = findIndex()
     const isNewItem = idx === -1
 
     if (isNewItem && deltaQty > 0) {
-      game.inventory.push({ item: name, quantity: deltaQty, equipped: false })
+      // Store with ID structure
+      game.inventory.push({
+        id: itemId,
+        quantity: deltaQty,
+        equipped: false,
+        // Keep legacy name for display fallback if resolution fails later
+        item: resolvedItem ? resolvedItem.name : name
+      })
       idx = findIndex()
     }
 
@@ -60,12 +83,35 @@ export async function processGameTagsRealtime(game, character, text, processedTa
     const newQty = isNewItem ? item.quantity : Math.max(0, oldQty + deltaQty)
     item.quantity = newQty
 
-    if (equip === true) item.equipped = true
-    else if (unequip === true) item.equipped = false
+    // Ensure ID is set if migrating on the fly
+    if (!item.id) item.id = itemId
+
+    let equipmentChanged = false
+    if (equip === true && !item.equipped) {
+      item.equipped = true
+      equipmentChanged = true
+    } else if (unequip === true && item.equipped) {
+      item.equipped = false
+      equipmentChanged = true
+    }
 
     if (item.quantity === 0) game.inventory.splice(idx, 1)
 
-    return { name: item.item, oldQty, newQty, equipped: !!item.equipped }
+    // Recalculate AC if equipment changed
+    if (equipmentChanged && character) {
+      const newAC = calculateAC(character, game, world)
+      if (newAC !== character.armorClass) {
+        character.armorClass = newAC
+        // Persist character update
+        store.update(state => {
+          const c = state.characters.find(char => char.id === character.id)
+          if (c) c.armorClass = newAC
+        })
+      }
+    }
+
+    const displayName = resolvedItem ? resolvedItem.name : (item.item || name)
+    return { name: displayName, oldQty, newQty, equipped: !!item.equipped }
   }
 
   const changeGold = (deltaRaw) => {
@@ -182,7 +228,7 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         } else if (kind === 'attack') {
           const weapon = parts[1]
           const ac = parts[2] ? parseInt(parts[2], 10) : null
-          const roll = rollAttack(character, weapon, ac)
+          const roll = rollAttack(character, weapon, { targetAC: ac }, world)
           rollData = { kind: 'Attack', label: weapon, roll }
         } else {
           // Generic roll
@@ -298,6 +344,88 @@ export async function processGameTagsRealtime(game, character, text, processedTa
             })
           }
           processed = true
+        }
+        break
+      }
+      case 'USE_ITEM': {
+        const itemName = tag.content.trim()
+        const data = store.get()
+        const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
+
+        // We need to find the item ID from the name provided in the tag
+        // Try to resolve it first
+        const resolved = resolveItem(itemName, world)
+        const itemId = resolved ? resolved.id : itemName.toLowerCase().replace(/\s+/g, '_')
+
+        const result = useConsumable(game, character, world, itemId)
+
+        if (result.success) {
+          // Process any tags from item effects
+          // We need to parse them and add them to the processing queue or process them recursively
+          // For simplicity, we'll just add them to newMessages if they are descriptive, 
+          // but for functional tags (HEAL, etc), we should probably execute them.
+          // However, applyItemEffects returns tags. We can just loop over them and process?
+          // But we are inside a loop iterating over tags. Modifying the iterator is tricky.
+          // Instead, we can just handle the side effects of the returned tags if we can.
+          // Or, better: The `useConsumable` function applies effects via `applyItemEffects`.
+          // `applyItemEffects` returns tags.
+          // We should probably just let the AI emit the effects as separate tags if it wants,
+          // OR we can manually trigger the effects here.
+
+          // Actually, `useConsumable` calls `applyItemEffects` which returns `tags`.
+          // These tags are strings like "HEAL[player|10]".
+          // We should parse these strings and execute them.
+
+          if (result.tags && result.tags.length > 0) {
+            // We need to parse these tags.
+            // Since we are in `processGameTagsRealtime`, we can't easily recurse without refactoring.
+            // But we can instantiate a mini-parser or just handle common ones.
+            // For now, let's just log them or add a system message describing them.
+            // Ideally, the `EffectsEngine` should have applied the *modifiers*.
+            // The tags are for things like HEAL, DAMAGE, STATUS_ADD.
+
+            // Let's try to process them by calling processGameTagsRealtime recursively?
+            // No, that's async and messy.
+
+            // We'll just manually handle the most common ones for consumables: HEAL, STATUS_ADD, STATUS_REMOVE
+            for (const effectTagStr of result.tags) {
+              const { tags: subTags } = tagParser.parse(effectTagStr)
+              for (const subTag of subTags) {
+                // Handle HEAL
+                if (subTag.type === 'HEAL') {
+                  const [target, amount] = subTag.content.split('|').map(s => s.trim())
+                  const heal = parseInt(amount, 10)
+                  if (!isNaN(heal)) {
+                    game.currentHP = Math.min(character.maxHP, game.currentHP + heal)
+                  }
+                }
+                // Handle STATUS_ADD
+                else if (subTag.type === 'STATUS_ADD') {
+                  addStatus(subTag.content)
+                }
+                // Handle STATUS_REMOVE
+                else if (subTag.type === 'STATUS_REMOVE') {
+                  removeStatus(subTag.content)
+                }
+                // Handle CAST_SPELL (scrolls)
+                else if (subTag.type === 'CAST_SPELL') {
+                  const [spell, level] = subTag.content.split('|').map(s => s.trim())
+                  castSpell(game, character, spell, parseInt(level, 10) || 0)
+                }
+              }
+            }
+          }
+
+          newMessages.push({
+            role: 'system',
+            content: `🥤 **Used ${result.item ? result.item.name : itemName}**\n${result.message}`
+          })
+          processed = true
+        } else {
+          newMessages.push({
+            role: 'system',
+            content: `⚠️ **Could not use ${itemName}**: ${result.message}`
+          })
         }
         break
       }
@@ -572,6 +700,9 @@ function createBadgeForTag(tag) {
       const [templateId, nameOverride] = tag.content.split('|').map(s => s.trim())
       return createBadgeToken('enemy_spawn', { name: nameOverride || templateId })
     }
+    case 'USE_ITEM': {
+      return createBadgeToken('use_item', { item: tag.content.trim() })
+    }
     default: return tag.raw
   }
 }
@@ -750,6 +881,10 @@ export function renderInlineBadgeHtml(type, data) {
       case "enemy_spawn": {
         const name = badgeData.name || ''
         return `<span class="inline-badge combat" data-tag-type="combat">👹 Spawning: ${labelEscape(name)}</span>`
+      }
+      case "use_item": {
+        const item = badgeData.item || ''
+        return `<span class="inline-badge inventory" data-tag-type="inventory">🥤 Used: ${labelEscape(item)}</span>`
       }
       default:
         return `<span class="inline-badge" data-tag-type="${escapeHtml(type)}">${escapeHtml(type)}</span>`

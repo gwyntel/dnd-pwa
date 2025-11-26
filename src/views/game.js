@@ -617,7 +617,45 @@ async function processRollBatch() {
     return
   }
 
-  // Build summary of all rolls
+  // Create visible roll result messages for each roll in the batch
+  const rollMessages = rollBatch.map(({ kind, label, roll }) => {
+    const outcome = roll.success === true
+      ? "✓ Success"
+      : roll.success === false
+        ? "✗ Failure"
+        : `Total: ${roll.total}`
+
+    const rollType = kind.toLowerCase().includes('skill') ? 'skill'
+      : kind.toLowerCase().includes('save') ? 'save'
+        : kind.toLowerCase().includes('attack') ? 'attack'
+          : 'roll'
+
+    return {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      role: "system",
+      content: `🎲 **${kind}** (${label}): ${roll.notation || "1d20"} = **${roll.total}** ${outcome}`,
+      timestamp: new Date().toISOString(),
+      hidden: false,
+      metadata: {
+        diceRoll: roll,
+        type: rollType,
+        key: label,
+        dc: roll.dc || null,
+        targetAC: roll.targetAC || null,
+        success: roll.success,
+        rollId: `roll_${Date.now()}`,
+        timestamp: new Date().toISOString()
+      }
+    }
+  })
+
+  // Add roll messages to game and UI
+  rollMessages.forEach(msg => {
+    game.messages.push(msg)
+    appendMessage(msg)
+  })
+
+  // Build summary of all rolls for AI
   const rollSummaries = rollBatch.map(({ kind, label, roll }) => {
     const outcome = roll.success === true
       ? "✓ Success"
@@ -642,7 +680,7 @@ async function processRollBatch() {
   // Clear batch
   rollBatch = []
 
-  // Create system message with roll results
+  // Create system message with roll results for AI (hidden from UI)
   const rollSystemMessage = {
     id: `msg_${Date.now()}_roll_result`,
     role: "system",

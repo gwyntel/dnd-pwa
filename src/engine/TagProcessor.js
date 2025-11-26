@@ -218,12 +218,12 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         if (kind === 'skill') {
           const skill = parts[1]
           const dc = parts[2] ? parseInt(parts[2], 10) : null
-          const roll = rollSkillCheck(character, skill, dc)
+          const roll = rollSkillCheck(character, skill, { dc })
           rollData = { kind: 'Skill Check', label: skill, roll }
         } else if (kind === 'save') {
           const ability = parts[1]
           const dc = parts[2] ? parseInt(parts[2], 10) : null
-          const roll = rollSavingThrow(character, ability, dc)
+          const roll = rollSavingThrow(character, ability, { dc })
           rollData = { kind: 'Saving Throw', label: ability, roll }
         } else if (kind === 'attack') {
           const weapon = parts[1]

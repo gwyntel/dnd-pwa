@@ -433,6 +433,16 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         processed = true
         break
       }
+      case 'LOCATION': {
+        const loc = tag.content.trim()
+        if (loc) {
+          game.currentLocation = loc
+          if (!Array.isArray(game.visitedLocations)) game.visitedLocations = []
+          if (!game.visitedLocations.includes(loc)) game.visitedLocations.push(loc)
+          processed = true
+        }
+        break
+      }
       case 'ENEMY_SPAWN': {
         // IMPORTANT: Do NOT mark as processed here!
         // This tag MUST be handled by processGameTags (which has world/data access).

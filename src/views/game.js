@@ -1141,7 +1141,7 @@ async function sendMessage(game, userText, data) {
 
       const gameHeader = document.querySelector(".game-header p")
       if (gameHeader) {
-        gameHeader.textContent = `${getLocationIcon(gameRef.currentLocation)} ${gameRef.currentLocation}`
+        gameHeader.innerHTML = `${getLocationIcon(gameRef.currentLocation)} <strong>${escapeHtml(gameRef.currentLocation)}</strong>`
       }
 
       // Debounced save during streaming via Store

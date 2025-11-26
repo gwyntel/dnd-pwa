@@ -443,6 +443,47 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         }
         break
       }
+      case 'DAMAGE': {
+        const [target, amount] = tag.content.split('|').map(s => s.trim())
+        const dmg = parseInt(amount, 10)
+        if (target && !isNaN(dmg)) {
+          // Use CombatManager to apply damage - but be careful about side effects (system messages)
+          // For realtime, we might just want to update the state if it's the player, 
+          // and let the full processor handle complex enemy damage messages later?
+          // OR we can just update HP here and suppress duplicate messages in full processor.
+          // Since applyDamage returns a message string, we can add it to newMessages.
+
+          const result = applyDamage(game, target, dmg)
+
+          if (result) {
+            // It was an enemy or handled entity
+            newMessages.push({
+              id: `msg_${Date.now()}_dmg`,
+              role: 'system',
+              content: result,
+              timestamp: new Date().toISOString()
+            })
+          } else {
+            // Fallback for player if applyDamage returned null (meaning it's player/you)
+            if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
+              game.currentHP = Math.max(0, game.currentHP - dmg)
+            }
+          }
+          processed = true
+        }
+        break
+      }
+      case 'HEAL': {
+        const [target, amount] = tag.content.split('|').map(s => s.trim())
+        const heal = parseInt(amount, 10)
+        if (target && !isNaN(heal)) {
+          if (target.toLowerCase() === 'player' || target.toLowerCase() === 'you') {
+            game.currentHP = Math.min(character.maxHP, game.currentHP + heal)
+          }
+          processed = true
+        }
+        break
+      }
       case 'ENEMY_SPAWN': {
         // IMPORTANT: Do NOT mark as processed here!
         // This tag MUST be handled by processGameTags (which has world/data access).

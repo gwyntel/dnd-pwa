@@ -1167,6 +1167,8 @@ async function sendMessage(game, userText, data) {
 
       // Refresh CharacterHUD to show updated HP, XP, spell slots, etc.
       refreshCharacterHUD(gameRef, character)
+      // Also update inventory and other stats that might have changed
+      updatePlayerStats(gameRef)
     }
 
 

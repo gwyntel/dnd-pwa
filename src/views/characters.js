@@ -159,8 +159,7 @@ export function renderCharacterCreator(state = {}) {
   // Support starting from a template via /characters/new?template=template_id
   let initialTemplate = null
   if (!isEdit && !character) {
-    const url = new URL(window.location.href)
-    const templateId = url.searchParams.get("template")
+    const templateId = state.query?.template
     if (templateId) {
       const fromShared = BEGINNER_TEMPLATES.find((t) => t.id === templateId)
       const fromData = (data.characterTemplates || []).find((t) => t.id === templateId)

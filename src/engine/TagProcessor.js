@@ -816,6 +816,8 @@ export function parseMarkdown(text) {
   html = html.replace(/_([^_]+)_/g, "<em>$1</em>")
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>")
   html = html.replace(/\n/g, "<br>")
+  // Collapse multiple consecutive BRs left from removed tags (like ACTION tags)
+  html = html.replace(/(<br>\s*){2,}/g, "<br>")
 
   // Restore badge tokens after markdown processing
   badgeTokens.forEach((token, index) => {

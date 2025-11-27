@@ -228,8 +228,38 @@ export async function processGameTagsRealtime(game, character, text, processedTa
         } else if (kind === 'attack') {
           const weapon = parts[1]
           const ac = parts[2] ? parseInt(parts[2], 10) : null
-          const roll = rollAttack(character, weapon, { targetAC: ac }, world)
-          rollData = { kind: 'Attack', label: weapon, roll }
+          const rollResult = rollAttack(character, weapon, { targetAC: ac }, world)
+
+          // Handle composite attack result (toHit + damage)
+          if (rollResult.toHit) {
+            // 1. Process Attack Roll
+            const attackRollData = {
+              kind: 'Attack',
+              label: weapon,
+              roll: rollResult.toHit
+            }
+
+            if (callbacks.onRoll) {
+              callbacks.onRoll(attackRollData)
+            }
+
+            // 2. Process Damage Roll (if hit or always if we want to show it)
+            if (rollResult.damage) {
+              const damageRollData = {
+                kind: 'Damage',
+                label: `${weapon} Damage`,
+                roll: rollResult.damage
+              }
+              if (callbacks.onRoll) {
+                callbacks.onRoll(damageRollData)
+              }
+            }
+
+            processed = true
+          } else {
+            // Fallback for legacy or simple return
+            rollData = { kind: 'Attack', label: weapon, roll: rollResult }
+          }
         } else {
           // Generic roll
           const notation = parts[0]

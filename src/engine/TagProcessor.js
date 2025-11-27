@@ -709,7 +709,7 @@ export function stripTags(text) {
   // Clean up whitespace artifacts
   // Remove trailing spaces before newlines
   result = result.replace(/ +\n/g, "\n")
-  // Remove leading spaces after newlines
+  // Remove leading spaces after newlines  
   result = result.replace(/\n +/g, "\n")
   // Collapse multiple spaces into one
   result = result.replace(/  +/g, " ")

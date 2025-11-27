@@ -776,7 +776,7 @@ function createBadgeForTag(tag) {
     case 'CONCENTRATION_START': return createBadgeToken('concentration_start', { spell: tag.content.trim() })
     case 'CONCENTRATION_END': return createBadgeToken('concentration_end', { spell: tag.content.trim() })
     case 'HIT_DIE_ROLL': return createBadgeToken('hit_die_roll', { count: parseInt(tag.content, 10) })
-    case 'ACTION': return createBadgeToken('action', { action: tag.content.trim() })
+    case 'ACTION': return '' // Action tags are removed completely so whitespace can be collapsed
     case 'XP_GAIN': {
       const [amount, reason] = tag.content.split('|').map(s => s.trim())
       return createBadgeToken('xp_gain', { amount: parseInt(amount, 10), reason: reason || '' })

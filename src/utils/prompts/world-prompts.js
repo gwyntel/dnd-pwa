@@ -18,6 +18,7 @@ export const WORLD_GENERATION_SCHEMA = {
     "coreLocations",
     "coreFactions",
     "monsters",
+    "items",
   ],
   properties: {
     name: { type: "string" },
@@ -41,6 +42,7 @@ export const WORLD_GENERATION_SCHEMA = {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         required: ["id", "name", "type", "cr", "hp", "ac", "stats"],
         properties: {
           id: { type: "string" },
@@ -51,6 +53,8 @@ export const WORLD_GENERATION_SCHEMA = {
           ac: { type: "integer" },
           stats: {
             type: "object",
+            additionalProperties: false,
+            required: ["str", "dex", "con", "int", "wis", "cha"],
             properties: {
               str: { type: "integer" },
               dex: { type: "integer" },
@@ -64,6 +68,8 @@ export const WORLD_GENERATION_SCHEMA = {
             type: "array",
             items: {
               type: "object",
+              additionalProperties: false,
+              required: ["name", "desc"],
               properties: {
                 name: { type: "string" },
                 desc: { type: "string" },
@@ -77,6 +83,7 @@ export const WORLD_GENERATION_SCHEMA = {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         required: ["id", "name", "category", "rarity"],
         properties: {
           id: { type: "string" },
@@ -125,6 +132,7 @@ You MUST:
     - Generate 10-15 themed monsters appropriate for this world.
     - Ensure stats are consistent with 5e SRD standards.
     - Include a mix of low-level (CR 0-2), mid-level (CR 3-5), and a boss (CR 5+).
+    - Each monster MUST have an "actions" array (can be empty for very simple creatures).
   - **items**: IMPORTANT:
     - Generate 15-20 themed items appropriate for the world.
     - Mix: ~8 weapons, ~5 armor pieces, ~5 consumables, ~2-3 magic items.

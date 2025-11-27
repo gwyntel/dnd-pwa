@@ -370,12 +370,30 @@ async function generateWorldWithAI() {
       !generatedWorld ||
       typeof generatedWorld.name !== "string" ||
       typeof generatedWorld.briefDescription !== "string" ||
-      !Array.isArray(generatedWorld.coreIntent)
+      !Array.isArray(generatedWorld.coreIntent) ||
+      !Array.isArray(generatedWorld.monsters) ||
+      !Array.isArray(generatedWorld.items)
     ) {
+      console.error("Generated world validation failed:", generatedWorld)
+      const missingFields = []
+      if (!generatedWorld) missingFields.push("entire response is null/undefined")
+      else {
+        if (typeof generatedWorld.name !== "string") missingFields.push("name")
+        if (typeof generatedWorld.briefDescription !== "string") missingFields.push("briefDescription")
+        if (!Array.isArray(generatedWorld.coreIntent)) missingFields.push("coreIntent")
+        if (!Array.isArray(generatedWorld.monsters)) missingFields.push("monsters")
+        if (!Array.isArray(generatedWorld.items)) missingFields.push("items")
+      }
       throw new Error(
-        "Generated world JSON is missing required fields. Ensure the model follows the expected schema.",
+        `Generated world JSON is missing required fields: ${missingFields.join(", ")}. Ensure the model follows the expected schema.`,
       )
     }
+
+    console.log("✅ AI generated world successfully:", {
+      name: generatedWorld.name,
+      monsterCount: generatedWorld.monsters?.length || 0,
+      itemCount: generatedWorld.items?.length || 0,
+    })
 
     const worldTemplate = {
       id: `world_ai_${Date.now()}`,
@@ -388,12 +406,10 @@ async function generateWorldWithAI() {
       tone: generatedWorld.tone || "",
       magicLevel: generatedWorld.magicLevel || "medium",
       techLevel: generatedWorld.techLevel || "medieval",
-      systemPrompt: generatedWorld.systemPrompt,
       startingLocation: generatedWorld.startingLocation || "",
       coreIntent: generatedWorld.coreIntent || [],
       worldOverview: generatedWorld.worldOverview || [],
       coreLocations: generatedWorld.coreLocations || [],
-      coreFactions: generatedWorld.coreFactions || [],
       coreFactions: generatedWorld.coreFactions || [],
       monsters: generatedWorld.monsters || [],
       items: generatedWorld.items || [],

@@ -706,12 +706,19 @@ export function stripTags(text) {
     result = result.replace(tag.raw, badgeToken)
   }
 
-  // Clean up whitespace artifacts (copied from original)
+  // Clean up whitespace artifacts
+  // Remove trailing spaces before newlines
   result = result.replace(/ +\n/g, "\n")
+  // Remove leading spaces after newlines
   result = result.replace(/\n +/g, "\n")
+  // Collapse multiple spaces into one
   result = result.replace(/  +/g, " ")
-  result = result.replace(/\n{3,}/g, "\n\n")
+  // Collapse any 2+ consecutive newlines into a single newline to prevent bloat from removed tags
+  result = result.replace(/\n{2,}/g, "\n")
+  // Trim each line
   result = result.split("\n").map(line => line.trim()).join("\n")
+  // Remove any remaining multiple newlines that might have been created
+  result = result.replace(/\n{2,}/g, "\n")
 
   return result.trim()
 }

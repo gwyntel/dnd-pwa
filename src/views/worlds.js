@@ -322,54 +322,67 @@ async function generateWorldWithAI() {
     const supportsStructuredOutputs = !!selectedModelMeta?.supportedParameters?.includes("structured_outputs")
     const provider = await getProvider()
 
-    // Helper to run a single generation step
-    const generateStep = async (stepName, promptTemplate, schema, context = {}) => {
-      updateStatus(stepName)
+    // Helper to run a single generation step with retries
+    const generateStep = async (stepName, promptTemplate, schema, context = {}, retries = 3) => {
+      let lastError;
 
-      let prompt = promptTemplate
-      // Replace all context variables in the prompt
-      Object.entries(context).forEach(([key, value]) => {
-        prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), value)
-      })
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          updateStatus(attempt > 1 ? `${stepName} (Attempt ${attempt}/${retries})` : stepName)
 
-      const messages = [{ role: "user", content: prompt }]
+          let prompt = promptTemplate
+          // Replace all context variables in the prompt
+          Object.entries(context).forEach(([key, value]) => {
+            prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), value)
+          })
 
-      const requestOptions = supportsStructuredOutputs
-        ? {
-          jsonSchema: {
-            name: "world_gen_step",
-            strict: true,
-            schema: schema,
-          },
-        }
-        : {}
+          const messages = [{ role: "user", content: prompt }]
 
-      console.log(`[WorldGen] Starting ${stepName}...`)
-      const response = await provider.sendChatCompletion(messages, model, requestOptions)
+          const requestOptions = supportsStructuredOutputs
+            ? {
+              jsonSchema: {
+                name: "world_gen_step",
+                strict: true,
+                schema: schema,
+              },
+            }
+            : {}
 
-      let fullResponse = ""
-      for await (const chunk of provider.parseStreamingResponse(response)) {
-        if (chunk.output_json) {
-          fullResponse = JSON.stringify(chunk.output_json)
-        } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
-          fullResponse += chunk.choices[0].delta.content
-        } else if (chunk.choices && chunk.choices[0]?.message?.content) {
-          fullResponse += chunk.choices[0].message.content
+          console.log(`[WorldGen] Starting ${stepName} (Attempt ${attempt})...`)
+          const response = await provider.sendChatCompletion(messages, model, requestOptions)
+
+          let fullResponse = ""
+          for await (const chunk of provider.parseStreamingResponse(response)) {
+            if (chunk.output_json) {
+              fullResponse = JSON.stringify(chunk.output_json)
+            } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
+              fullResponse += chunk.choices[0].delta.content
+            } else if (chunk.choices && chunk.choices[0]?.message?.content) {
+              fullResponse += chunk.choices[0].message.content
+            }
+          }
+
+          if (!fullResponse.trim()) throw new Error(`Empty response from model during ${stepName}`)
+
+          let result
+          try {
+            result = JSON.parse(fullResponse)
+          } catch (err) {
+            const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
+            if (!jsonMatch) throw new Error(`Model response was not valid JSON during ${stepName}`)
+            result = JSON.parse(jsonMatch[0])
+          }
+
+          return result
+        } catch (error) {
+          console.warn(`[WorldGen] Attempt ${attempt} failed for ${stepName}:`, error)
+          lastError = error
+          // Wait briefly before retrying
+          if (attempt < retries) await new Promise(r => setTimeout(r, 1000))
         }
       }
 
-      if (!fullResponse.trim()) throw new Error(`Empty response from model during ${stepName}`)
-
-      let result
-      try {
-        result = JSON.parse(fullResponse)
-      } catch (err) {
-        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error(`Model response was not valid JSON during ${stepName}`)
-        result = JSON.parse(jsonMatch[0])
-      }
-
-      return result
+      throw lastError || new Error(`Failed to generate ${stepName} after ${retries} attempts`)
     }
 
     // ==========================================

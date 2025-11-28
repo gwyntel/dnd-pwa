@@ -1,8 +1,12 @@
 /**
  * World Generation Prompts
+ * Split into sequential steps to prevent context window/token limit issues
  */
 
-export const WORLD_GENERATION_SCHEMA = {
+// ==========================================
+// STEP 1: CORE SETTING
+// ==========================================
+export const WORLD_GEN_STEP_1_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -14,11 +18,7 @@ export const WORLD_GENERATION_SCHEMA = {
     "techLevel",
     "startingLocation",
     "coreIntent",
-    "worldOverview",
-    "coreLocations",
-    "coreFactions",
-    "monsters",
-    "items",
+    "worldOverview"
   ],
   properties: {
     name: { type: "string" },
@@ -35,15 +35,67 @@ export const WORLD_GENERATION_SCHEMA = {
     },
     startingLocation: { type: "string" },
     coreIntent: { type: "array", items: { type: "string" } },
-    worldOverview: { type: "array", items: { type: "string" } },
+    worldOverview: { type: "array", items: { type: "string" } }
+  },
+}
+
+export const WORLD_GEN_STEP_1_PROMPT = `You are an expert TTRPG worldbuilding assistant.
+Step 1: Create the CORE SETTING based on the user's idea.
+
+You MUST:
+- Obey the JSON schema EXACTLY.
+- Output ONLY valid JSON.
+- **name**: Creative, thematic name.
+- **briefDescription**: Strong hook (1 sentence).
+- **fullDescription**: Concise but rich (2-3 paragraphs).
+- **tone**: Atmosphere (e.g., "Dark and gritty").
+- **startingLocation**: A clear session-0 hub.
+- **coreIntent**: 3-5 GM priorities (e.g., "Focus on intrigue").
+- **worldOverview**: 3-5 bullet points on history/geography.
+
+User's Idea: "{{IDEA}}"
+`
+
+// ==========================================
+// STEP 2: GEOGRAPHY & FACTIONS
+// ==========================================
+export const WORLD_GEN_STEP_2_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["coreLocations", "coreFactions"],
+  properties: {
     coreLocations: { type: "array", items: { type: "string" } },
-    coreFactions: { type: "array", items: { type: "string" } },
+    coreFactions: { type: "array", items: { type: "string" } }
+  }
+}
+
+export const WORLD_GEN_STEP_2_PROMPT = `Step 2: Generate KEY LOCATIONS and FACTIONS for the world "{{NAME}}".
+
+Context:
+- Description: {{DESCRIPTION}}
+- Tone: {{TONE}}
+
+You MUST:
+- Obey the JSON schema EXACTLY.
+- Output ONLY valid JSON.
+- **coreLocations**: 3-5 distinctive locations with brief descriptions (e.g., "Ironhold: A dwarven fortress").
+- **coreFactions**: 3-5 key groups with brief descriptions (e.g., "The Silver Hand: Monster hunters").
+`
+
+// ==========================================
+// STEP 3: MONSTERS
+// ==========================================
+export const WORLD_GEN_STEP_3_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["monsters"],
+  properties: {
     monsters: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "name", "type", "cr", "hp", "ac", "stats"],
+        required: ["id", "name", "type", "cr", "hp", "ac", "stats", "actions"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },
@@ -79,81 +131,68 @@ export const WORLD_GENERATION_SCHEMA = {
         },
       },
     },
+  }
+}
+
+export const WORLD_GEN_STEP_3_PROMPT = `Step 3: Generate THEMED MONSTERS for the world "{{NAME}}".
+
+Context:
+- Description: {{DESCRIPTION}}
+- Magic Level: {{MAGIC_LEVEL}}
+
+You MUST:
+- Obey the JSON schema EXACTLY.
+- Output ONLY valid JSON.
+- Generate 10-15 monsters that fit the theme.
+- **id**: Unique slug (e.g., "forest_goblin").
+- **stats**: 5e compatible values.
+- **actions**: At least 1 action per monster.
+- Mix of CR 0-5+.
+`
+
+// ==========================================
+// STEP 4: ITEMS
+// ==========================================
+export const WORLD_GEN_STEP_4_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items"],
+  properties: {
     items: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "name", "category", "rarity"],
+        required: ["id", "name", "category", "rarity", "value", "description"],
         properties: {
           id: { type: "string" },
           name: { type: "string" },
           category: { type: "string", enum: ["weapon", "armor", "consumable", "magic_item", "gear"] },
           rarity: { type: "string", enum: ["common", "uncommon", "rare", "very_rare", "legendary"] },
-          // Weapon fields
-          weaponType: { type: "string" },
-          damage: { type: "string" },
-          versatileDamage: { type: "string" },
-          damageType: { type: "string" },
-          properties: { type: "array", items: { type: "string" } },
-          // Armor fields
-          armorType: { type: "string" },
-          baseAC: { type: "integer" },
-          acBonus: { type: "integer" },
-          // Consumable fields
-          consumable: { type: "boolean" },
-          effects: { type: "array", items: { type: "string" } },
-          // Common fields
-          weight: { type: "number" },
           value: { type: "integer" },
-          description: { type: "string" }
+          description: { type: "string" },
+          weight: { type: "number" },
+          // Optional specific fields
+          damage: { type: "string" },
+          acBonus: { type: "integer" },
+          effects: { type: "array", items: { type: "string" } }
         }
       }
     }
-  },
+  }
 }
 
-export const WORLD_GENERATION_PROMPT = `You are an expert TTRPG worldbuilding assistant for a D&D 5e-adjacent game system.
+export const WORLD_GEN_STEP_4_PROMPT = `Step 4: Generate THEMED ITEMS for the world "{{NAME}}".
+
+Context:
+- Description: {{DESCRIPTION}}
+- Tech Level: {{TECH_LEVEL}}
 
 You MUST:
-- Obey the provided JSON schema EXACTLY.
-- Output ONLY a single valid JSON object. NO markdown, NO code fences, NO commentary.
-- Design settings that are directly usable as AI DM system prompts, consistent with structured patterns:
-  - **name**: A creative, thematic name for the world.
-  - **briefDescription**: A strong hook (1 sentence).
-  - **fullDescription**: A concise but rich description (2-4 paragraphs max).
-  - **tone**: The atmosphere (e.g., "Dark and gritty", "High adventure").
-  - **magicLevel**: "none", "low", "medium", or "high".
-  - **techLevel**: "primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", or "mixed".
-  - **startingLocation**: A clear session-0 hub.
-  - **coreIntent**: 3-5 bullet points on what the GM should prioritize (e.g., "Focus on political intrigue", "Make combat deadly").
-  - **worldOverview**: 3-5 bullet points summarizing the setting's history, geography, or unique features.
-  - **coreLocations**: 3-5 key locations with brief descriptions (e.g., "Ironhold: A dwarven fortress city").
-  - **coreFactions**: 3-5 key factions with brief descriptions (e.g., "The Silver Hand: Monster hunters").
-  - **monsters**: IMPORTANT:
-    - The "id" should be a unique slug (e.g., "forest_goblin").
-    - Generate 10-15 themed monsters appropriate for this world.
-    - Ensure stats are consistent with 5e SRD standards.
-    - Include a mix of low-level (CR 0-2), mid-level (CR 3-5), and a boss (CR 5+).
-    - Each monster MUST have an "actions" array (can be empty for very simple creatures).
-  - **items**: IMPORTANT:
-    - Generate 15-20 themed items appropriate for the world.
-    - Mix: ~8 weapons, ~5 armor pieces, ~5 consumables, ~2-3 magic items.
-    - Example (sea world): Trident, Coral Armor, Potion of Water Breathing, Pearl of Power
-    - Example (desert world): Scimitar, Sand Cloak, Potion of Endure Heat, Scarab of Protection
-    - Ensure stats match 5e standards for weapons/armor.
-    - Give each item a unique, thematic name.
-
-When using the user's idea:
-- Respect their pitch and genre.
-- If ambiguous, default to coherent, table-friendly choices:
-  - Medieval/low-tech fantasy unless they request otherwise.
-  - Magic level and tone that match their description.
-- Ensure the result is:
-  - Self-contained (works as a system prompt),
-  - Concrete enough to guide an AI DM,
-  - Not overloaded with novel-length lore.
-
-User's world idea: "{{IDEA}}"
-
-Respond ONLY with the JSON object.`
+- Obey the JSON schema EXACTLY.
+- Output ONLY valid JSON.
+- Generate 15-20 items (Weapons, Armor, Consumables, Magic Items).
+- **id**: Unique slug (e.g., "obsidian_dagger").
+- **value**: In gold pieces (gp).
+- Ensure names and descriptions match the world's flavor.
+`

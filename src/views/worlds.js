@@ -6,7 +6,6 @@
 import { getProvider } from "../utils/model-utils.js"
 import { WORLD_TEMPLATES } from "../data/worlds.js"
 import store from "../state/store.js"
-import { WORLD_GENERATION_PROMPT, WORLD_GENERATION_SCHEMA } from "../utils/prompts/world-prompts.js"
 
 let editingWorldId = null
 
@@ -288,14 +287,26 @@ function renderAIGenerator() {
   })
 }
 
+import {
+  WORLD_GEN_STEP_1_SCHEMA, WORLD_GEN_STEP_1_PROMPT,
+  WORLD_GEN_STEP_2_SCHEMA, WORLD_GEN_STEP_2_PROMPT,
+  WORLD_GEN_STEP_3_SCHEMA, WORLD_GEN_STEP_3_PROMPT,
+  WORLD_GEN_STEP_4_SCHEMA, WORLD_GEN_STEP_4_PROMPT
+} from "../utils/prompts/world-prompts.js"
+
+// ... (existing code)
+
 async function generateWorldWithAI() {
   const idea = document.getElementById("world-idea").value.trim()
   const statusDiv = document.getElementById("generation-status")
   const submitBtn = document.querySelector("#ai-generation-form button[type='submit']")
 
   submitBtn.disabled = true
-  submitBtn.textContent = "Generating..."
   statusDiv.style.display = "block"
+
+  const updateStatus = (msg) => {
+    statusDiv.innerHTML = `<p class="text-secondary text-sm">${msg}</p>`
+  }
 
   try {
     const data = store.get()
@@ -309,84 +320,116 @@ async function generateWorldWithAI() {
     const models = data.models || []
     const selectedModelMeta = models.find((m) => m.id === model)
     const supportsStructuredOutputs = !!selectedModelMeta?.supportedParameters?.includes("structured_outputs")
-
-    // JSON Schema for world generation (aligned with existing expectations)
-    const worldSchema = WORLD_GENERATION_SCHEMA
-
-    const baseInstructions = WORLD_GENERATION_PROMPT.replace("{{IDEA}}", idea)
-
-    const messages = [
-      {
-        role: "user",
-        content: baseInstructions,
-      },
-    ]
-
-    const requestOptions = supportsStructuredOutputs
-      ? {
-        jsonSchema: {
-          name: "world",
-          strict: true,
-          schema: worldSchema,
-        },
-      }
-      : {}
-
     const provider = await getProvider()
-    const response = await provider.sendChatCompletion(messages, model, requestOptions)
 
-    let fullResponse = ""
+    // Helper to run a single generation step
+    const generateStep = async (stepName, promptTemplate, schema, context = {}) => {
+      updateStatus(stepName)
 
-    for await (const chunk of provider.parseStreamingResponse(response)) {
-      if (chunk.output_json) {
-        // Some providers may return fully parsed JSON objects
-        fullResponse = JSON.stringify(chunk.output_json)
-      } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
-        fullResponse += chunk.choices[0].delta.content
-      } else if (chunk.choices && chunk.choices[0]?.message?.content) {
-        fullResponse += chunk.choices[0].message.content
+      let prompt = promptTemplate
+      // Replace all context variables in the prompt
+      Object.entries(context).forEach(([key, value]) => {
+        prompt = prompt.replace(new RegExp(`{{${key}}}`, 'g'), value)
+      })
+
+      const messages = [{ role: "user", content: prompt }]
+
+      const requestOptions = supportsStructuredOutputs
+        ? {
+          jsonSchema: {
+            name: "world_gen_step",
+            strict: true,
+            schema: schema,
+          },
+        }
+        : {}
+
+      console.log(`[WorldGen] Starting ${stepName}...`)
+      const response = await provider.sendChatCompletion(messages, model, requestOptions)
+
+      let fullResponse = ""
+      for await (const chunk of provider.parseStreamingResponse(response)) {
+        if (chunk.output_json) {
+          fullResponse = JSON.stringify(chunk.output_json)
+        } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
+          fullResponse += chunk.choices[0].delta.content
+        } else if (chunk.choices && chunk.choices[0]?.message?.content) {
+          fullResponse += chunk.choices[0].message.content
+        }
       }
+
+      if (!fullResponse.trim()) throw new Error(`Empty response from model during ${stepName}`)
+
+      let result
+      try {
+        result = JSON.parse(fullResponse)
+      } catch (err) {
+        const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error(`Model response was not valid JSON during ${stepName}`)
+        result = JSON.parse(jsonMatch[0])
+      }
+
+      return result
     }
 
-    if (!fullResponse.trim()) {
-      throw new Error("Empty response from model")
-    }
+    // ==========================================
+    // STEP 1: CORE SETTING
+    // ==========================================
+    const step1Data = await generateStep(
+      "✨ Step 1/4: Dreaming up the world...",
+      WORLD_GEN_STEP_1_PROMPT,
+      WORLD_GEN_STEP_1_SCHEMA,
+      { IDEA: idea }
+    )
 
-    let generatedWorld
-    try {
-      generatedWorld = JSON.parse(fullResponse)
-    } catch (err) {
-      // Fallback for non-structured models that may wrap JSON in text
-      const jsonMatch = fullResponse.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error(
-          "Model response was not valid JSON. Try again or select a model with ✅ Structured Outputs support.",
-        )
+    // ==========================================
+    // STEP 2: GEOGRAPHY & FACTIONS
+    // ==========================================
+    const step2Data = await generateStep(
+      "🏰 Step 2/4: Building cities and factions...",
+      WORLD_GEN_STEP_2_PROMPT,
+      WORLD_GEN_STEP_2_SCHEMA,
+      {
+        NAME: step1Data.name,
+        DESCRIPTION: step1Data.briefDescription,
+        TONE: step1Data.tone
       }
-      generatedWorld = JSON.parse(jsonMatch[0])
-    }
+    )
 
-    if (
-      !generatedWorld ||
-      typeof generatedWorld.name !== "string" ||
-      typeof generatedWorld.briefDescription !== "string" ||
-      !Array.isArray(generatedWorld.coreIntent) ||
-      !Array.isArray(generatedWorld.monsters) ||
-      !Array.isArray(generatedWorld.items)
-    ) {
-      console.error("Generated world validation failed:", generatedWorld)
-      const missingFields = []
-      if (!generatedWorld) missingFields.push("entire response is null/undefined")
-      else {
-        if (typeof generatedWorld.name !== "string") missingFields.push("name")
-        if (typeof generatedWorld.briefDescription !== "string") missingFields.push("briefDescription")
-        if (!Array.isArray(generatedWorld.coreIntent)) missingFields.push("coreIntent")
-        if (!Array.isArray(generatedWorld.monsters)) missingFields.push("monsters")
-        if (!Array.isArray(generatedWorld.items)) missingFields.push("items")
+    // ==========================================
+    // STEP 3: MONSTERS
+    // ==========================================
+    const step3Data = await generateStep(
+      "🐉 Step 3/4: Summoning monsters...",
+      WORLD_GEN_STEP_3_PROMPT,
+      WORLD_GEN_STEP_3_SCHEMA,
+      {
+        NAME: step1Data.name,
+        DESCRIPTION: step1Data.briefDescription,
+        MAGIC_LEVEL: step1Data.magicLevel
       }
-      throw new Error(
-        `Generated world JSON is missing required fields: ${missingFields.join(", ")}. Ensure the model follows the expected schema.`,
-      )
+    )
+
+    // ==========================================
+    // STEP 4: ITEMS
+    // ==========================================
+    const step4Data = await generateStep(
+      "⚔️ Step 4/4: Forging items...",
+      WORLD_GEN_STEP_4_PROMPT,
+      WORLD_GEN_STEP_4_SCHEMA,
+      {
+        NAME: step1Data.name,
+        DESCRIPTION: step1Data.briefDescription,
+        TECH_LEVEL: step1Data.techLevel
+      }
+    )
+
+    // Combine all data
+    const generatedWorld = {
+      ...step1Data,
+      ...step2Data,
+      ...step3Data,
+      ...step4Data
     }
 
     console.log("✅ AI generated world successfully:", {

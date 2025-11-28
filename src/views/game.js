@@ -884,6 +884,8 @@ async function sendMessage(game, userText, data) {
       reasoningOptions.reasoningEnabled = data.settings.reasoning.enabled
       reasoningOptions.reasoningEffort = data.settings.reasoning.effort
       reasoningOptions.reasoningMaxTokens = data.settings.reasoning.maxTokens
+      reasoningOptions.reasoningMode = data.settings.reasoning.mode || "auto"
+      reasoningOptions.cachingEnabled = data.settings.reasoning.cachingEnabled
 
       // Get model metadata to determine reasoning type
       const model = data.models?.find((m) => m.id === gameRef.narrativeModel)

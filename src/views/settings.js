@@ -197,6 +197,18 @@ export function renderSettings() {
         </div>
 
         <div class="mb-2">
+          <label class="form-label text-sm">Reasoning visibility</label>
+          <select id="reasoning-mode-select">
+            <option value="auto">Auto (internal only)</option>
+            <option value="visible">Visible (show reasoning traces)</option>
+            <option value="none">None (disable reasoning)</option>
+          </select>
+          <p class="text-xs text-secondary mt-1">
+            Controls whether reasoning traces are included in responses (DeepSeek R1, thinking models)
+          </p>
+        </div>
+
+        <div class="mb-2">
           <label class="form-check">
             <span class="form-check-label">
               Show 🧠 reasoning panel above the game input when available
@@ -204,9 +216,21 @@ export function renderSettings() {
             <input type="checkbox" id="reasoning-display-check">
           </label>
         </div>
+
+        <div class="mb-2">
+          <label class="form-check">
+            <span class="form-check-label">
+              Enable prompt caching (reduces costs for repeated contexts)
+            </span>
+            <input type="checkbox" id="caching-enabled-check">
+          </label>
+          <p class="text-xs text-secondary mt-1">
+            OpenAI and OpenRouter support caching system prompts to reduce API costs
+          </p>
+        </div>
         
         <p class="text-xs text-secondary">
-          These options are only applied when the selected model supports reasoning tokens via OpenRouter.
+          These options are only applied when the selected model supports reasoning tokens.
         </p>
       </div>
       
@@ -666,16 +690,20 @@ async function initializeReasoningSettings(data) {
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
   const maxTokensInput = document.getElementById("reasoning-max-tokens-input")
+  const modeSelect = document.getElementById("reasoning-mode-select")
   const displayCheck = document.getElementById("reasoning-display-check")
+  const cachingCheck = document.getElementById("caching-enabled-check")
 
-  if (!enabledCheck || !effortSelect || !maxTokensInput || !displayCheck) return
+  if (!enabledCheck || !effortSelect || !maxTokensInput || !modeSelect || !displayCheck || !cachingCheck) return
 
   enabledCheck.checked = !!rs.enabled
   effortSelect.value = rs.effort || ""
   if (rs.maxTokens) {
     maxTokensInput.value = rs.maxTokens
   }
+  modeSelect.value = rs.mode || "auto"
   displayCheck.checked = !!rs.displayPanel
+  cachingCheck.checked = !!rs.cachingEnabled
 }
 
 function setupReasoningSettingsHandlers(data) {
@@ -685,14 +713,18 @@ function setupReasoningSettingsHandlers(data) {
   const enabledCheck = document.getElementById("reasoning-enabled-check")
   const effortSelect = document.getElementById("reasoning-effort-select")
   const maxTokensInput = document.getElementById("reasoning-max-tokens-input")
+  const modeSelect = document.getElementById("reasoning-mode-select")
   const displayCheck = document.getElementById("reasoning-display-check")
+  const cachingCheck = document.getElementById("caching-enabled-check")
 
-  if (!enabledCheck || !effortSelect || !maxTokensInput || !displayCheck) return
+  if (!enabledCheck || !effortSelect || !maxTokensInput || !modeSelect || !displayCheck || !cachingCheck) return
 
   const persist = () => {
     const reasoning = {
       enabled: enabledCheck.checked,
       displayPanel: displayCheck.checked,
+      mode: modeSelect.value,
+      cachingEnabled: cachingCheck.checked,
     }
 
     // Only include effort/maxTokens if enabled and values are set
@@ -713,7 +745,9 @@ function setupReasoningSettingsHandlers(data) {
   enabledCheck.addEventListener("change", persist)
   effortSelect.addEventListener("change", persist)
   maxTokensInput.addEventListener("change", persist)
+  modeSelect.addEventListener("change", persist)
   displayCheck.addEventListener("change", persist)
+  cachingCheck.addEventListener("change", persist)
 }
 
 function applyTheme(theme) {

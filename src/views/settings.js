@@ -163,6 +163,23 @@ export function renderSettings() {
       </div>
       
       <div class="card mb-3">
+        <h2>Prompt Caching</h2>
+        <p class="text-secondary mb-2">Reduce API costs by caching repeated system prompts</p>
+        
+        <div class="mb-2">
+          <label class="form-check">
+            <span class="form-check-label">
+              Enable prompt caching
+            </span>
+            <input type="checkbox" id="caching-enabled-check">
+          </label>
+          <p class="text-xs text-secondary mt-1">
+            Supported by OpenAI and OpenRouter. Caches system prompts to reduce costs on long conversations.
+          </p>
+        </div>
+      </div>
+      
+      <div class="card mb-3">
         <h2>Advanced Settings</h2>
         
         <div class="mb-2">

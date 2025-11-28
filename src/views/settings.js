@@ -162,6 +162,22 @@ export function renderSettings() {
         </button>
       </div>
       
+      <div class="card mb-3">
+        <h2>Advanced Settings</h2>
+        
+        <div class="mb-2">
+          <label class="form-check">
+            <span class="form-check-label">
+              Force reasoning controls (override model detection)
+            </span>
+            <input type="checkbox" id="force-reasoning-check">
+          </label>
+          <p class="text-xs text-secondary mt-1">
+            Enable this to show reasoning controls even if your model isn't automatically detected as supporting reasoning
+          </p>
+        </div>
+      </div>
+      
       <div class="card mb-3" id="reasoning-settings-card" style="display: none;">
         <h2>Reasoning Tokens</h2>
         <p class="text-secondary mb-2">
@@ -417,6 +433,30 @@ export function renderSettings() {
     navigateTo("/models")
   })
 
+  // Force reasoning controls toggle
+  const forceReasoningCheck = document.getElementById("force-reasoning-check")
+  if (forceReasoningCheck) {
+    // Load saved setting
+    forceReasoningCheck.checked = !!data.settings?.forceReasoningControls
+
+    // Save on change and re-initialize reasoning settings
+    forceReasoningCheck.addEventListener("change", async (e) => {
+      await store.update((state) => {
+        state.settings.forceReasoningControls = e.target.checked
+      })
+
+      // Re-initialize reasoning settings to show/hide card
+      await initializeReasoningSettings(store.get())
+
+      showMessage(
+        e.target.checked
+          ? "Reasoning controls will now show for all models"
+          : "Reasoning controls will auto-detect model support",
+        "success"
+      )
+    })
+  }
+
   // Provider selection and configuration handlers
   setupProviderHandlers(data)
 
@@ -656,8 +696,15 @@ async function initializeReasoningSettings(data) {
 
   console.log("[Reasoning] Final model check - ID:", model.id, "Name:", model.name, "supportsReasoning:", model.supportsReasoning, "reasoningType:", model.reasoningType)
 
-  if (model.supportsReasoning) {
-    console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
+  // Check if user has forced reasoning controls on
+  const forceReasoning = data.settings?.forceReasoningControls === true
+
+  if (model.supportsReasoning || forceReasoning) {
+    if (forceReasoning && !model.supportsReasoning) {
+      console.log("[Reasoning] ⚠️ Reasoning controls forced on despite model not supporting it")
+    } else {
+      console.log("[Reasoning] ✅ Model supports reasoning tokens - showing settings card")
+    }
     cardEl.style.display = "block"
 
     // Show/hide appropriate controls based on reasoning type

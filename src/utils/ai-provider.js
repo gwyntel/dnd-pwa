@@ -133,7 +133,10 @@ export async function fetchModels() {
       // Check capability flags (OpenRouter) or simple string match
       supportsReasoning: m.supported_parameters?.includes("reasoning") ||
         m.id.includes("reasoning") ||
-        m.id.includes("o1") ||
+        m.id.includes("reasoner") ||  // DeepSeek Reasoner
+        m.id.includes("r1") ||          // DeepSeek R1, Qwen R1
+        m.id.includes("o1") ||          // OpenAI o1 series
+        m.id.toLowerCase().includes("think") || // Thinking models
         false,
       supportedParameters: m.supported_parameters || []
     }));

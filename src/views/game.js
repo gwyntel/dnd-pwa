@@ -942,7 +942,8 @@ async function sendMessage(game, userText, data) {
       const choice = chunk.choices?.[0]
       // Use `delta?.content || ""` to ensure delta is not null/undefined for the logic below
       const delta = choice?.delta?.content || ""
-      const reasoningDelta = choice?.delta?.reasoning
+      // Check for both OpenRouter 'reasoning' and DeepSeek 'reasoning_content'
+      const reasoningDelta = choice?.delta?.reasoning || choice?.delta?.reasoning_content
 
       // Capture usage data if present in any chunk
       if (chunk.usage) {
@@ -956,7 +957,7 @@ async function sendMessage(game, userText, data) {
 
         // Update message metadata with streaming reasoning
         gameRef.messages[assistantMsgIndex].metadata.reasoning = reasoningBuffer
-        gameRef.messages[assistantMsgIndex].metadata.reasoningType = 'openrouter'
+        gameRef.messages[assistantMsgIndex].metadata.reasoningType = choice?.delta?.reasoning_content ? 'deepseek' : 'openrouter'
 
         // Update reasoning display in real-time if panel is enabled
         if (reasoningPanelEnabled) {

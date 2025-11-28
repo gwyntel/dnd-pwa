@@ -18,11 +18,13 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
   - Provides `normalizeCharacter()` for backward compatibility
 - **Data schema** stored in `localStorage` key `"data"`:
   - `characters[]` — Created character sheets with full D&D 5e stats (including spell slots, hit dice, XP progress, custom progressions, feats)
-  - `worlds[]` — Campaign worlds with system prompts (guides AI behavior)
-  - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage, combat data, relationship tracking
+  - `worlds[]` — Campaign worlds with system prompts (guides AI behavior); each world includes monster manual and generated items
+  - `games[]` — Active/completed adventures; each game stores messages, state, cumulative usage, combat data, relationship tracking, inventory
   - `settings` — User preferences (AI provider selection, model settings, UI theme, reasoning tokens)
   - `models[]` — Cached AI model metadata (fetched on-demand, includes pricing & reasoning support)
-- **Migration system** (`src/utils/ai-migration.js`): Handles breaking changes to data schema + `MigrationPopup` component for user feedback
+- **Migration system** (`src/utils/ai-migration.js` + `src/utils/migrations/`): Handles breaking changes to data schema + `MigrationPopup` component for user feedback
+  - `backfill-monsters.js` — Ensures all worlds have monster manuals
+  - `convert-inventory-v2.js` — Migrates inventory from string-based to ID-based system
 - **No persistence backend**; all state local to browser with export/import capability
 - Normalization via `normalizeCharacter()` and migration scripts handle version upgrades + supports character.customProgression for AI-generated classes
 
@@ -100,10 +102,30 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
   - `WORLD_TEMPLATES[0]` is the canonical default world; `storage.js` and `worlds.js` import it
   - Character templates removed from `storage.js`; modern code uses `BEGINNER_TEMPLATES` directly
 
+### Item & Equipment System (`src/engine/EquipmentManager.js` & `src/data/items.js`)
+- **Item database**: `ITEMS{}` contains weapons, armor, consumables, magic items with stats, effects, pricing
+- **Equipment resolution**: `resolveItem()` finds items by ID/name from world loot or static DB
+- **AC calculation**: `calculateAC()` factors base armor, DEX modifiers, shields, magic bonuses, unarmored defense
+- **Equipped weapons**: `getEquippedWeapons()` returns currently equipped weapon objects
+- **Consumable usage**: `useConsumable()` applies item effects and removes from inventory
+
+### Effects Engine (`src/engine/EffectsEngine.js`)
+- **Unified effect resolution**: `resolveEffect()` parses tag-based effects (HEAL[player|2d4+2]), modifiers (+1 AC), advantage/disadvantage
+- **Item effects**: `applyItemEffects()` activates passive bonuses from equipped items
+- **Effect application**: Supports immediate tags, passive modifiers, conditional effects (advantage, etc.)
+
+### Monster System (`src/data/monsters.js` & `src/engine/CombatManager.js`)
+- **Monster database**: `MONSTERS{}` contains stat blocks, actions, CR ratings for various creatures
+- **Enemy spawning**: `spawnEnemy()` creates combat-ready enemy instances with unique IDs and initiative rolls
+- **Dynamic combat**: Enemies stored in `game.combat.enemies[]` with HP tracking and condition management
+
 ### Combat & State Management
 - **Initiative tracking**: `game.combat.initiative[]` sorted by total; `game.combat.currentTurnIndex` tracks active turn
+- **Enemy management**: `game.combat.enemies[]` tracks active enemies with HP, conditions, unique IDs
+- **Turn advancement**: `advanceTurn()` progresses combat rounds, skipping dead enemies
 - **Relationship tracking**: `game.relationships{}` object; trimmed to `maxRelationshipsTracked` (default 50) keeping most-recent entries
 - **Location history**: `game.visitedLocations[]` trimmed to `maxLocationsTracked` (default 10)
+- **Inventory tracking**: `game.inventory[]` stores ID-based item slots with quantity and equipped status
 - **Cumulative usage**: `game.cumulativeUsage` tracks tokens + cost across all turns in a game
 
 ### Dice System (`src/utils/dice.js` & `dice5e.js`)
@@ -141,6 +163,9 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **New character templates**: Add to `BEGINNER_TEMPLATES` in `src/data/archetypes.js`
 - **New AI providers**: Extend `ai-provider.js` with new provider configurations
 - **New components**: Follow component patterns in `src/components/`
+- **New items**: Add to `ITEMS` database in `src/data/items.js`
+- **New monsters**: Add to `MONSTERS` database in `src/data/monsters.js`
+- **New effects**: Extend `EffectsEngine.js` with new effect types
 
 ## Key Architectural Decisions
 
@@ -185,6 +210,7 @@ src/
     CharacterHUD.js — Character stats display (placeholder for future use)
     LevelUpModal.js — Level-up wizard component
     MigrationPopup.js — Data migration notifications
+    CombatHUD.js — Active enemies and combat status display
   data/
     archetypes.js — Character templates (BEGINNER_TEMPLATES)
     worlds.js — World templates (WORLD_TEMPLATES)
@@ -193,14 +219,18 @@ src/
     classes.js — D&D 5e class progression data (XP thresholds, features, spell slots)
     spells.js — Common spells database definitions
     feats.js — Standard OGL D&D 5e feats database (FEATS array)
+    items.js — D&D 5e item database (weapons, armor, consumables, magic items)
+    monsters.js — Monster stat blocks and CR ratings
  engine/
     GameLoop.js — Game loop and AI streaming logic
     TagParser.js — Low-level tag extraction and sanitization utility
     TagParser.spec.js — Tests for TagParser utility
     TagProcessor.js — Game tag parsing and execution
-    CombatManager.js — Combat state and initiative tracking
+    CombatManager.js — Combat state, initiative tracking, and enemy spawning
     SpellcastingManager.js — Spell casting and slot management
     RestManager.js — Short/long rest mechanics
+    EquipmentManager.js — Item resolution, AC calculation, inventory management
+    EffectsEngine.js — Unified effect resolution and application system
   state/
     store.js — Centralized state management (in-memory cache + localStorage)
   utils/
@@ -217,6 +247,9 @@ src/
     character-validation.js — Character creation validation
     class-progression-generator.js — AI-powered custom class progression generator
     ui-templates.js — UI template utilities
+    migrations/
+      backfill-monsters.js — Ensures worlds have monster manuals
+      convert-inventory-v2.js — Migrates inventory to ID-based system
     prompts/
       character-prompts.js — Character generation prompts
       game-dm-prompt.js — Builds system prompt for game turns

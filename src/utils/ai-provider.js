@@ -170,7 +170,7 @@ export async function sendChatCompletion(messages, model, options = {}) {
   // ========== UNIFIED REASONING ABSTRACTION ==========
   // Handles three main shapes across providers:
   // 1. Qualitative effort (OpenAI reasoning_effort, OpenRouter reasoning.effort)
-  // 2. Quantitative token limit (Anthropic/Gemini reasoning.max_tokens)
+  // 2. Quantitative token limit (Anthropic/Gemini reasoning.max_tokens, DeepSeek max_tokens)
   // 3. Reasoning visibility toggle (OpenRouter include_reasoning)
 
   if (options.reasoningEnabled) {
@@ -178,8 +178,21 @@ export async function sendChatCompletion(messages, model, options = {}) {
     const reasoningEffort = options.reasoningEffort; // "low" | "medium" | "high"
     const reasoningMaxTokens = options.reasoningMaxTokens; // integer | null
 
+    // DeepSeek Reasoner: automatic reasoning, just set max_tokens
+    // DeepSeek models automatically generate reasoning_content (CoT) without special params
+    // The reasoning is always returned in the response - no opt-in needed
+    const isDeepSeek = model?.toLowerCase().includes('deepseek') ||
+      model?.toLowerCase().includes('reasoner');
+
+    if (isDeepSeek && reasoningMaxTokens) {
+      // DeepSeek uses standard max_tokens for total output (reasoning + answer)
+      // Can go up to 64K tokens
+      params.max_tokens = reasoningMaxTokens;
+      console.log('[ai-provider] DeepSeek reasoning mode: setting max_tokens', reasoningMaxTokens);
+    }
+
     // OpenAI native reasoning_effort (o-series, GPT-5)
-    if (reasoningEffort && (config.type === "openai" || config.type === "lmstudio")) {
+    if (reasoningEffort && config.type === "openai" && !isDeepSeek) {
       params.reasoning_effort = reasoningEffort; // low, medium, high
     }
 
@@ -212,7 +225,7 @@ export async function sendChatCompletion(messages, model, options = {}) {
 
     // For providers with numeric-only reasoning caps (Anthropic, Gemini via some gateways)
     // If only max_tokens is supported, translate effort levels to token budgets
-    if (reasoningMaxTokens && config.type !== "openrouter") {
+    if (reasoningMaxTokens && config.type !== "openrouter" && !isDeepSeek) {
       // Most providers may not have a dedicated reasoning.max_tokens field
       // but might use max_tokens or max_output_tokens as a combined budget.
       // Document this in settings UI that reasoning_max_tokens affects total budget.

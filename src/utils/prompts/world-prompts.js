@@ -119,10 +119,13 @@ You MUST:
 - Obey the provided JSON schema EXACTLY.
 - Output ONLY a single valid JSON object. NO markdown, NO code fences, NO commentary.
 - Design settings that are directly usable as AI DM system prompts, consistent with structured patterns:
-  - Clearly state: genre, tech level, magic level, core tone.
-  - Provide a strong "briefDescription" hook (1 sentence).
-  - Provide a concise but rich "fullDescription" (2-4 paragraphs max).
-  - Specify a clear "startingLocation" that works as a session-0 hub.
+  - **name**: A creative, thematic name for the world.
+  - **briefDescription**: A strong hook (1 sentence).
+  - **fullDescription**: A concise but rich description (2-4 paragraphs max).
+  - **tone**: The atmosphere (e.g., "Dark and gritty", "High adventure").
+  - **magicLevel**: "none", "low", "medium", or "high".
+  - **techLevel**: "primitive", "medieval", "renaissance", "industrial", "modern", "sci-fi", or "mixed".
+  - **startingLocation**: A clear session-0 hub.
   - **coreIntent**: 3-5 bullet points on what the GM should prioritize (e.g., "Focus on political intrigue", "Make combat deadly").
   - **worldOverview**: 3-5 bullet points summarizing the setting's history, geography, or unique features.
   - **coreLocations**: 3-5 key locations with brief descriptions (e.g., "Ironhold: A dwarven fortress city").

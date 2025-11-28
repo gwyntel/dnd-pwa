@@ -233,18 +233,6 @@ export function renderSettings() {
           </label>
         </div>
 
-        <div class="mb-2">
-          <label class="form-check">
-            <span class="form-check-label">
-              Enable prompt caching (reduces costs for repeated contexts)
-            </span>
-            <input type="checkbox" id="caching-enabled-check">
-          </label>
-          <p class="text-xs text-secondary mt-1">
-            OpenAI and OpenRouter support caching system prompts to reduce API costs
-          </p>
-        </div>
-        
         <p class="text-xs text-secondary">
           These options are only applied when the selected model supports reasoning tokens.
         </p>

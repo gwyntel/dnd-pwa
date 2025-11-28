@@ -103,7 +103,7 @@ export function sanitizeMessagesForModel(messages) {
   })
 
   // Filter out ephemeral system messages before the last assistant message
-  return messages.filter((msg, index) => {
+  const filtered = messages.filter((msg, index) => {
     if (msg?.metadata?.ephemeral && index < cutoff) {
       console.log('[flow] sanitizeMessagesForModel: removing ephemeral message', {
         index,
@@ -156,6 +156,33 @@ export function sanitizeMessagesForModel(messages) {
     })
     return msg
   })
+
+  // CRITICAL: Prevent consecutive assistant messages (DeepSeek and others reject this)
+  // Insert minimal system messages between consecutive assistant messages
+  const result = []
+  for (let i = 0; i < filtered.length; i++) {
+    const current = filtered[i]
+    const prev = i > 0 ? filtered[i - 1] : null
+
+    // If current is assistant and previous is also assistant, insert separator
+    if (current?.role === "assistant" && prev?.role === "assistant") {
+      console.log('[flow] sanitizeMessagesForModel: inserting separator to prevent consecutive assistant messages', {
+        index: i,
+        prevId: prev?.id,
+        currentId: current?.id
+      })
+      result.push({
+        role: "system",
+        content: "[Message separator]",
+        id: `sep_${Date.now()}_${i}`,
+        metadata: { separator: true }
+      })
+    }
+
+    result.push(current)
+  }
+
+  return result
 }
 
 /**

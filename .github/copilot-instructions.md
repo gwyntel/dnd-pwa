@@ -105,14 +105,22 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 ### Item & Equipment System (`src/engine/EquipmentManager.js` & `src/data/items.js`)
 - **Item database**: `ITEMS{}` contains weapons, armor, consumables, magic items with stats, effects, pricing
 - **Equipment resolution**: `resolveItem()` finds items by ID/name from world loot or static DB
-- **AC calculation**: `calculateAC()` factors base armor, DEX modifiers, shields, magic bonuses, unarmored defense
+- **AC calculation**: `calculateAC()` factors base armor, DEX modifiers, shields, magic bonuses, unarmored defense, unarmored defense for Barbarians/Monks
 - **Equipped weapons**: `getEquippedWeapons()` returns currently equipped weapon objects
 - **Consumable usage**: `useConsumable()` applies item effects and removes from inventory
 
 ### Effects Engine (`src/engine/EffectsEngine.js`)
 - **Unified effect resolution**: `resolveEffect()` parses tag-based effects (HEAL[player|2d4+2]), modifiers (+1 AC), advantage/disadvantage
-- **Item effects**: `applyItemEffects()` activates passive bonuses from equipped items
+- **Item effects**: `applyItemEffects()` activates passive bonuses from equipped items via `character.activeModifiers`
 - **Effect application**: Supports immediate tags, passive modifiers, conditional effects (advantage, etc.)
+- **Modifier tracking**: `character.activeModifiers{}` stores passive bonuses from magic items
+
+### Dice System (`src/utils/dice.js` & `dice5e.js`)
+- **Notation parsing**: `parseNotation("1d20+5")` → `{count, sides, modifier}`
+- **Core roll**: `roll(input)` returns `{notation, rolls[], subtotal, total, crit?}`
+- **Advantage/disadvantage**: `rollAdvantage()`, `rollDisadvantage()` return both rolls + chosen
+- **D&D 5e helpers**: `rollSkillCheck()`, `rollSavingThrow()`, `rollAttack()` apply character modifiers
+- **Crit detection**: Metadata for Nat 20 / Nat 1 on d20; purely additive, not assumed by callers
 
 ### Monster System (`src/data/monsters.js` & `src/engine/CombatManager.js`)
 - **Monster database**: `MONSTERS{}` contains stat blocks, actions, CR ratings for various creatures
@@ -127,13 +135,6 @@ A solo D&D 5e adventure PWA powered by OpenRouter AI. Vanilla JS (ES6+), no fram
 - **Location history**: `game.visitedLocations[]` trimmed to `maxLocationsTracked` (default 10)
 - **Inventory tracking**: `game.inventory[]` stores ID-based item slots with quantity and equipped status
 - **Cumulative usage**: `game.cumulativeUsage` tracks tokens + cost across all turns in a game
-
-### Dice System (`src/utils/dice.js` & `dice5e.js`)
-- **Notation parsing**: `parseNotation("1d20+5")` → `{count, sides, modifier}`
-- **Core roll**: `roll(input)` returns `{notation, rolls[], subtotal, total, crit?}`
-- **Advantage/disadvantage**: `rollAdvantage()`, `rollDisadvantage()` return both rolls + chosen
-- **D&D 5e helpers**: `rollSkillCheck()`, `rollSavingThrow()`, `rollAttack()` apply character modifiers
-- **Crit detection**: Metadata for Nat 20 / Nat 1 on d20; purely additive, not assumed by callers
 
 ### AI Integration (`src/utils/openrouter.js` legacy, now `src/utils/ai-provider.js`)
 - **OpenRouter API** provides 100+ model access with standardized interface

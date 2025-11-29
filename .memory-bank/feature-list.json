@@ -1,0 +1,447 @@
+{
+  "projectType": "D&D PWA - AI-Powered Single-Player Text Adventures",
+  "totalFeatures": 25,
+  "features": [
+    {
+      "id": "001",
+      "category": "core",
+      "priority": 1,
+      "description": "Homepage renders with game list, navigation, and authentication prompt",
+      "steps": [
+        "Start development server on port 5173",
+        "Navigate to localhost:5173",
+        "Verify navigation bar renders with correct links",
+        "Verify authentication section shows when not logged in",
+        "Verify game list displays existing games",
+        "Verify 'New Game' button is clickable"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/main.js",
+        "src/views/home.js",
+        "src/router.js",
+        "src/ui/navigation.js"
+      ]
+    },
+    {
+      "id": "002",
+      "category": "auth",
+      "priority": 1,
+      "description": "OpenRouter PKCE OAuth authentication flow works end-to-end",
+      "steps": [
+        "Click 'Connect with OpenRouter OAuth' button",
+        "Verify redirect to OpenRouter auth page",
+        "Complete authentication flow",
+        "Verify return to callback URL",
+        "Verify API token stored in sessionStorage",
+        "Verify persistent token in localStorage"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/utils/auth.js",
+        "src/views/home.js",
+        "src/state/store.js"
+      ]
+    },
+    {
+      "id": "003",
+      "category": "auth",
+      "priority": 1,
+      "description": "API key authentication works for development/testing",
+      "steps": [
+        "Enter valid OpenRouter API key (sk-or-...)",
+        "Click 'Use API Key' button",
+        "Verify key is stored and authenticated state updated",
+        "Verify app reloads and shows authenticated UI"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/utils/auth.js",
+        "src/views/home.js"
+      ]
+    },
+    {
+      "id": "004",
+      "category": "ai",
+      "priority": 1,
+      "description": "AI model selection and loading works correctly",
+      "steps": [
+        "Navigate to /models",
+        "Verify models list loads from OpenRouter API",
+        "Verify model metadata displays (name, context, pricing)",
+        "Verify default model can be selected and saved",
+        "Verify setting persists in store.settings.defaultNarrativeModel"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/models.js",
+        "src/utils/ai-provider.js",
+        "src/utils/model-utils.js",
+        "src/state/store.js"
+      ]
+    },
+    {
+      "id": "005",
+      "category": "character",
+      "priority": 1,
+      "description": "Character templates view renders and allows selection",
+      "steps": [
+        "Navigate to /characters/templates",
+        "Verify template cards render (Fighter, Rogue, Wizard, etc.)",
+        "Verify template descriptions display correctly",
+        "Verify 'Use Template' button is clickable"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/characterTemplatesView.js",
+        "src/data/archetypes.js"
+      ]
+    },
+    {
+      "id": "006",
+      "category": "character",
+      "priority": 1,
+      "description": "AI character generation creates valid character sheets",
+      "steps": [
+        "Enter character concept description",
+        "Click 'Generate with AI' button",
+        "Verify loading state during generation",
+        "Verify generated character has valid structure (name, race, class, stats, etc.)",
+        "Verify character is saved to store.characters"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/characters.js",
+        "src/utils/prompts/character-prompts.js",
+        "src/utils/ai-provider.js"
+      ]
+    },
+    {
+      "id": "007",
+      "category": "character",
+      "priority": 1,
+      "description": "Manual character creation form validates and saves characters",
+      "steps": [
+        "Navigate to /characters/new",
+        "Fill all required fields (name, race, class, stats)",
+        "Verify validation messages for invalid inputs",
+        "Submit form",
+        "Verify character saved to localStorage with correct data structure",
+        "Verify redirect to character view"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/characters.js",
+        "src/utils/character-validation.js",
+        "src/state/store.js"
+      ]
+    },
+    {
+      "id": "008",
+      "category": "world",
+      "priority": 1,
+      "description": "World templates display and allow selection for game creation",
+      "steps": [
+        "Navigate to /worlds",
+        "Verify world templates display (Classic Fantasy, Urban Noir, etc.)",
+        "Verify each world shows correct metadata (magic level, tech level, tone)",
+        "Verify world creation form accepts custom world parameters",
+        "Verify world is saved to store.worlds"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/worlds.js",
+        "src/data/worlds.js"
+      ]
+    },
+    {
+      "id": "009",
+      "category": "game",
+      "priority": 1,
+      "description": "New game creation with character and world selection",
+      "steps": [
+        "Navigate to /game/new",
+        "Verify character dropdown populates with created characters",
+        "Verify world dropdown populates with available worlds",
+        "Enter game title",
+        "Click 'Start Adventure'",
+        "Verify game object created with correct structure",
+        "Verify redirect to /game/{gameId}"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/game.js",
+        "src/views/characterTemplatesView.js",
+        "src/state/store.js"
+      ]
+    },
+    {
+      "id": "010",
+      "category": "game",
+      "priority": 1,
+      "description": "TagParser correctly parses simple D&D tag syntax",
+      "steps": [
+        "Run npm test for TagParser.spec.js",
+        "Verify STATUS_ADD[Blinded] tag parsed correctly",
+        "Verify XP_GAIN[100] tag parsed correctly",
+        "Verify ITEM_ADD[Potion] tag parsed correctly",
+        "Verify malformed tags are ignored safely"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/TagParser.js",
+        "src/engine/TagParser.spec.js",
+        "src/data/tags.js"
+      ]
+    },
+    {
+      "id": "011",
+      "category": "core",
+      "priority": 1,
+      "description": "Store.update() correctly persists data to localStorage",
+      "steps": [
+        "Create a test state update",
+        "Call store.update() with immediate: true",
+        "Verify localStorage contains updated data within 300ms",
+        "Verify state.get() returns updated in-memory state",
+        "Verify subscribers are notified of changes"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/state/store.js",
+        "src/utils/storage.js"
+      ]
+    },
+    {
+      "id": "012",
+      "category": "game",
+      "priority": 1,
+      "description": "Dice rolling system handles all D&D 5e roll types",
+      "steps": [
+        "Test rollDice('1d20+5') returns valid result",
+        "Test rollAdvantage() returns 2d20 with advantage",
+        "Test rollDisadvantage() returns 2d20 with disadvantage",
+        "Test parseRollRequests() extracts roll tags from text",
+        "Verify all roll types format correctly with formatRoll()"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/utils/dice.js",
+        "src/utils/dice5e.js",
+        "src/engine/TagProcessor.js"
+      ]
+    },
+    {
+      "id": "013",
+      "category": "game",
+      "priority": 1,
+      "description": "Combat system initializes and tracks initiative correctly",
+      "steps": [
+        "Call CombatManager.startCombat()",
+        "Verify initiative array created with player entry",
+        "Verify initiative sorted by roll total",
+        "Verify combat.active set to true",
+        "Verify turn order announcement generated"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/CombatManager.js",
+        "src/components/CombatHUD.js"
+      ]
+    },
+    {
+      "id": "014",
+      "category": "game",
+      "priority": 2,
+      "description": "Enemy spawning via ENEMY_SPAWN tags works correctly",
+      "steps": [
+        "Process ENEMY_SPAWN[goblin] tag",
+        "Verify enemy created from monster template",
+        "Verify unique ID and name assigned",
+        "Verify HP calculated from template",
+        "Verify enemy added to combat.enemies array"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/CombatManager.js",
+        "src/data/monsters.js",
+        "src/engine/TagProcessor.js"
+      ]
+    },
+    {
+      "id": "015",
+      "category": "game",
+      "priority": 2,
+      "description": "Equipment system calculates AC correctly for all armor types",
+      "steps": [
+        "Equip leather armor (11 + DEX)",
+        "Equip chain mail (16, max DEX +2)",
+        "Equip shield (+2 AC)",
+        "Test barbarian unarmored defense (10 + DEX + CON)",
+        "Test monk unarmored defense (10 + DEX + WIS)",
+        "Verify AC updates in CharacterHUD"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/EquipmentManager.js",
+        "src/components/CharacterHUD.js"
+      ]
+    },
+    {
+      "id": "016",
+      "category": "game",
+      "priority": 2,
+      "description": "Rest mechanics restore resources correctly",
+      "steps": [
+        "Short rest restores class resources (Ki, Channel Divinity)",
+        "Short rest allows hit dice spending for healing",
+        "Long rest restores all HP and spell slots",
+        "Long rest restores half hit dice (min 1)",
+        "Verify restState tracking timestamps and counts"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/RestManager.js",
+        "src/views/game.js"
+      ]
+    },
+    {
+      "id": "017",
+      "category": "game",
+      "priority": 2,
+      "description": "Spellcasting system tracks spell slots and concentration",
+      "steps": [
+        "Cast cantrip - no slot consumed",
+        "Cast level 1 spell - consumes appropriate slot",
+        "Verify concentration spell starts concentration tracking",
+        "Verify casting second concentration spell ends first",
+        "Verify long rest restores all spell slots"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/SpellcastingManager.js",
+        "src/engine/TagProcessor.js"
+      ]
+    },
+    {
+      "id": "018",
+      "category": "ai",
+      "priority": 2,
+      "description": "AI streaming with reasoning tokens displays correctly",
+      "steps": [
+        "Send message with reasoning-enabled model",
+        "Verify reasoning panel appears during streaming",
+        "Verify reasoning content streams in real-time",
+        "Verify reasoning panel collapses when content arrives",
+        "Verify reasoning tokens counted in usage display"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/utils/ai-provider.js",
+        "src/views/game.js",
+        "src/engine/GameLoop.js"
+      ]
+    },
+    {
+      "id": "019",
+      "category": "game",
+      "priority": 2,
+      "description": "Roll batching system collects and processes multiple rolls",
+      "steps": [
+        "Trigger multiple rolls in single AI response",
+        "Verify rolls collected in batch for 500ms",
+        "Verify roll result messages display",
+        "Verify follow-up prompt sent to AI with roll summaries",
+        "Verify batch processes after streaming completes"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/views/game.js",
+        "src/engine/GameLoop.js"
+      ]
+    },
+    {
+      "id": "020",
+      "category": "ui",
+      "priority": 2,
+      "description": "Location history displays and allows fast travel",
+      "steps": [
+        "Visit multiple locations in game",
+        "Verify locations added to visitedLocations array",
+        "Verify LocationHistory component displays visited locations",
+        "Click location chip to fast travel",
+        "Verify input prefilled with fast travel message"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/components/LocationHistory.js",
+        "src/views/game.js"
+      ]
+    },
+    {
+      "id": "021",
+      "category": "ui",
+      "priority": 2,
+      "description": "Relationship tracking displays NPC relationships",
+      "steps": [
+        "Gain relationship points with NPCs via RELATIONSHIP_ADD tags",
+        "Verify relationships object updates correctly",
+        "Verify RelationshipList component displays relationships",
+        "Verify relationships respect cap (default 50)",
+        "Verify zero-value relationships are filtered out"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/components/RelationshipList.js",
+        "src/engine/GameLoop.js",
+        "src/views/game.js"
+      ]
+    },
+    {
+      "id": "022",
+      "category": "game",
+      "priority": 2,
+      "description": "Experience and leveling system works correctly",
+      "steps": [
+        "Process XP_GAIN[100] tag",
+        "Verify XP added to character.xp",
+        "Verify level advancement at correct thresholds",
+        "Verify level-up modal appears",
+        "Verify attribute improvements applied correctly"
+      ],
+      "passes": false,
+      "sessionCompleted": null,
+      "relatedFiles": [
+        "src/engine/TagProcessor.js",
+        "src/components/LevelUpModal.js",
+        "src/utils/class-progression-generator.js"
+      ]
+    },
+    {
+      "id": "023",
+      "category": "ui",
+      "priority": 3,
+      "description": "Theme system applies correctly across all components",
+      "steps": [
+        "Change theme in settings (light, dark, warm, cool, forest, midnight)",

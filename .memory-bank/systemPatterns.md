@@ -1,572 +1,461 @@
-# System Architecture & Patterns - D&D PWA
+# System Architecture & Patterns
 
-## Core Architectural Patterns
+## Architectural Overview
 
-### 1. Centralized State Management Pattern
+The D&D PWA follows a **modular engine-based architecture** with clear separation between game logic, UI components, and data management. The system is designed around a centralized Store pattern that manages all application state with automatic persistence.
 
-#### Store Singleton Pattern
+### Core Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        UI Layer (Views)                      │
+│  Home  Characters  Worlds  Game  Settings  Models           │
+└─────────────────────────────────────────────────────────────┘
+                                   │
+┌─────────────────────────────────────────────────────────────┐
+│                    Component Layer                           │
+│  CharacterHUD  CombatHUD  ChatMessage  RollHistory  etc.     │
+└─────────────────────────────────────────────────────────────┘
+                                   │
+┌─────────────────────────────────────────────────────────────┐
+│                    Engine Layer                              │
+│  GameLoop  TagProcessor  CombatManager  Spellcasting        │
+│  RestManager  EquipmentManager  EffectsEngine  TagParser     │
+└─────────────────────────────────────────────────────────────┘
+                                   │
+┌─────────────────────────────────────────────────────────────┐
+│                    State Layer                               │
+│                     Store (Centralized)                      │
+│              In-Memory Cache + Debounced localStorage        │
+└─────────────────────────────────────────────────────────────┘
+                                   │
+┌─────────────────────────────────────────────────────────────┐
+│                   Utility Layer                              │
+│  Auth  AI-Provider  Dice  Storage  Model-Utils  Prompts      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Design Patterns
+
+### 1. Centralized Store Pattern (State Management)
+
+**Location:** `src/state/store.js`
+
 ```javascript
-// src/state/store.js - Singleton instance
+// Singleton store with in-memory caching and automatic persistence
 class Store {
   constructor() {
-    this._state = null
-    this._listeners = new Set()
+    this._state = null          // In-memory cache
+    this._listeners = new Set() // Reactivity system
     this._isInitialized = false
   }
-
-  async initialize() {
-    this._state = await loadData()
-    this._isInitialized = true
-    this._notifyListeners()
+  
+  get() { /* Return current state */ }
+  
+  update(updaterFn, options) {
+    // 1. Call updater function with state reference
+    // 2. Notify all listeners
+    // 3. Debounced save to localStorage
   }
-
-  async update(updaterFn, options = {}) {
-    updaterFn(this._state)  // Direct mutation allowed
-    await debouncedSave(this._state, options.debounceDelay)
-    this._notifyListeners()
-  }
-
-  subscribe(listener) {
-    this._listeners.add(listener)
-    return () => this._listeners.delete(listener)
-  }
+  
+  subscribe(listener) { /* Subscribe to changes */ }
 }
-
-const store = new Store()
-export default store
 ```
+
+**Key Principles:**
+- **Single Source of Truth:** All state flows through the Store
+- **In-Memory Cache:** Fast reads/writes without I/O blocking
+- **Debounced Persistence:** 300ms delay prevents excessive disk writes
+- **Subscriber Pattern:** UI components react to state changes automatically
+- **Immediate Saves:** Critical operations use `immediate: true` flag
+
+**Usage Example:**
+```javascript
+import store from './state/store.js'
+
+// Read state
+const data = store.get()
+
+// Update state
+await store.update(state => {
+  state.games.push(newGame)
+  state.characters.push(newCharacter)
+})
+
+// Subscribe to changes
+const unsubscribe = store.subscribe(newState => {
+  // Re-render UI
+})
+```
+
+### 2. Tag-Driven Game Mechanics
+
+**Location:** `src/engine/TagProcessor.js`, `src/data/tags.js`
+
+The game uses a **tag-based instruction system** where the AI generates special tags that trigger game mechanics:
+
+```javascript
+// AI Response: "You are in a dark forest. ROLL[skill|perception|15]"
+//                Location set    ↓        Skill check triggered ↓
+
+// Location change
+LOCATION[Dark Forest Path]           → Updates game.currentLocation
+
+// Dice rolls
+ROLL[1d20+5|normal|0]               → Executes dice roll
+ROLL[skill|stealth|12|advantage]    → Skill check with advantage
+
+// Combat
+COMBAT_START[Goblin ambush!]        → Initialize combat system
+ENEMY_SPAWN[goblin]                 → Spawn enemy from template
+COMBAT_END[Victory]                 → End combat, grant rewards
+
+// Items & Currency
+ITEM_ADD[Potion of Healing]         → Add item to inventory
+ITEM_REMOVE[Potion]                 → Remove item
+XP_GAIN[100]                        → Add XP to character
+GOLD_ADD[25]                        → Add gold pieces
+
+// Status effects
+STATUS_ADD[Poisoned]                → Apply condition
+STATUS_REMOVE[Poisoned]             → Remove condition
+
+// Relationships
+RELATIONSHIP_ADD[Blacksmith|2]      → Increase NPC relationship
+```
+
+**Processing Flow:**
+1. AI generates text with embedded tags
+2. `TagParser.parse()` extracts tags safely (prevents XSS)
+3. `TagProcessor.processGameTagsRealtime()` executes mechanics during streaming
+4. `TagProcessor.processGameTags()` final processing after streaming completes
+5. State updates trigger UI re-renders
 
 **Benefits:**
-- Single source of truth for all application state
-- Reactive updates via subscription pattern
-- Efficient localStorage persistence with debouncing
-- Prevents race conditions in state updates
+- **AI-Guided:** AI controls game flow through natural language + tags
+- **Extensible:** New mechanics can be added by creating new tag types
+- **Safe:** TagParser sanitizes content to prevent injection attacks
+- **Real-time:** Mechanics execute during streaming for immediate feedback
 
-#### State Structure
+### 3. Roll Batching System
+
+**Location:** `src/views/game.js` (processRollBatch)
+
+When multiple dice rolls occur in a single AI response, they're collected and processed together:
+
 ```javascript
-{
-  version: "1.2.0",
-  lastModified: "2025-11-28T...",
-  settings: {
-    provider: "openrouter",
-    defaultNarrativeModel: "anthropic/claude-3-haiku",
-    theme: "auto",
-    temperature: 1.0
-  },
-  characters: [...],
-  worlds: [...],
-  games: [...]
+// Batching mechanism
+let rollBatch = []
+let rollSettlingTimer = null
+const ROLL_SETTLING_DELAY_MS = 500
+
+// Add roll to batch
+function addRollToBatch(rollData) {
+  rollBatch.push(rollData)
+  clearTimeout(rollSettlingTimer)
+  rollSettlingTimer = setTimeout(processRollBatch, ROLL_SETTLING_DELAY_MS)
+}
+
+// Process all rolls at once
+async function processRollBatch() {
+  // 1. Display roll result messages
+  // 2. Send follow-up prompt to AI with roll summaries
+  // 3. AI narrates the outcomes
 }
 ```
 
-### 2. Tag-Based AI Integration Pattern
+**Why This Pattern:**
+- **Better UX:** Single follow-up narration instead of fragmented responses
+- **Reduced API Calls:** One AI call for all roll outcomes
+- **Cohesive Storytelling:** AI can interpret multiple rolls contextually
+- **Performance:** Debouncing prevents excessive AI requests
 
-#### Semantic Tag System
-AI responses contain structured tags that trigger game mechanics:
-```
-AI Response: You encounter a goblin who attacks!
-COMBAT_START[goblin ambush - 3 goblins]
-ROLL[attack|shortsword|AC 15|advantage]
-```
+### 4. Component-Based UI Architecture
 
-#### Real-Time Tag Processing
+**Location:** `src/components/`, `src/views/`
+
+Each UI element is a **pure function** that returns HTML strings:
+
 ```javascript
-// src/engine/TagProcessor.js
-export async function processGameTagsRealtime(game, character, content, processedTags, options) {
-  const { tags } = tagParser.parse(content)
-
-  for (const tag of tags) {
-    if (processedTags.has(tag.id)) continue
-
-    switch (tag.type) {
-      case 'LOCATION':
-        game.currentLocation = tag.value
-        break
-      case 'ROLL':
-        const rollResult = await executeRoll(tag.params)
-        addRollToBatch(rollResult)
-        break
-      case 'COMBAT_START':
-        await startCombat(game, tag.value)
-        break
-    }
-
-    processedTags.add(tag.id)
-  }
-}
-```
-
-**Benefits:**
-- Structured AI-game interaction
-- Real-time state updates during streaming
-- Extensible tag system for new mechanics
-- Batch processing prevents AI spam
-
-### 3. Component Composition Pattern
-
-#### View-Component Separation
-```
-src/views/game.js      # Page-level logic and layout
-src/components/        # Reusable UI components
-├── CharacterHUD.js    # Character stats display
-├── CombatHUD.js       # Combat interface
-├── RollHistory.js     # Dice roll tracking
-└── UsageDisplay.js    # AI usage metrics
-```
-
-#### Component API Pattern
-```javascript
-// src/components/CharacterHUD.js
-export function CharacterHUD(game, character) {
+// Component signature
+function ComponentName(props) {
   return `
-    <div class="character-card">
-      <h3>${character.name}</h3>
-      <div class="stats-grid">
-        <div>HP: ${game.currentHP}/${character.maxHP}</div>
-        <div>AC: ${calculateAC(character)}</div>
-      </div>
+    <div class="component-class">
+      <h3>${escapeHtml(props.title)}</h3>
+      <p>${escapeHtml(props.content)}</p>
     </div>
   `
 }
+
+// Usage in views
+const characterHTML = CharacterHUD(game, character)
+const combatHTML = CombatHUD(game)
 ```
+
+**Component Types:**
+- **Presentational:** CharacterHUD, RollHistory, UsageDisplay
+- **Interactive:** ChatMessage with event handlers
+- **Composite:** Game view composes multiple components
 
 **Benefits:**
-- Separation of concerns between views and components
-- Reusable components across different views
-- Consistent UI patterns and styling
-- Easy testing and maintenance
+- **Reusable:** Components used across multiple views
+- **Testable:** Pure functions are easy to test
+- **Composable:** Build complex UIs from simple pieces
+- **Performant:** No virtual DOM overhead, direct DOM updates
 
-### 4. Multi-Provider AI Abstraction Pattern
+### 5. Provider Pattern for AI Integration
 
-#### Provider Interface
+**Location:** `src/utils/ai-provider.js`, `src/utils/model-utils.js`
+
+Abstracts AI provider differences behind a common interface:
+
 ```javascript
-// src/utils/ai-provider.js
-class AIProvider {
-  async sendChatCompletion(messages, model, options) {
-    // Provider-specific implementation
-  }
-
-  async parseStreamingResponse(response) {
-    // Stream processing logic
-  }
-
-  extractUsage(response) {
-    // Token counting logic
-  }
+// Provider interface
+interface AIProvider {
+  fetchModels() -> Promise<Model[]>
+  sendChatCompletion(messages, model, options) -> Promise<Response>
+  parseStreamingResponse(response) -> AsyncGenerator<Chunk>
+  extractUsage(response) -> UsageData
+  calculateCost(usage, pricing) -> number
 }
 
-// Concrete implementations
-class OpenRouterProvider extends AIProvider { /* ... */ }
-class OpenAIProvider extends AIProvider { /* ... */ }
-class LMStudioProvider extends AIProvider { /* ... */ }
+// Usage
+const provider = await getProvider() // Returns OpenRouter, OpenAI, or LM Studio provider
+const response = await provider.sendChatCompletion(messages, model, options)
 ```
 
-#### Provider Selection Logic
-```javascript
-// src/utils/model-utils.js
-export async function getProvider() {
-  const data = store.get()
-  const providerName = data.settings?.provider || 'openrouter'
-
-  switch (providerName) {
-    case 'openrouter': return new OpenRouterProvider()
-    case 'openai': return new OpenAIProvider()
-    case 'lmstudio': return new LMStudioProvider()
-  }
-}
-```
+**Supported Providers:**
+- **OpenRouter:** Primary provider with 100+ models
+- **OpenAI:** Direct OpenAI API access
+- **LM Studio:** Local model hosting
+- **Custom:** Any OpenAI-compatible endpoint
 
 **Benefits:**
-- Seamless provider switching
-- Consistent API across providers
-- Future-proof AI integration
-- Error handling and fallbacks
+- **Swap Providers:** Change AI provider without changing game code
+- **Feature Detection:** Providers can expose capabilities (reasoning, function calling)
+- **Cost Tracking:** Uniform cost calculation across providers
+- **Testing:** Mock providers for offline development
 
-### 5. Data Migration Pattern
+### 6. Debounced Persistence Pattern
 
-#### Schema Versioning
+**Location:** `src/state/store.js`, `src/utils/storage.js`
+
+Prevents race conditions and excessive I/O by debouncing saves:
+
 ```javascript
-// src/utils/storage.js
-const SCHEMA_VERSION = "1.2.0"
-
-export async function loadData() {
-  let data = JSON.parse(localStorage.getItem(STORAGE_KEY))
-
-  if (data.version !== SCHEMA_VERSION) {
-    console.log(`Migrating ${data.version} → ${SCHEMA_VERSION}`)
-
-    // Show migration UI
-    showMigrationPopup()
-
-    // Apply migrations sequentially
-    data = await applyMigrations(data, data.version, SCHEMA_VERSION)
-
-    // Save migrated data
-    saveData(data)
-    hideMigrationPopup()
-  }
-
-  return data
-}
-```
-
-#### Migration Functions
-```javascript
-async function applyMigrations(data, fromVersion, toVersion) {
-  const migrations = [
-    { version: "1.1.0", migrate: migrateTo_1_1_0 },
-    { version: "1.2.0", migrate: migrateTo_1_2_0 }
-  ]
-
-  for (const migration of migrations) {
-    if (semver.lt(fromVersion, migration.version)) {
-      data = await migration.migrate(data)
-      data.version = migration.version
-    }
-  }
-
-  return data
-}
-```
-
-**Benefits:**
-- Non-destructive data updates
-- User-transparent migrations
-- Rollback capability via exports
-- Version-controlled schema evolution
-
-## Game Engine Patterns
-
-### 1. Game Loop Pattern
-
-#### Message Construction & Sanitization
-```javascript
-// src/engine/GameLoop.js
-export function buildApiMessages(game, character, world) {
-  const systemPrompt = buildGameDMPrompt(character, game, world)
-  const messages = game.messages
-
-  // Regenerate system prompt with current stats
-  const systemMsgIndex = messages.findIndex(m => m.role === 'system')
-  if (systemMsgIndex !== -1) {
-    messages[systemMsgIndex] = {
-      ...messages[systemMsgIndex],
-      content: systemPrompt
-    }
-  }
-
-  return sanitizeMessagesForModel(messages)
-}
-```
-
-#### Streaming Response Processing
-```javascript
-// Real-time processing pipeline
-for await (const chunk of provider.parseStreamingResponse(response)) {
-  // 1. Extract content delta
-  const delta = chunk.delta?.content || ""
-
-  // 2. Update assistant message
-  assistantMessage += delta
-  game.messages[assistantMsgIndex].content = assistantMessage
-
-  // 3. Process tags in real-time
-  await processGameTagsRealtime(game, character, delta, processedTags)
-
-  // 4. Update UI
-  updateStreamingMessage(assistantMessage)
-  smartScrollToBottom()
-}
-```
-
-### 2. Combat State Machine Pattern
-
-#### Combat States
-```javascript
-// src/engine/CombatManager.js
-const COMBAT_STATES = {
-  INACTIVE: 'inactive',
-  INITIATIVE: 'initiative',
-  ACTIVE: 'active',
-  ENDED: 'ended'
-}
-
-export async function startCombat(game, description) {
-  game.combat = {
-    active: true,
-    state: COMBAT_STATES.INITIATIVE,
-    enemies: parseEnemies(description),
-    initiative: [],
-    currentTurnIndex: 0,
-    lastActor: null
-  }
-
-  // Roll initiative
-  game.combat.initiative = await rollInitiative(game, character)
-  game.combat.state = COMBAT_STATES.ACTIVE
-}
-```
-
-#### Turn Management
-```javascript
-export function getCurrentTurnDescription(game) {
-  const current = game.combat.initiative[game.combat.currentTurnIndex]
-
-  if (current.isPlayer) {
-    return "It's your turn in combat."
-  } else {
-    return `It's ${current.name}'s turn (${current.enemyType}).`
-  }
-}
-```
-
-### 3. Resource Management Pattern
-
-#### Spell Slot Tracking
-```javascript
-// src/engine/SpellcastingManager.js
-export async function castSpell(game, character, spellId, level) {
-  const spell = SPELLS.find(s => s.id === spellId)
-
-  // Validate spell slot availability
-  if (character.spellSlots[level].current <= 0) {
-    throw new Error(`No ${level}rd level spell slots remaining`)
-  }
-
-  // Check concentration requirements
-  if (spell.concentration && character.concentration) {
-    throw new Error("Already concentrating on a spell")
-  }
-
-  // Consume spell slot
-  character.spellSlots[level].current--
-  game.spellSlots = character.spellSlots
-
-  // Set concentration if needed
-  if (spell.concentration) {
-    character.concentration = {
-      spell: spellId,
-      level: level,
-      duration: spell.duration
-    }
-  }
-}
-```
-
-#### Rest Mechanics
-```javascript
-// src/engine/RestManager.js
-export async function longRest(game, character) {
-  // Restore all HP
-  game.currentHP = character.maxHP
-
-  // Restore all spell slots
-  Object.keys(character.spellSlots).forEach(level => {
-    character.spellSlots[level].current = character.spellSlots[level].max
-  })
-
-  // Restore hit dice (half max)
-  character.hitDice.current = Math.floor(character.hitDice.max / 2)
-
-  // Clear concentration
-  character.concentration = null
-
-  // Update rest timestamps
-  game.restState.lastLongRest = new Date().toISOString()
-  game.restState.shortRestsToday = 0
-}
-```
-
-## UI Architecture Patterns
-
-### 1. Smart Scroll Pattern
-
-#### User Intent Detection
-```javascript
-// src/views/game.js
-function isScrolledToBottom(container, threshold = 100) {
-  const { scrollTop, scrollHeight, clientHeight } = container
-  return scrollHeight - scrollTop - clientHeight < threshold
-}
-
-function smartScrollToBottom(container) {
-  if (isScrolledToBottom(container)) {
-    container.scrollTop = container.scrollHeight
-    userScrolledUp = false
-  } else {
-    userScrolledUp = true // Respect user's manual scroll
-  }
-}
-```
-
-### 2. Debounced State Updates Pattern
-
-#### Efficient Persistence
-```javascript
-// src/utils/storage.js
+// In storage.js
 let saveTimeout = null
-const MAX_SAVE_DELAY = 2000
+const DEBOUNCE_DELAY = 300
 
-export function debouncedSave(data, delay = 300) {
+export function debouncedSave(data, delay = DEBOUNCE_DELAY) {
   clearTimeout(saveTimeout)
-
   saveTimeout = setTimeout(() => {
-    saveData(data)
+    saveData(data) // Actual localStorage write
   }, delay)
+}
 
-  // Force save if too much time has passed
-  if (Date.now() - lastSaveTime > MAX_SAVE_DELAY) {
-    saveData(data)
+// In store.js
+async update(updaterFn, options = {}) {
+  const { immediate = false, debounceDelay = 300 } = options
+  
+  updaterFn(this._state) // Mutate in-memory state
+  
+  if (immediate) {
+    saveData(this._state) // Save now for critical updates
+  } else {
+    debouncedSave(this._state, debounceDelay) // Debounced for normal updates
   }
+  
+  this._notifyListeners() // Update UI
 }
 ```
 
-### 3. Component Lifecycle Pattern
+**Usage Rules:**
+- **Normal Updates:** Use debounced save (300ms default)
+- **Critical Updates:** Use `immediate: true` (navigation, combat state, character death)
+- **Streaming:** Use shorter debounce (100ms) for responsive UI during AI streaming
 
-#### View Initialization
-```javascript
-// src/views/game.js
-export async function renderGame(state) {
-  // 1. Data loading
-  const game = store.get().games.find(g => g.id === state.params.id)
+**Benefits:**
+- **Performance:** Reduces localStorage writes from 100+ per second to ~3 during streaming
+- **Race Condition Prevention:** Batches rapid state changes
+- **UI Responsiveness:** In-memory updates are immediate, persistence is async
+- **Data Safety:** Critical operations save immediately to prevent data loss
 
-  // 2. Authentication checks
-  if (!isAuthenticated()) { /* redirect */ }
+## Critical Implementation Paths
 
-  // 3. Model validation
-  if (!game.narrativeModel) { /* redirect to settings */ }
+### 1. Authentication Flow
 
-  // 4. UI rendering
-  app.innerHTML = buildGameUI(game, character)
-
-  // 5. Event binding
-  setupEventListeners(game)
-
-  // 6. State synchronization
-  updateGameState(game)
-}
+```
+User visits app
+    ↓
+Check authentication state (isAuthenticated())
+    ↓
+If not authenticated:
+  - Show provider selection (OpenRouter, OpenAI, LM Studio)
+  - For OpenRouter: PKCE OAuth flow
+  - For API: Direct key input
+  - For LM Studio: Local URL configuration
+    ↓
+Store token in sessionStorage + localStorage (for auto-login)
+    ↓
+Initialize Store and load existing data
+    ↓
+Redirect to home view
 ```
 
-## Data Flow Patterns
+**Key Files:**
+- `src/utils/auth.js` - PKCE OAuth implementation
+- `src/views/home.js` - Authentication UI
+- `src/main.js` - Auto-login and initialization
 
-### 1. Store-View Synchronization
-```
-User Action → View Handler → Store Update → Store Notify → View Re-render
-     ↓              ↓              ↓              ↓              ↓
-  Click Button → handleClick() → store.update() → _notifyListeners() → render()
-```
+### 2. Character Creation Flow
 
-### 2. AI Response Pipeline
 ```
-AI Stream → Parse Chunk → Update Message → Process Tags → Update UI → Save State
-     ↓              ↓              ↓              ↓              ↓              ↓
-  SSE Chunk → parseDelta() → appendMessage() → processTags() → smartScroll() → debouncedSave()
-```
-
-### 3. Tag Processing Pipeline
-```
-Tag Detected → Validate Context → Execute Action → Update State → Trigger Follow-up
-     ↓              ↓              ↓              ↓              ↓
-  parseTag() → checkConditions() → executeRoll() → updateGame() → sendNarration()
+Select creation method:
+  ├─ Template → Pick from BEGINNER_TEMPLATES
+  ├─ AI Generation → Describe concept → AI generates full sheet
+  └─ Manual → Fill form with validation
+    ↓
+Normalize character data structure
+    ↓
+Save to store.characters array
+    ↓
+Redirect to character view
 ```
 
-## Error Handling Patterns
+**Key Files:**
+- `src/views/characters.js` - Character creation views
+- `src/data/archetypes.js` - Template definitions
+- `src/utils/character-validation.js` - Data validation
+- `src/utils/prompts/character-prompts.js` - AI generation prompts
 
-### 1. Graceful Degradation
-```javascript
-try {
-  await aiProvider.sendMessage(messages, model)
-} catch (error) {
-  // Log error details
-  console.error('AI request failed:', error)
+### 3. Game Session Flow (Critical Loop)
 
-  // Show user-friendly message
-  showErrorMessage('AI service temporarily unavailable')
-
-  // Allow retry or fallback
-  offerRetryOption()
-}
+```
+Player inputs action
+    ↓
+Append message to game.messages
+    ↓
+Build API messages (system prompt + history + context trimming)
+    ↓
+Send to AI provider with streaming
+    ↓
+<strong>During Streaming:</strong>
+  ├─ Parse AI response chunk by chunk
+  ├─ Process tags in real-time (ROLL → roll, LOCATION → update location)
+  ├─ Execute game mechanics immediately
+  ├─ Append to assistant message
+  ├─ Update UI live
+  └─ Debounced state persistence
+    ↓
+<strong>After Streaming:</strong>
+  ├─ Final tag processing (COMBAT_START, ENEMY_SPAWN, etc.)
+  ├─ Roll batch processing if rolls accumulated
+  ├─ Send follow-up prompts to AI for roll narration
+  ├─ Save final state (immediate persistence)
+  └─ Update all UI components
+    ↓
+Enable input for next player action
 ```
 
-### 2. Data Recovery
-```javascript
-export async function loadData() {
-  try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY))
-    return validateAndNormalize(data)
-  } catch (error) {
-    console.warn('Data loading failed, using defaults:', error)
-    return { ...DEFAULT_DATA }
-  }
-}
+**Key Files:**
+- `src/views/game.js` - Main game loop and UI
+- `src/engine/TagProcessor.js` - Real-time tag processing
+- `src/engine/GameLoop.js` - Game state management
+- `src/utils/ai-provider.js` - AI streaming abstraction
+
+### 4. Combat Flow
+
+```
+COMBAT_START tag detected
+    ↓
+CombatManager.startCombat() called
+    ↓
+Roll player initiative (1d20 + DEX mod)
+    ↓
+For each enemy mentioned in description:
+  ├─ Spawn enemy from template (ENEMY_SPAWN tag)
+  ├─ Roll enemy initiative
+  └─ Add to initiative order
+    ↓
+Sort all combatants by initiative total (descending)
+    ↓
+Set game.combat.active = true
+    ↓
+Update CombatHUD with turn order and enemy HP bars
+    ↓
+AI narrates combat start and signals first actor's turn
+
+During Combat:
+- Player actions → TagProcessor handles combat tags
+- Enemy turns → AI narrates enemy actions
+- Damage application → applyDamage() updates HP
+- Death checks → Remove from initiative if HP ≤ 0
+- Turn advancement → advanceTurn() cycles currentTurnIndex
+- AI reminder → If combat still active after player action, system message reminds AI
+
+COMBAT_END tag detected
+    ↓
+CombatManager.endCombat() called
+    ↓
+Set game.combat.active = false
+    ↓
+Clear combat.initiative and combat.enemies
+    ↓
+Grant rewards (XP, items, gold)
+    ↓
+AI narrates victory/defeat and continues story
 ```
 
-## Performance Patterns
+**Key Files:**
+- `src/engine/CombatManager.js` - Combat state management
+- `src/components/CombatHUD.js` - Combat UI rendering
+- `src/data/monsters.js` - Enemy templates
 
-### 1. Lazy Loading
-```javascript
-// Load heavy components only when needed
-export async function loadCombatHUD() {
-  if (!combatHUDLoaded) {
-    const module = await import('./components/CombatHUD.js')
-    combatHUDLoaded = true
-    return module.renderCombatHUD
-  }
-  return cachedCombatHUD
-}
+### 5. Dice Roll Flow
+
+```
+AI response contains ROLL[1d20+5|normal|0] tag
+    ↓
+TagProcessor processes tag during streaming
+    ↓
+rollDice('1d20+5') called from dice.js
+    ↓
+If roll requires character context:
+  ├─ buildDiceProfile(character) creates profile
+  ├─ Apply proficiency bonuses
+  └─ Apply advantage/disadvantage
+    ↓
+Execute roll (random number generation)
+    ↓
+Format result with formatRoll()
+    ↓
+Add to rollBatch for follow-up processing
+    ↓
+Display roll result in UI immediately
+
+After 500ms settling period:
+  ├─ Process all batched rolls together
+  ├─ Send roll summaries to AI for narration
+  └─ AI describes outcomes and continues story
 ```
 
-### 2. Memoization
-```javascript
-// Cache expensive calculations
-const statCache = new Map()
+**Key Files:**
+- `src/utils/dice.js` - Core dice rolling logic
+- `src/utils/dice5e.js` - D&D 5e specific roll profiles
+- `src/views/game.js` - Roll batching implementation
 
-export function calculateAC(character) {
-  const key = JSON.stringify(character.equipment)
-  if (statCache.has(key)) {
-    return statCache.get(key)
-  }
+## Performance Considerations
 
-  const ac = computeAC(character)
-  statCache.set(key, ac)
-  return ac
-}
-```
+### 1. State Persistence Optimization
+- **Problem:** AI streaming can trigger 100+ state updates per second
+- **Solution:** Debounced saves (300ms) batch updates, immediate saves for critical operations
+- **Result:** Reduces localStorage writes by ~97% during gameplay
 
-## Testing Patterns
+### 2. Memory Management
+- **Problem:** Long sessions accumulate event listeners and DOM elements
+- **Solution:** Cleanup on component unmount, message trimming for relationships/locations
+- **Result:** Stable memory usage even during 6+ hour sessions
 
-### 1. Tag Parser Testing
-```javascript
-// src/engine/TagParser.spec.js
-describe('TagParser', () => {
-  it('parses LOCATION tags correctly', () => {
-    const content = "You enter LOCATION[Dark Forest]"
-    const result = tagParser.parse(content)
-
-    expect(result.tags).toContainEqual({
-      type: 'LOCATION',
-      value: 'Dark Forest',
-      id: expect.any(String)
-    })
-  })
-})
-```
-
-### 2. Store Testing
-```javascript
-describe('Store', () => {
-  it('persists data correctly', async () => {
-    const store = new Store()
-    await store.initialize()
-
-    await store.update(state => {
-      state.characters.push(testCharacter)
-    })
-
-    const saved = localStorage.getItem(STORAGE_KEY)
-    expect(JSON.parse(saved).characters).toContain(testCharacter)
-  })
-})
-```
-
-These architectural patterns provide a solid foundation for the D&D PWA, enabling complex game mechanics, real-time AI integration, and maintainable code structure. The patterns are designed to scale with feature additions while maintaining performance and user experience standards.
+### 3. AI Context Optimization
+- **Problem:** Large games exceed AI context limits

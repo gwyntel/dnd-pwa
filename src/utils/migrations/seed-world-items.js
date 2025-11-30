@@ -1,5 +1,5 @@
-import store from "../state/store.js"
-import { seedWorldItems, worldNeedsSeeding } from "../utils/seed-items.js"
+import store from "../../state/store.js"
+import { seedWorldItems, worldNeedsSeeding } from "../seed-items.js"
 
 /**
  * Migration: Seed all worlds with essential items

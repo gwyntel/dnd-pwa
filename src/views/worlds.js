@@ -6,6 +6,7 @@
 import { getProvider } from "../utils/model-utils.js"
 import { WORLD_TEMPLATES } from "../data/worlds.js"
 import store from "../state/store.js"
+import { seedWorldItems, worldNeedsSeeding } from "../utils/seed-items.js"
 
 let editingWorldId = null
 
@@ -942,6 +943,12 @@ function saveWorld(existingWorldId = null, monsters = [], items = []) {
         createdAt: new Date().toISOString(),
         isDefault: false,
       }
+
+      // Seed with essential items if empty
+      if (worldNeedsSeeding(newWorld)) {
+        seedWorldItems(newWorld)
+      }
+
       data.worlds.push(newWorld)
     }
   })

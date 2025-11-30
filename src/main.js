@@ -10,6 +10,7 @@ import { renderSettings } from "./views/settings.js"
 import { migrateMonsters } from "./utils/migrations/backfill-monsters.js"
 import { migrateInventoryV2 } from "./utils/migrations/convert-inventory-v2.js"
 import { migrateMechanicsFields } from "./utils/migrations/add-mechanics-fields.js"
+import { seedWorldsWithItems } from "./utils/migrations/seed-world-items.js"
 
 // Run migrations
 // migrateMonsters() called in init() after store is ready
@@ -39,6 +40,7 @@ async function init() {
   migrateMonsters()
   migrateInventoryV2()
   migrateMechanicsFields()
+  seedWorldsWithItems()
 
   // Try auto-login from environment variable
   autoLogin()

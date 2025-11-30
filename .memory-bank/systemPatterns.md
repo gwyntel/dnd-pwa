@@ -87,9 +87,25 @@ await store.update(state => {
 const unsubscribe = store.subscribe(newState => {
   // Re-render UI
 })
-```
 
-### 2. Tag-Driven Game Mechanics
+//## Core Architectural Patterns
+
+### 2. Migrations & Versioning
+
+**Location:** `src/utils/migrations/`, `src/main.js`
+
+The app uses a migration system to keep data schemas up to date:
+
+1. **Migration Scripts**: Located in `src/utils/migrations/`, each handles a specific schema change.
+2. **Auto-Run on Init**: All migrations are called in `main.js` during app initialization.
+3. **Idempotent**: Migrations check existing state and only apply changes if needed.
+4. **Examples**:
+   - `backfill-monsters.js`: Adds default monster templates to worlds
+   - `convert-inventory-v2.js`: Migrates string-based inventory to object-based
+   - `add-mechanics-fields.js`: Adds `tempHP`, `resistances`, etc. to characters/enemies
+   - `seed-world-items.js`: Seeds worlds with essential items from `ITEMS` database
+
+### 3. Tag-Driven Mechanics
 
 **Location:** `src/engine/TagProcessor.js`, `src/data/tags.js`
 
@@ -155,14 +171,21 @@ A centralized engine enforces D&D 5e rules, ensuring mathematical correctness re
 
 ### 4. Dynamic Content Generation (Backfilling)
 
-**Location:** `src/engine/ItemGenerator.js`, `src/engine/MonsterGenerator.js`
+**Location:** `src/engine/ItemGenerator.js`, `src/engine/MonsterGenerator.js`, `src/utils/seed-items.js`
 
-Handles the "Lazy Loading" of game content using AI. When the game encounters a reference to an entity (Item or Monster) that doesn't exist in the static database:
+Handles the "Lazy Loading" of game content using AI. The system uses a hybrid approach with **seed items** and **dynamic generation**:
 
-1.  **Detection**: `TagProcessor` or `CombatManager` identifies a missing ID.
+**Seed Items (Static)**:
+- ~25 essential items (Longsword, Leather Armor, Healing Potion, etc.) stored in `ITEMS` database
+- Automatically seeded into all worlds via `seedWorldItems()` migration
+- Instant equip/use (no generation delay)
+
+**Dynamic Backfilling (Novel Items/Monsters)**:
+1.  **Detection**: `TagProcessor` or `CombatManager` identifies a missing ID not in seed list.
 2.  **Placeholder**: A placeholder entity is immediately created to prevent blocking the game loop.
 3.  **Generation**: An async AI request is triggered to generate the entity's stats based on its name and world context.
 4.  **Update**: Once generated, the store is updated, and the entity's stats are applied live (e.g., updating a combatant's HP/AC or an item's effects).
+5.  **Persistence**: Generated items are saved to `world.items` or `world.monsters` to avoid re-generation.
 
 ### 5. Roll Batching System
 

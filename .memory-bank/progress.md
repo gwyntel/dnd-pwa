@@ -38,13 +38,15 @@
   - Updated `TagProcessor.js` with new tag handlers
   - Implemented `EffectsEngine.js` and `EquipmentManager.js` for passive item effects
   - Implemented `ItemGenerator.js` and `MonsterGenerator.js` for dynamic backfilling
+  - Created `seed-items.js` utility to auto-seed worlds with ~25 essential items
+  - Trimmed `items.js` from 50+ items to 25 essential seed items (removed magic items)
   - Updated `tags.js`, `items.js`, `monsters.js` with new data
   - Enhanced `CharacterHUD` and `CombatHUD` to display new stats
-  - Created `add-mechanics-fields.js` migration script
-- **Testing**: Verified damage types, resistance/immunity, temp HP, passive item effects, and dynamic generation flows
+  - Created `add-mechanics-fields.js` and `seed-world-items.js` migration scripts
+- **Testing**: Verified damage types, resistance/immunity, temp HP, passive item effects, dynamic generation flows, and seed items migration
 - **Issues**: None
-- **Commit**: Completed Mechanics Engine, Passive Effects, and Dynamic Backfilling
-- **Notes**: The engine now correctly handles complex D&D 5e mechanics. Additionally, the system now supports "Lazy Loading" of novel items and monsters via AI generation.
+- **Commit**: Completed Mechanics Engine, Passive Effects, Dynamic Backfilling, and Seed Items
+- **Notes**: The engine now correctly handles complex D&D 5e mechanics. The system now supports "Lazy Loading" of novel items and monsters via AI generation, with a hybrid approach using seed items for common gear and dynamic generation for unique/magical items.
 
 ## Next Actions Required
 1. Monitor user feedback

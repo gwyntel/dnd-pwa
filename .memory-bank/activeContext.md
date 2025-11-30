@@ -32,6 +32,7 @@ The focus was on implementing the **Mechanics Engine** to enforce D&D 5e rules a
 5. **Dynamic Content Generation (Backfilling)**
    - **ItemGenerator.js:** Background generation of stats/effects for novel items.
    - **MonsterGenerator.js:** Background generation of stat blocks for novel enemies.
+   - **seed-items.js:** Auto-seeds worlds with ~25 essential items from `ITEMS` database.
    - **Integration:** Seamlessly integrated into `TagProcessor` and `CombatManager`.
 
 6. **Verification**
@@ -39,6 +40,7 @@ The focus was on implementing the **Mechanics Engine** to enforce D&D 5e rules a
    - Verified passive item effects (equip/unequip).
    - Verified AI awareness of system messages.
    - Verified Item and Monster backfilling flows.
+   - Verified seed items migration and world initialization.
 
 ## Next Steps
 

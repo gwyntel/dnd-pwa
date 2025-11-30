@@ -30,7 +30,10 @@ SCHEMA (ALL KEYS REQUIRED, ONLY THESE KEYS WILL BE USED BY THE APP):
   "hitDice": string,                 // e.g. "1d10", "5d8"
   "skills": string,                  // SINGLE comma-separated line, e.g. "Athletics, Perception, Stealth"
   "features": string,                // SINGLE comma-separated line, e.g. "Darkvision, Second Wind, Sneak Attack"
-  "backstory": string                // REQUIRED. 2-6 sentences plain text, not empty
+  "backstory": string,               // REQUIRED. 2-6 sentences plain text, not empty
+  "resistances": [string],           // OPTIONAL. Array of damage types e.g. ["fire", "poison"]
+  "immunities": [string],            // OPTIONAL. Array of damage types
+  "vulnerabilities": [string]        // OPTIONAL. Array of damage types
 }
 
 RULES:
@@ -39,7 +42,7 @@ RULES:
   - ONLY the keys in the schema above will be used by the app.
   - DO NOT add nested objects like "abilities", "combat", "spells", "equipment", "personality", etc.
   - DO NOT add extra top-level keys beyond:
-    - name, race, class, level, stats, maxHP, armorClass, speed, hitDice, skills, features, backstory.
+    - name, race, class, level, stats, maxHP, armorClass, speed, hitDice, skills, features, backstory, resistances, immunities, vulnerabilities.
   - If you want to express:
     - Personality, ideals, bonds, flaws, quirks, insanity, appearance, etc:
       - Fold them into the "backstory" field as plain text.
@@ -85,6 +88,7 @@ OUTPUT EXAMPLE (STRICTLY FOLLOW FORMAT, BUT CHANGE CONTENT):
   "hitDice": "5d10",
   "skills": "Athletics, Intimidation, Persuasion, Religion",
   "features": "Darkvision, Lay on Hands, Divine Sense, Fire Resistance, Flame Channel, Extra Attack",
+  "resistances": ["fire"],
   "backstory": "Born in the ashes of a holy war, Seris swore to wield her inner flame in defense of the helpless. She travels from village to village, hunting fiends and tyrants who would burn the world for their own gain. Though her power is terrifying, she tempers it with compassion and an unshakable code of honor."
 }`
 
@@ -127,7 +131,10 @@ SCHEMA (ALL KEYS REQUIRED, ONLY THESE KEYS WILL BE USED BY THE APP):
   "hitDice": string,                 // MUST be "NdX" format: 1d4, 1d6, 1d8, 1d10, 1d12, etc.
   "skills": string,                  // SINGLE comma-separated line
   "features": string,                // SINGLE comma-separated line
-  "backstory": string                // 2-6 sentences plain text
+  "backstory": string,               // 2-6 sentences plain text
+  "resistances": [string],           // OPTIONAL
+  "immunities": [string],            // OPTIONAL
+  "vulnerabilities": [string]        // OPTIONAL
 }
 
 OUTPUT EXAMPLE:
@@ -151,5 +158,6 @@ OUTPUT EXAMPLE:
   "hitDice": "3d10",
   "skills": "Athletics, Insight, Perception",
   "features": "Second Wind, Fighting Style, Action Surge",
+  "resistances": ["poison"],
   "backstory": "A battle-hardened dwarf warrior with a vendetta against goblin slavers."
 }`

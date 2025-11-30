@@ -128,6 +128,18 @@ export function normalizeCharacter(character) {
           isPreparationCaster: false, // Wizard/Cleric vs Sorcerer/Bard
           cantripsKnown: 0
         },
+
+    // Mechanics Engine Fields
+    tempHP: typeof character.tempHP === 'number' ? character.tempHP : 0,
+    resistances: Array.isArray(character.resistances) ? character.resistances : [],
+    immunities: Array.isArray(character.immunities) ? character.immunities : [],
+    vulnerabilities: Array.isArray(character.vulnerabilities) ? character.vulnerabilities : [],
+    attunedItems: Array.isArray(character.attunedItems) ? character.attunedItems : [],
+    actionEconomy: character.actionEconomy || {
+      action: { used: false },
+      bonusAction: { used: false },
+      reaction: { used: false }
+    }
   }
 }
 

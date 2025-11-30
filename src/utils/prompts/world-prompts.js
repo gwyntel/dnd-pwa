@@ -116,6 +116,9 @@ export const WORLD_GEN_STEP_3_SCHEMA = {
               cha: { type: "integer" },
             },
           },
+          resistances: { type: "array", items: { type: "string" } },
+          immunities: { type: "array", items: { type: "string" } },
+          vulnerabilities: { type: "array", items: { type: "string" } },
           actions: {
             type: "array",
             items: {
@@ -146,6 +149,7 @@ You MUST:
 - Generate 10-15 monsters that fit the theme.
 - **id**: Unique slug (e.g., "forest_goblin").
 - **stats**: 5e compatible values.
+- **resistances/immunities/vulnerabilities**: Optional arrays of damage types (e.g., ["fire", "bludgeoning"]).
 - **actions**: At least 1 action per monster.
 - Mix of CR 0-5+.
 `

@@ -3,6 +3,12 @@
  * Used to minimize token usage in prompts while maintaining functionality
  */
 
+export const DAMAGE_TYPES = [
+  "acid", "bludgeoning", "cold", "fire", "force",
+  "lightning", "necrotic", "piercing", "poison",
+  "psychic", "radiant", "slashing", "thunder"
+];
+
 export const TAG_REFERENCE = {
   LOCATION: {
     pattern: "LOCATION[location_name]",
@@ -46,12 +52,66 @@ export const TAG_REFERENCE = {
     note: "Explicit combat closure. Alternative: omit COMBAT_CONTINUE."
   },
   DAMAGE: {
-    pattern: "DAMAGE[target|amount]",
+    pattern: "DAMAGE[target|amount|type]",
     examples: [
-      "Goblin arrow hits! DAMAGE[player|4]",
-      "Fire burns you. DAMAGE[player|8]"
+      "Goblin arrow hits! DAMAGE[player|4|piercing]",
+      "Fire burns you. DAMAGE[player|8|fire]",
+      "Generic damage. DAMAGE[player|5]"
     ],
-    required: true
+    required: true,
+    note: "Type is optional but recommended. Valid types: acid, bludgeoning, cold, fire, force, lightning, necrotic, piercing, poison, psychic, radiant, slashing, thunder."
+  },
+  TEMP_HP: {
+    pattern: "TEMP_HP[target|amount]",
+    examples: [
+      "Ancient ward activates. TEMP_HP[player|10]",
+      "Aid spell grants vigor. TEMP_HP[player|5]"
+    ],
+    required: false,
+    note: "Temporary HP doesn't stack. Use higher value if target already has temp HP."
+  },
+  APPLY_RESISTANCE: {
+    pattern: "APPLY_RESISTANCE[target|type]",
+    examples: [
+      "Fire resistance granted. APPLY_RESISTANCE[player|fire]",
+      "Spell protects from cold. APPLY_RESISTANCE[player|cold]"
+    ],
+    required: false
+  },
+  REMOVE_RESISTANCE: {
+    pattern: "REMOVE_RESISTANCE[target|type]",
+    examples: [
+      "Resistance fades. REMOVE_RESISTANCE[player|fire]"
+    ],
+    required: false
+  },
+  APPLY_IMMUNITY: {
+    pattern: "APPLY_IMMUNITY[target|type]",
+    examples: [
+      "Poison immunity granted. APPLY_IMMUNITY[player|poison]"
+    ],
+    required: false
+  },
+  REMOVE_IMMUNITY: {
+    pattern: "REMOVE_IMMUNITY[target|type]",
+    examples: [
+      "Immunity fades. REMOVE_IMMUNITY[player|poison]"
+    ],
+    required: false
+  },
+  APPLY_VULNERABILITY: {
+    pattern: "APPLY_VULNERABILITY[target|type]",
+    examples: [
+      "Curse makes you vulnerable to fire. APPLY_VULNERABILITY[player|fire]"
+    ],
+    required: false
+  },
+  REMOVE_VULNERABILITY: {
+    pattern: "REMOVE_VULNERABILITY[target|type]",
+    examples: [
+      "Curse lifted. REMOVE_VULNERABILITY[player|fire]"
+    ],
+    required: false
   },
   HEAL: {
     pattern: "HEAL[target|amount]",

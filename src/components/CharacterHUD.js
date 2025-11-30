@@ -41,6 +41,7 @@ export function CharacterHUD(game, character) {
 
     ${renderHPBar(character, game)}
     ${renderXPBar(character)}
+    ${renderDefenses(character)}
 
     ${renderDeathSaves(game)}
     
@@ -296,14 +297,39 @@ function renderHPBar(character, game) {
     <div class="stat-bar mt-2">
       <div class="flex justify-between mb-1">
         <span style="font-weight: 500;">HP</span>
-        <span>${currentHP}/${maxHP}</span>
+        <span>
+          ${currentHP}/${maxHP}
+          ${character.tempHP > 0 ? `<span class="text-blue-400">(+${character.tempHP})</span>` : ''}
+        </span>
       </div>
-      <div class="progress-bar progress-bar-lg">
+      <div class="progress-bar progress-bar-lg" style="position: relative;">
         <div
           class="progress-fill"
           style="width: ${pct}%; background-color: ${color};"
         ></div>
+        ${character.tempHP > 0 ? `
+          <div 
+            class="progress-fill" 
+            style="width: ${Math.min(100, (character.tempHP / maxHP) * 100)}%; background-color: #60a5fa; opacity: 0.7; position: absolute; top: 0; left: 0; z-index: 1;"
+          ></div>
+        ` : ''}
       </div>
+    </div>
+  `
+}
+
+function renderDefenses(character) {
+  const resistances = character.resistances || []
+  const immunities = character.immunities || []
+  const vulnerabilities = character.vulnerabilities || []
+
+  if (!resistances.length && !immunities.length && !vulnerabilities.length) return ''
+
+  return `
+    <div class="defenses mt-2 text-xs">
+      ${immunities.length ? `<div class="text-green-400">🛡️ Immune: ${immunities.join(", ")}</div>` : ''}
+      ${resistances.length ? `<div class="text-blue-400">🛡️ Resist: ${resistances.join(", ")}</div>` : ''}
+      ${vulnerabilities.length ? `<div class="text-red-400">💔 Vuln: ${vulnerabilities.join(", ")}</div>` : ''}
     </div>
   `
 }

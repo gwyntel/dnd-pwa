@@ -6,6 +6,7 @@
 import { rollDice, formatRoll } from "../utils/dice.js"
 import { buildDiceProfile } from "../utils/dice5e.js"
 import { MONSTERS } from "../data/monsters.js"
+import { generateMonster } from "./MonsterGenerator.js"
 
 /**
  * Initialize combat state for a game
@@ -165,15 +166,22 @@ export function spawnEnemy(game, world, monsterId, nameOverride = null) {
     template = MONSTERS[monsterId] || Object.values(MONSTERS).find(m => m.name.toLowerCase() === monsterId.toLowerCase())
   }
 
-  // 3. Fallback Generic
+  // 3. Fallback Generic & Generation
   if (!template) {
+    // Trigger generation for novel monsters (if it looks like a specific ID)
+    // Avoid generating for "generic" or simple names unless they seem unique
+    if (monsterId !== "generic" && monsterId.length > 3) {
+      generateMonster(monsterId, world, game).catch(err => console.error(err))
+    }
+
     template = {
-      id: "generic",
-      name: nameOverride || "Enemy",
+      id: monsterId, // Use the requested ID so we can link it later
+      name: nameOverride || monsterId, // Use ID as name if no override
       hp: 10,
       ac: 10,
       stats: { dex: 10 },
-      actions: []
+      actions: [],
+      needsGeneration: true // Mark as pending
     }
   }
 
@@ -195,7 +203,11 @@ export function spawnEnemy(game, world, monsterId, nameOverride = null) {
     hp: { current: hpMax, max: hpMax },
     ac: template.ac || 10,
     stats: template.stats || { dex: 10 },
-    conditions: []
+    conditions: [],
+    resistances: template.resistances || [],
+    immunities: template.immunities || [],
+    vulnerabilities: template.vulnerabilities || [],
+    tempHP: 0
   }
 
   game.combat.enemies.push(enemy)

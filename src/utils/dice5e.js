@@ -244,12 +244,22 @@ export function rollAttack(character, attackIdOrName, options = {}, world = null
   const targetAC = typeof options.targetAC === "number" ? options.targetAC : null
   const hit = targetAC != null ? toHitCore.total >= targetAC : null
 
+  // Check for critical hit (natural 20)
+  const isCrit = toHitCore.rolls && toHitCore.rolls[0] === 20
+
   let damageResult = null
   if (hit !== false && typeof attack.damage === "string" && attack.damage.trim()) {
+    let damageNotation = attack.damage.trim()
+
+    // Apply critical hit: double damage dice
+    if (isCrit) {
+      damageNotation = doubleDamageDice(damageNotation)
+    }
+
     const damageCore = roll({
-      ...parseDamageNotation(attack.damage.trim()),
+      ...parseDamageNotation(damageNotation),
       rollType: "attack",
-      label: `${attack.name} damage`,
+      label: `${attack.name} damage${isCrit ? " (CRIT!)" : ""}`,
     })
 
     damageResult = {
@@ -258,6 +268,7 @@ export function rollAttack(character, attackIdOrName, options = {}, world = null
       key: `${attack.id || attack.name}_damage`,
       dc: null,
       success: null,
+      isCrit
     }
   }
 
@@ -272,6 +283,18 @@ export function rollAttack(character, attackIdOrName, options = {}, world = null
     },
     damage: damageResult,
   }
+}
+
+/**
+ * Double damage dice for critical hits (not modifiers)
+ * "1d8+3" -> "2d8+3"
+ * "2d6+5" -> "4d6+5"
+ */
+function doubleDamageDice(notation) {
+  if (!notation) return notation
+  return notation.replace(/(\d+)d(\d+)/g, (match, count, sides) => {
+    return `${parseInt(count) * 2}d${sides}`
+  })
 }
 
 // ... (parseDamageNotation remains unchanged)

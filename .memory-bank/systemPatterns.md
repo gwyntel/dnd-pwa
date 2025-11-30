@@ -21,6 +21,7 @@ The D&D PWA follows a **modular engine-based architecture** with clear separatio
 │                    Engine Layer                              │
 │  GameLoop  TagProcessor  CombatManager  Spellcasting        │
 │  RestManager  EquipmentManager  EffectsEngine  TagParser     │
+│  MechanicsEngine (New)                                      │
 └─────────────────────────────────────────────────────────────┘
                                    │
 ┌─────────────────────────────────────────────────────────────┐
@@ -110,18 +111,21 @@ COMBAT_START[Goblin ambush!]        → Initialize combat system
 ENEMY_SPAWN[goblin]                 → Spawn enemy from template
 COMBAT_END[Victory]                 → End combat, grant rewards
 
+// Damage & Healing (MechanicsEngine)
+DAMAGE[player|10|fire]              → Apply damage (checks resistance)
+HEAL[player|5]                      → Restore HP
+TEMP_HP[player|10]                  → Grant temporary HP
+
+// Status & Effects
+APPLY_RESISTANCE[player|fire]       → Grant resistance
+REMOVE_RESISTANCE[player|fire]      → Remove resistance
+APPLY_IMMUNITY[player|poison]       → Grant immunity
+APPLY_VULNERABILITY[player|cold]    → Grant vulnerability
+
 // Items & Currency
-ITEM_ADD[Potion of Healing]         → Add item to inventory
-ITEM_REMOVE[Potion]                 → Remove item
-XP_GAIN[100]                        → Add XP to character
-GOLD_ADD[25]                        → Add gold pieces
-
-// Status effects
-STATUS_ADD[Poisoned]                → Apply condition
-STATUS_REMOVE[Poisoned]             → Remove condition
-
-// Relationships
-RELATIONSHIP_ADD[Blacksmith|2]      → Increase NPC relationship
+INVENTORY_ADD[Potion of Healing|1]  → Add item
+INVENTORY_EQUIP[Ring of Fire Res]   → Equip item (triggers passive effects)
+GOLD_CHANGE[25]                     → Add/remove gold
 ```
 
 **Processing Flow:**
@@ -137,7 +141,30 @@ RELATIONSHIP_ADD[Blacksmith|2]      → Increase NPC relationship
 - **Safe:** TagParser sanitizes content to prevent injection attacks
 - **Real-time:** Mechanics execute during streaming for immediate feedback
 
-### 3. Roll Batching System
+### 3. Mechanics Engine & Passive Effects
+
+**Location:** `src/engine/MechanicsEngine.js`, `src/engine/EffectsEngine.js`
+
+A centralized engine enforces D&D 5e rules, ensuring mathematical correctness regardless of AI narration.
+
+- **MechanicsEngine:** Handles damage calculations (resistance/vulnerability), temp HP rules, and concentration checks.
+- **EffectsEngine:** Manages passive effects from items. When an item is equipped via `INVENTORY_EQUIP`, the engine:
+    1. Looks up the item's effects (e.g., `APPLY_RESISTANCE[player|fire]`).
+    2. Generates corresponding tags to apply the effect.
+    3. When unequipped, generates inverse tags (e.g., `REMOVE_RESISTANCE`) to clean up.
+
+### 4. Dynamic Content Generation (Backfilling)
+
+**Location:** `src/engine/ItemGenerator.js`, `src/engine/MonsterGenerator.js`
+
+Handles the "Lazy Loading" of game content using AI. When the game encounters a reference to an entity (Item or Monster) that doesn't exist in the static database:
+
+1.  **Detection**: `TagProcessor` or `CombatManager` identifies a missing ID.
+2.  **Placeholder**: A placeholder entity is immediately created to prevent blocking the game loop.
+3.  **Generation**: An async AI request is triggered to generate the entity's stats based on its name and world context.
+4.  **Update**: Once generated, the store is updated, and the entity's stats are applied live (e.g., updating a combatant's HP/AC or an item's effects).
+
+### 5. Roll Batching System
 
 **Location:** `src/views/game.js` (processRollBatch)
 

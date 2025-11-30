@@ -529,6 +529,18 @@ export const ITEMS = {
         rarity: "rare",
         description: "You gain a +1 bonus to AC and saving throws while wearing this ring."
     },
+    ring_of_fire_resistance: {
+        id: "ring_of_fire_resistance",
+        name: "Ring of Fire Resistance",
+        category: "magic_item",
+        slot: "ring",
+        effects: ["APPLY_RESISTANCE[player|fire]"],
+        requiresAttunement: true,
+        weight: 0,
+        value: 4000,
+        rarity: "rare",
+        description: "You have resistance to fire damage while wearing this ring."
+    },
     cloak_of_protection: {
         id: "cloak_of_protection",
         name: "Cloak of Protection",

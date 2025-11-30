@@ -107,11 +107,31 @@ export function applyItemEffects(item, game, character) {
  * Remove item effects (e.g. when unequipped)
  * @param {Object} item - The item object
  * @param {Object} character - Character state
+ * @returns {Object} - { tags: [] }
  */
 export function removeItemEffects(item, character) {
-    if (!item || !character.activeModifiers) return
+    if (!item || !character.activeModifiers) return { tags: [] }
 
+    // 1. Remove passive modifiers
     if (character.activeModifiers[item.id]) {
         delete character.activeModifiers[item.id]
     }
+
+    // 2. Generate inverse tags for active effects
+    const inverseTags = []
+    if (item.effects && Array.isArray(item.effects)) {
+        for (const effectStr of item.effects) {
+            // Check for APPLY_ tags and generate corresponding REMOVE_ tags
+            if (effectStr.includes("APPLY_RESISTANCE")) {
+                inverseTags.push(effectStr.replace("APPLY_RESISTANCE", "REMOVE_RESISTANCE"))
+            } else if (effectStr.includes("APPLY_IMMUNITY")) {
+                inverseTags.push(effectStr.replace("APPLY_IMMUNITY", "REMOVE_IMMUNITY"))
+            } else if (effectStr.includes("APPLY_VULNERABILITY")) {
+                inverseTags.push(effectStr.replace("APPLY_VULNERABILITY", "REMOVE_VULNERABILITY"))
+            }
+            // Note: We don't invert HEAL, TEMP_HP, etc. as those are instantaneous
+        }
+    }
+
+    return { tags: inverseTags }
 }

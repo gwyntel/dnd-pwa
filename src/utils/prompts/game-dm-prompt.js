@@ -4,22 +4,24 @@
  * Defines tone, mechanics, roll handling, and all game tags
  */
 
-import { TAG_REFERENCE } from '../../data/tags.js';
+import { TAG_REFERENCE, DAMAGE_TYPES } from '../../data/tags.js';
 
 const DND_MECHANICS_EXAMPLES = {
-  attack: "Goblin attacks! ROLL[attack|scimitar|15] → (app rolls d20+mods) → Hit! DAMAGE[player|6]",
+  attack: "Goblin attacks! ROLL[attack|scimitar|15] → (app rolls d20+mods) → Hit! DAMAGE[player|6|slashing]",
   skill: "You search. ROLL[skill|perception|12] → (app rolls d20+mods) → Success! You find the key.",
-  save: "Dragon breathes fire. ROLL[save|dexterity|14|disadvantage] → (app rolls with disadvantage) → Fail! DAMAGE[player|24]",
+  save: "Dragon breathes fire. ROLL[save|dexterity|14|disadvantage] → (app rolls with disadvantage) → Fail! DAMAGE[player|24|fire]",
   advantage: "You have the high ground. ROLL[attack|longsword|13|advantage] → (roll 2d20, take higher)",
   spawn_enemy: "You encounter 3 Goblins. ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] ENEMY_SPAWN[goblin] COMBAT_START[Ambush!]",
-  enemy_damage: "You hit the Goblin! DAMAGE[goblin_1|6]",
+  enemy_damage: "You hit the Goblin! DAMAGE[goblin_1|6|piercing]",
   initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
   use_item: "You drink potion. USE_ITEM[Healing Potion]",
   loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]",
-  cast_spell: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10]",
+  cast_spell: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10|force]",
   concentration: "You cast Bless. CAST_SPELL[Bless|1] CONCENTRATION_START[Bless]",
   short_rest: "You take a short rest. SHORT_REST[60] You spend hit dice. HIT_DIE_ROLL[2]",
-  long_rest: "You camp for the night. LONG_REST[8]"
+  long_rest: "You camp for the night. LONG_REST[8]",
+  temp_hp: "The spell grants you vitality. TEMP_HP[player|10]",
+  resistance: "You drink a potion of fire resistance. APPLY_RESISTANCE[player|fire]"
 };
 
 function compressInventoryForPrompt(inventory) {
@@ -219,6 +221,20 @@ ${JSON.stringify(TAG_REFERENCE, null, 2)}
 - NEVER write "CAST_SPELL Magic Missile" - ALWAYS write "CAST_SPELL[Magic Missile|1]"
 - Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant.
 - Consumable items MUST be removed with USE_ITEM (preferred) or INVENTORY_REMOVE when used.
+- **Valid Damage Types:** ${DAMAGE_TYPES.join(', ')}
+
+**MECHANICS ENGINE RULES (DO NOT DO MATH):**
+- The game engine AUTOMATICALLY handles Resistances, Immunities, Vulnerabilities, and Temporary HP.
+- **NEVER** manually double damage for vulnerability or halve it for resistance.
+- **ALWAYS** send the RAW damage amount.
+  - Correct: "You take 10 fire damage." -> DAMAGE[player|10|fire]
+  - Incorrect: "You have resistance, so you take 5." -> DAMAGE[player|5|fire] (Result: Player takes 2.5 damage)
+
+**CREATIVE FREEDOM & BACKFILLING:**
+- The system supports **Novel Item & Monster Generation**.
+- If a player interacts with an item that doesn't exist (e.g., "I put on the Ring of Void"), you MAY allow it.
+- Use "INVENTORY_EQUIP[Ring of Void]" directly. The system will detect it's missing, generate stats for it, and equip it automatically.
+- Do not hesitate to use tags for items/monsters that aren't in the provided lists if they fit the narrative. Trust the engine to backfill them.
 
 **REWARDS & PROGRESSION (XP CURVE):**
 Use standard 5e XP thresholds. Award XP generously for milestones and combat.

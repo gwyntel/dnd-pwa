@@ -1,5 +1,25 @@
 import { ITEMS } from '../data/items.js'
-import { resolveEffect, applyItemEffects } from './EffectsEngine.js'
+import { resolveEffect, applyItemEffects, removeItemEffects } from './EffectsEngine.js'
+
+/**
+ * Handle equipment change (equip/unequip) and return tags to process
+ * @param {Object} game - Game state
+ * @param {Object} character - Character state
+ * @param {Object} world - World state
+ * @param {string} itemId - ID of item
+ * @param {boolean} isEquipping - True if equipping, false if unequipping
+ * @returns {Object} - { tags: [] }
+ */
+export function handleEquipChange(game, character, world, itemId, isEquipping) {
+    const item = resolveItem(itemId, world)
+    if (!item) return { tags: [] }
+
+    if (isEquipping) {
+        return applyItemEffects(item, game, character)
+    } else {
+        return removeItemEffects(item, character)
+    }
+}
 
 /**
  * Resolve item by name/ID from world loot or static DB

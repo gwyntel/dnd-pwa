@@ -23,6 +23,8 @@ export const MONSTERS = {
         hp: 13,
         hitDice: "2d8+4",
         stats: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
+        vulnerabilities: ["bludgeoning"],
+        immunities: ["poison"],
         actions: [
             { name: "Shortsword", desc: "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage." },
             { name: "Shortbow", desc: "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage." }
@@ -37,6 +39,7 @@ export const MONSTERS = {
         hp: 22,
         hitDice: "3d8+9",
         stats: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
+        immunities: ["poison"],
         actions: [
             { name: "Slam", desc: "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) bludgeoning damage." }
         ]
@@ -108,6 +111,7 @@ export const MONSTERS = {
         hp: 84,
         hitDice: "8d10+40",
         stats: { str: 14, dex: 3, con: 20, int: 1, wis: 6, cha: 1 },
+        immunities: ["acid", "lightning", "slashing"],
         actions: [
             { name: "Pseudopod", desc: "Melee Weapon Attack: +4 to hit, reach 5 ft., one creature. Hit: 10 (3d6) acid damage." },
             { name: "Engulf", desc: "The cube moves up to its speed. While doing so, it can enter Large or smaller creatures' spaces. Whenever the cube enters a creature's space, the creature must make a DC 12 Dexterity saving throw." }
@@ -138,6 +142,7 @@ export const MONSTERS = {
         hp: 178,
         hitDice: "17d10+85",
         stats: { str: 23, dex: 10, con: 21, int: 14, wis: 11, cha: 19 },
+        immunities: ["fire"],
         actions: [
             { name: "Multiattack", desc: "The dragon makes three attacks: one with its bite and two with its claws." },
             { name: "Bite", desc: "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 17 (2d10 + 6) piercing damage plus 3 (1d6) fire damage." },

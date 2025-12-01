@@ -81,13 +81,14 @@ export function processGameTags(game, character, text, processedTags, data) {
 
     switch (tag.type) {
       case 'COMBAT_START': {
-        const result = startCombat(game, tag.content.trim())
+        const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
+        const result = startCombat(game, character, world, tag.content.trim())
         if (result) processed = true
         break
       }
 
       case 'COMBAT_END': {
-        const result = endCombat(game)
+        const result = endCombat(game, tag.content.trim())
         if (result) processed = true
         break
       }
@@ -95,7 +96,7 @@ export function processGameTags(game, character, text, processedTags, data) {
       case 'ENEMY_SPAWN': {
         const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
         const [templateId, nameOverride] = tag.content.split('|').map(s => s.trim())
-        const result = spawnEnemy(game, templateId, nameOverride, world, data)
+        const result = spawnEnemy(game, world, templateId, nameOverride)
         if (result) processed = true
         break
       }

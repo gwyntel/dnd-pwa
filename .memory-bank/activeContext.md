@@ -67,9 +67,25 @@ The focus was on optimizing the AI context injection to solve the "monster manua
 2. **Real-time Tag Processing**: The ability to execute game mechanics (like damage or location changes) *while* the AI is still streaming the description creates a highly responsive feel.
 3. **Lazy Content Generation**: The "Seed + Backfill" strategy for items and monsters allows the world to feel infinite without a massive initial database.
 
+## Mechanics Consistency Analysis (2025-11-30)
+
+### Compliance with D&D 5e Rules
+- **Combat**: Initiative and turn order are standard. Missing "Surprise" mechanics and detailed tie-breaking.
+- **Damage**: Resistance/Vulnerability/Immunity are correctly calculated (half/double/zero). Critical hits correctly double dice only.
+- **Resting**: Short/Long rest resource recovery is accurate. Long rest correctly resets spell slots and half hit dice.
+- **Spellcasting**: Slot consumption is correct. Concentration checks are triggered by damage (DC calculation is correct).
+- **Equipment**: AC calculation respects armor types and DEX limits. Finesse/Ranged weapons use correct ability scores.
+
+### Identified Gaps & Inconsistencies
+1. **CombatManager vs MechanicsEngine**: `CombatManager.applyDamage` is a legacy function that bypasses resistance/immunity logic. It should be deprecated in favor of `MechanicsEngine.applyDamageWithType`.
+2. **Weapon Properties**: `Heavy`, `Two-Handed`, and `Versatile` properties are parsed but not mechanically enforced (e.g., small creatures don't get disadvantage with heavy weapons).
+3. **AC Stacking**: "Natural Armor" (e.g., Draconic Resilience) and spell-based AC (e.g., *Mage Armor*) are not explicitly handled in `calculateAC`.
+4. **Range Increments**: Ranged attacks do not automatically apply disadvantage for long range (requires AI or user to manually add disadvantage).
+
 ## Current Priorities
 
 1. **Monitor Stability**
 2. **Expand Spell Mechanics**
 3. **Enhance UI Feedback**
 4. **Refactor TagProcessor** (New)
+5. **Unify Damage Logic** (New - Deprecate CombatManager.applyDamage)

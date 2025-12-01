@@ -12,7 +12,9 @@ import { RestProcessor } from './processors/RestProcessor.js'
 import { RenderProcessor } from './processors/RenderProcessor.js'
 import { tagParser } from './TagParser.js'
 import { startCombat, endCombat, spawnEnemy } from './CombatManager.js'
+import { formatRoll } from '../utils/dice.js'
 import store from '../state/store.js'
+
 
 // Re-export rendering functions for backward compatibility
 export const stripTags = RenderProcessor.stripTags
@@ -119,7 +121,7 @@ export function processGameTags(game, character, text, processedTags, data) {
               game.messages.push({
                 id: `msg_${Date.now()}_init_${enemy.id}`,
                 role: "system",
-                content: `⚔️ Initiative (${enemy.name}): ${initEntry.total} (Rolled ${initEntry.roll.result})`,
+                content: `⚔️ Initiative (${enemy.name}): ${formatRoll(initEntry.roll)}`,
                 timestamp: new Date().toISOString(),
                 hidden: false,
                 metadata: {

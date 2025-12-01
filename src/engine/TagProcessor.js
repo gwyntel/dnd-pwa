@@ -621,8 +621,13 @@ export async function processGameTagsRealtime(game, character, text, processedTa
           if (targetObj) {
             const result = applyTempHP(targetObj, amount)
             if (isPlayer) {
-              // Persist to character (store update happens via game loop usually, but we modify object ref here)
+              // Persist to character
               character.tempHP = result.newTempHP
+              // Explicitly persist to store to ensure UI updates
+              store.update(state => {
+                const c = state.characters.find(char => char.id === character.id)
+                if (c) c.tempHP = result.newTempHP
+              })
             } else {
               targetObj.tempHP = result.newTempHP
             }

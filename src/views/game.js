@@ -688,8 +688,8 @@ async function processRollBatch() {
     timestamp: new Date().toISOString(),
     hidden: true, // Hidden from UI but visible to AI
     metadata: {
-      rollResult: true,
-      ephemeral: true
+      rollResult: true
+      // Do NOT mark as ephemeral - it needs to stay in the message history to prevent consecutive assistant messages
     }
   }
 

@@ -99,7 +99,10 @@ export function castSpell(game, character, spellName, spellLevel, spellId = null
  * @returns {Object} - Result with tags and message
  */
 function applySpellEffects(game, character, spellData, spellName) {
+    console.log('[SpellcastingManager] applySpellEffects called:', { spellName, spellData })
+
     if (!spellData.effects || !Array.isArray(spellData.effects)) {
+        console.log('[SpellcastingManager] No effects defined for spell')
         return { tags: [], message: '' }
     }
 
@@ -111,7 +114,9 @@ function applySpellEffects(game, character, spellData, spellName) {
 
     // Process each effect
     for (const effectStr of spellData.effects) {
+        console.log('[SpellcastingManager] Processing effect:', effectStr)
         const result = resolveEffect(effectStr, { game, character, source: spellData })
+        console.log('[SpellcastingManager] Effect resolved:', result)
 
         if (result.tags && result.tags.length > 0) {
             allTags.push(...result.tags)
@@ -122,11 +127,13 @@ function applySpellEffects(game, character, spellData, spellName) {
         }
     }
 
+    console.log('[SpellcastingManager] All modifiers:', allModifiers)
+
     // Store effect with duration if applicable
     if (spellData.duration && spellData.durationType) {
         const effectId = `spell_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-        game.activeSpellEffects.push({
+        const effectEntry = {
             id: effectId,
             spellName,
             spellId: spellData.id || null,
@@ -136,12 +143,16 @@ function applySpellEffects(game, character, spellData, spellName) {
             durationType: spellData.durationType,
             remainingDuration: spellData.duration,
             startedAt: new Date().toISOString()
-        })
+        }
+
+        game.activeSpellEffects.push(effectEntry)
+        console.log('[SpellcastingManager] Added spell effect:', effectEntry)
 
         // Apply modifiers to character
         if (Object.keys(allModifiers).length > 0) {
             if (!character.activeModifiers) character.activeModifiers = {}
             character.activeModifiers[effectId] = allModifiers
+            console.log('[SpellcastingManager] Applied modifiers to character:', character.activeModifiers)
         }
 
         const durationText = spellData.durationType === 'rounds'
@@ -155,6 +166,7 @@ function applySpellEffects(game, character, spellData, spellName) {
     }
 
     // Instant effects (no duration tracking)
+    console.log('[SpellcastingManager] Instant effect (no duration)')
     return {
         tags: allTags,
         message: ''

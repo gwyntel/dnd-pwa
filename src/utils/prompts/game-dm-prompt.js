@@ -17,8 +17,9 @@ const DND_MECHANICS_EXAMPLES = {
   initiative: "COMBAT_START[Bandits attack!] → (app rolls initiative) → Enemy wins: narrate their attack immediately",
   use_item: "You drink potion. USE_ITEM[Healing Potion]",
   loot: "You search corpse and find gold coins. GOLD_CHANGE[25] INVENTORY_ADD[Rusty Dagger|1]",
-  cast_spell: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10|force]",
-  concentration: "You cast Bless. CAST_SPELL[Bless|1] CONCENTRATION_START[Bless]",
+  cast_spell: "You raise your hand! CAST_SPELL[shield|Shield|1] (Now +5 AC for 1 round)",
+  cast_spell_legacy: "You cast Magic Missile! CAST_SPELL[Magic Missile|1] DAMAGE[goblin|10|force]",
+  concentration: "You cast Bless. CAST_SPELL[bless|Bless|1] CONCENTRATION_START[Bless]",
   short_rest: "You take a short rest. SHORT_REST[60] You spend hit dice. HIT_DIE_ROLL[2]",
   long_rest: "You camp for the night. LONG_REST[8]",
   temp_hp: "The spell grants you vitality. TEMP_HP[player|10]",
@@ -221,6 +222,7 @@ ${JSON.stringify(TAG_REFERENCE, null, 2)}
 - NEVER write "HITDIE 🎲 Roll: 1" - ALWAYS write "HIT_DIE_ROLL[1]"
 - NEVER write "LONG_REST" alone - ALWAYS write "LONG_REST[8]"
 - NEVER write "CAST_SPELL Magic Missile" - ALWAYS write "CAST_SPELL[Magic Missile|1]"
+- For spells with automatic effects (Shield, Mage Armor, Bless, etc.), use spell ID format: "CAST_SPELL[shield|Shield|1]" to enable automatic bonuses
 - Every tag must be used exactly as shown in patterns. Required tags MUST be used when relevant.
 - Consumable items MUST be removed with USE_ITEM (preferred) or INVENTORY_REMOVE when used.
 - **Valid Damage Types:** ${DAMAGE_TYPES.join(', ')}

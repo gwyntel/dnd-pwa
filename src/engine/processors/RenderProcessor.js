@@ -135,8 +135,21 @@ export class RenderProcessor {
             }
 
             case 'CAST_SPELL': {
-                const [spell, level] = tag.content.split('|').map(s => s.trim())
-                return RenderProcessor.createBadgeToken('cast_spell', { spell: spell || '', level: parseInt(level, 10) })
+                const parts = tag.content.split('|').map(s => s.trim())
+                let spellName = parts[0]
+                let spellLevel = 0
+
+                if (parts.length === 3) {
+                    // New format: spell_id|spell_name|level
+                    spellName = parts[1]
+                    spellLevel = parseInt(parts[2], 10)
+                } else if (parts.length === 2) {
+                    // Legacy format: spell_name|level
+                    spellName = parts[0]
+                    spellLevel = parseInt(parts[1], 10)
+                }
+
+                return RenderProcessor.createBadgeToken('cast_spell', { spell: spellName, level: spellLevel })
             }
 
             case 'SHORT_REST':
@@ -336,6 +349,26 @@ export class RenderProcessor {
             case "use_item": {
                 const item = badgeData.item || ""
                 return `<span class="inline-badge item" data-tag-type="item">🧪 Used: ${escape(item)}</span>`
+            }
+
+            case "roll": {
+                const kind = badgeData.kind || ""
+                const key = badgeData.key || ""
+                const notation = badgeData.notation || ""
+
+                if (kind === 'skill') {
+                    const dc = badgeData.dc
+                    return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${escape(key)} check${dc ? ` (DC ${dc})` : ''}</span>`
+                } else if (kind === 'save') {
+                    const dc = badgeData.dc
+                    return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${escape(key).toUpperCase()} save${dc ? ` (DC ${dc})` : ''}</span>`
+                } else if (kind === 'attack') {
+                    const targetAC = badgeData.targetAC
+                    return `<span class="inline-badge roll" data-tag-type="roll">⚔️ ${escape(key)} attack${targetAC ? ` (AC ${targetAC})` : ''}</span>`
+                } else if (notation) {
+                    return `<span class="inline-badge roll" data-tag-type="roll">🎲 ${escape(notation)}</span>`
+                }
+                return `<span class="inline-badge roll" data-tag-type="roll">🎲 Roll</span>`
             }
 
             case "combat": {

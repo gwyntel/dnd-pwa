@@ -6,9 +6,12 @@
 import { BaseProcessor } from './BaseProcessor.js'
 import { tagParser } from '../TagParser.js'
 import { castSpell, startConcentration, endConcentration } from '../SpellcastingManager.js'
+import { generateSpell } from '../SpellGenerator.js'
+import { COMMON_SPELLS } from '../../data/spells.js'
+import store from '../../state/store.js'
 
 export class SpellProcessor extends BaseProcessor {
-    processRealtimeTags(text, processedTags, callbacks = {}) {
+    async processRealtimeTags(text, processedTags, callbacks = {}) {
         console.log('[SpellProcessor] processRealtimeTags called with text:', text)
         const { tags } = tagParser.parse(text)
         console.log('[SpellProcessor] Parsed tags:', tags)
@@ -45,6 +48,10 @@ export class SpellProcessor extends BaseProcessor {
                     }
 
                     console.log('[SpellProcessor] Parsed spell:', { spellId, spellName, spellLevel })
+
+                    // Auto-generate spell if not found in COMMON_SPELLS
+                    await this.ensureSpellExists(spellId, spellName, spellLevel)
+
                     console.log('[SpellProcessor] Calling castSpell with:', { game: this.game, character: this.character })
 
                     const result = castSpell(this.game, this.character, spellName, spellLevel, spellId)
@@ -106,5 +113,65 @@ export class SpellProcessor extends BaseProcessor {
                 `✨ **New Spell Learned!**\nYou have added **${spellName}** to your known spells.`
             )
         ]
+    }
+
+    /**
+     * Ensure spell exists in COMMON_SPELLS or world.spells, generate if missing
+     * @param {string} spellId 
+     * @param {string} spellName 
+     * @param {number} spellLevel 
+     */
+    async ensureSpellExists(spellId, spellName, spellLevel) {
+        // Check if spell already exists in COMMON_SPELLS
+        if (COMMON_SPELLS[spellId]) {
+            console.log('[SpellProcessor] Spell found in COMMON_SPELLS:', spellId)
+            return
+        }
+
+        // Check if spell exists in world.spells (custom/generated spells)
+        const data = await store.get()
+        const world = data.worlds?.find(w => w.id === this.game.worldId)
+
+        if (!world) {
+            console.warn('[SpellProcessor] No world found, cannot store generated spell')
+            return
+        }
+
+        if (!Array.isArray(world.spells)) {
+            world.spells = []
+        }
+
+        const existingSpell = world.spells.find(s => s.id === spellId || s.name === spellName)
+        if (existingSpell) {
+            console.log('[SpellProcessor] Spell found in world.spells:', spellId)
+            // Update COMMON_SPELLS cache for this session
+            COMMON_SPELLS[spellId] = existingSpell
+            return
+        }
+
+        // Generate new spell
+        console.log('[SpellProcessor] Generating new spell:', { spellId, spellName, spellLevel })
+        const generatedSpell = await generateSpell(spellName, spellLevel, {
+            game: this.game,
+            character: this.character,
+            world
+        })
+
+        // Store in world.spells
+        world.spells.push(generatedSpell)
+
+        // Cache in COMMON_SPELLS for this session
+        COMMON_SPELLS[spellId] = generatedSpell
+
+        // Persist to storage
+        await store.update((state) => {
+            const w = state.worlds?.find(world => world.id === this.game.worldId)
+            if (w) {
+                if (!Array.isArray(w.spells)) w.spells = []
+                w.spells.push(generatedSpell)
+            }
+        })
+
+        console.log('[SpellProcessor] Generated and stored spell:', generatedSpell)
     }
 }

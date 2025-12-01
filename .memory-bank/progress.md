@@ -48,7 +48,22 @@
 - **Commit**: Completed Mechanics Engine, Passive Effects, Dynamic Backfilling, and Seed Items
 - **Notes**: The engine now correctly handles complex D&D 5e mechanics. The system now supports "Lazy Loading" of novel items and monsters via AI generation, with a hybrid approach using seed items for common gear and dynamic generation for unique/magical items.
 
+---
+
+## Session 2024-11-30-1315
+- **Feature**: Context Optimization & Schema Analysis
+- **Status**: ✅ COMPLETED
+- **Changes**: 
+  - Analyzed existing schema and context injection strategy
+  - Updated `game-dm-prompt.js` to use compressed list formats for monsters and items
+  - Added compressed spell list to system prompt to support `LEARN_SPELL` tag
+  - Created `src/utils/prompts/game-dm-prompt.test.js` for verification
+- **Testing**: Automated tests verified concise formatting for monsters, items, and spells
+- **Issues**: None
+- **Commit**: feat: optimize system prompt with compressed lists for monsters, items, and spells
+- **Notes**: Solved the "monster manual dump" problem by replacing full stat blocks with concise summaries (ID, Name, Type). This reduces token usage while keeping the AI aware of available content. Added spell list to ensure valid spell learning.
+
 ## Next Actions Required
-1. Monitor user feedback
+1. Monitor context usage in production
 2. Expand spell effects coverage
 3. Deepen condition logic

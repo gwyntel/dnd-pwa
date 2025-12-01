@@ -1,28 +1,43 @@
 # Current Work Focus
 
-## Session Goal: Context Optimization & Schema Analysis
+## Session Goal: Major Refactoring Initiative (2025-11-30)
 
-**Status:** ✅ COMPLETED
+**Status:** 🚀 IN PROGRESS - Phase 1 Complete!
 
-The focus was on optimizing the AI context injection to solve the "monster manual dump" problem. We implemented a strategy to compress monster and item lists in the system prompt and added a compressed spell list to support the `LEARN_SPELL` tag.
+We've completed a comprehensive codebase evaluation and started a multi-phase refactoring to improve maintainability and modularity.
 
-## What Was Accomplished
+### Phase 1: Dependency Cleanup ✅ COMPLETED
 
-1. **Context Optimization**
-   - Updated `game-dm-prompt.js` to use compressed formats for lists.
-   - **Monsters:** `id (Name, CR, Type)` instead of full stat blocks.
-   - **Items:** `id (Name, Rarity, Type)` for ALL items (seed + custom).
-   - **Spells:** Added `formatSpellList()` to output `id (Name, Level, School)` from `COMMON_SPELLS`.
+**What We Did:**
+1. ✅ Audited package.json - found 28 unused packages (React, Next.js, Tailwind, TypeScript, etc.)
+2. ✅ Removed all unused dependencies
+3. ✅ Verified build still works: `npm run build` successful
+4. ✅ Updated documentation (README, codebase-survey.md) to reflect Vanilla CSS usage
+5. ✅ Bundle size optimized (removed React/Tailwind overhead)
 
-2. **Verification**
-   - Created `src/utils/prompts/game-dm-prompt.test.js` to verify prompt formatting.
-   - Verified that the system prompt size is significantly reduced while maintaining AI awareness of available content.
+**Result:** Clean, lean dependency tree with only what we actually use:
+- `openai` for AI integration
+- `vite`, `vitest`, `jsdom`, `terser` for build/test
 
-## Next Steps
+### Phase 2: Fragment TagProcessor (NEXT UP)
 
-### Immediate
-1. **Monitor Context Usage** - Verify token savings in real gameplay.
-2. **User Feedback** - Ensure AI still correctly identifies and uses items/monsters.
+Goal: Break down the 1,389-line TagProcessor.js into specialized processors:
+- InventoryProcessor (inventory, gold, equipment)
+- CombatProcessor (combat, damage, enemies)
+- SpellProcessor (spells, slots, concentration)
+- ConditionProcessor (status effects)
+- NarrativeProcessor (location, relationships, actions)
+- RenderProcessor (badges, markdown, HTML)
+
+See `/memory-bank/refactoring-roadmap.md` for detailed plan.
+
+### Phase 3: Simplify game.js (AFTER PHASE 2)
+
+Goal: Extract game.js (1,655 lines) into:
+- GameController (business logic)
+- RollBatcher (dice roll handling)
+- MessageRenderer (UI rendering)
+- InputController (user input)
 
 ### Short-term
 1. **Spell Effects** - Expand `EffectsEngine` to handle more complex spell effects beyond simple tags.
@@ -172,8 +187,23 @@ The focus was on optimizing the AI context injection to solve the "monster manua
 
 ## Current Priorities
 
-1. **Monitor Stability**
-2. **Expand Spell Mechanics**
-3. **Enhance UI Feedback**
-4. **Refactor TagProcessor** (New)
-5. **Unify Damage Logic** (New - Deprecate CombatManager.applyDamage)
+### Immediate (This Week)
+1. ✅ **Phase 1: Dependency Cleanup** - COMPLETED
+2. 🚀 **Phase 2: Fragment TagProcessor** - Start with BaseProcessor infrastructure
+3. 📝 **Testing After Each Extraction** - Maintain stability
+
+### Short-term (Next Week)
+1. **Complete TagProcessor Refactoring** - All 6 processors extracted and tested
+2. **Start game.js Simplification** - Extract controllers and improve separation of concerns
+3. **Expand Test Coverage** - Target 70%+ for critical paths
+
+### Medium-term
+1. **UI Polish** - Add manual controls (spell slots, HP adjustments, item usage)
+2. **Documentation** - Create ARCHITECTURE.md explaining new patterns
+3. **Performance Audit** - Ensure no regressions
+
+### Deferred (Not Blocking)
+1. Spell Effects - Expand `EffectsEngine` for complex spell mechanics
+2. Condition Logic - Deepen automation (e.g., Poisoned disadvantage)
+3. Character Portraits - Upload system
+

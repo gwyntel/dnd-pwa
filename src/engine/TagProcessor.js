@@ -452,8 +452,19 @@ export async function processGameTagsRealtime(game, character, text, processedTa
               for (const subTag of subTags) {
                 // Handle HEAL
                 if (subTag.type === 'HEAL') {
-                  const [target, amount] = subTag.content.split('|').map(s => s.trim())
-                  const heal = parseInt(amount, 10)
+                  const [target, amountStr] = subTag.content.split('|').map(s => s.trim())
+                  
+                  // Handle dice notation (e.g., "1d4", "2d6+2") or plain numbers
+                  let heal
+                  if (amountStr && amountStr.includes('d')) {
+                    // Roll dice notation
+                    const rollResult = rollDice(amountStr)
+                    heal = rollResult.total
+                  } else {
+                    // Parse as integer
+                    heal = parseInt(amountStr, 10)
+                  }
+                  
                   if (!isNaN(heal)) {
                     game.currentHP = Math.min(character.maxHP, game.currentHP + heal)
                   }
@@ -504,7 +515,17 @@ export async function processGameTagsRealtime(game, character, text, processedTa
       }
       case 'DAMAGE': {
         const [targetName, amountStr, type] = tag.content.split('|').map(s => s.trim())
-        const amount = parseInt(amountStr, 10)
+        
+        // Handle dice notation (e.g., "1d4", "2d6+2") or plain numbers
+        let amount
+        if (amountStr && amountStr.includes('d')) {
+          // Roll dice notation
+          const rollResult = rollDice(amountStr)
+          amount = rollResult.total
+        } else {
+          // Parse as integer
+          amount = parseInt(amountStr, 10)
+        }
 
         if (targetName && !isNaN(amount)) {
           // Resolve target
@@ -574,7 +595,17 @@ export async function processGameTagsRealtime(game, character, text, processedTa
       }
       case 'TEMP_HP': {
         const [targetName, amountStr] = tag.content.split('|').map(s => s.trim())
-        const amount = parseInt(amountStr, 10)
+        
+        // Handle dice notation (e.g., "1d4", "2d6+2") or plain numbers
+        let amount
+        if (amountStr && amountStr.includes('d')) {
+          // Roll dice notation
+          const rollResult = rollDice(amountStr)
+          amount = rollResult.total
+        } else {
+          // Parse as integer
+          amount = parseInt(amountStr, 10)
+        }
 
         if (targetName && !isNaN(amount)) {
           let targetObj = null
@@ -1211,6 +1242,12 @@ export function renderInlineBadgeHtml(type, data) {
         const target = badgeData.target || ""
         const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
         return `<span class="inline-badge heal" data-tag-type="heal">💚 ${targetText} +${labelEscape(amount)} HP</span>`
+      }
+      case "temp_hp": {
+        const amount = badgeData.amount ?? 0
+        const target = badgeData.target || ""
+        const targetText = target.toLowerCase() === "player" ? "You" : labelEscape(target)
+        return `<span class="inline-badge temp-hp" data-tag-type="temp_hp">🛡️ ${targetText} +${labelEscape(amount)} Temp HP</span>`
       }
       case "gold": {
         const delta = badgeData.delta ?? 0

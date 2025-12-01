@@ -3,11 +3,12 @@
 ## Project Overview
 - **Name**: dnd-pwa
 - **Type**: Progressive Web Application for single-player D&D 5e adventures
-- **Tech Stack**: Vanilla JavaScript (ES6+), Vite, Tailwind CSS
+- **Tech Stack**: Vanilla JavaScript (ES6+), Vite, Vanilla CSS
 - **AI Integration**: OpenRouter, OpenAI-compatible APIs, LM Studio
 - **Architecture**: Modular engine-based system with centralized state
 - **Testing**: Vitest with jsdom
 - **Deployment**: Cloudflare Pages
+
 
 ## Project Structure
 
@@ -30,17 +31,18 @@
 
 ## Tech Stack Analysis
 
-### Runtime & Framework
-- **Runtime**: Vanilla JavaScript (ES6+, type="module")
-- **Build Tool**: Vite v7.1.7
-- **UI**: Component-based architecture (React patterns), Tailwind CSS v4.1.17
-- **Testing**: Vitest v4.0.13 with jsdom
-- **State Management**: Custom centralized Store pattern with debounced persistence
+### Frontend
+- **Framework**: Vanilla JavaScript (ES6+) with no external dependencies
+- **Build Tool**: Vite for fast development and optimized builds
+- **Styling**: Vanilla CSS with custom CSS variables and theming
+- **Routing**: Client-side routing with history management
+- **State Management**: Centralized Store (`src/state/store.js`) wrapping localStorage with in-memory caching and debounced persistence
+- **UI Components**: Extracted UI rendering logic into reusable components (`src/components/`) for better maintainability and separation of concerns
 
 ### Dependencies
-- **UI**: class-variance-authority (0.7.1), clsx (2.1.1), lucide-react (0.553.0), tailwind-merge (3.3.1)
 - **AI**: openai (4.104.0)
-- **Development**: TypeScript (5.9.3), jsdom, tailwindcss-animate, terser
+- **Development**: Vite (7.1.7), Vitest (4.0.13), jsdom, terser
+
 
 ### Production Features
 - **PWA**: Service worker, manifest, offline support

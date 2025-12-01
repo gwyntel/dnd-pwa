@@ -154,14 +154,60 @@ A progressive web application for single-player D&D-style text adventures powere
 - **Streaming**: Real-time response streaming for smooth interaction
 - **Structured Outputs**: JSON schema support for reliable parsing
 
-### Game Engine
-- **Modular Design**: Core logic extracted into `TagProcessor`, `CombatManager`, and `GameLoop` modules.
-- **Dice System**: Full D&D 5e dice mechanics with advantage/disadvantage, now in `src/utils/dice.js` and `src/utils/dice5e.js`.
-- **State Management**: Centralized Store (`src/state/store.js`) wraps localStorage with in-memory caching; debounced saves (300ms) prevent race conditions and browser freezing during AI streaming. Low-level storage interface (`src/utils/storage.js`) handles serialization and normalization.
-- **Tag Processing**: Automatic parsing and execution of game tags (LOCATION, ROLL, COMBAT, etc.) handled by `TagProcessor`. All tag regex patterns centralized in `src/data/tags.js` as single source of truth. Whitespace around `ACTION` tags is automatically cleaned to prevent empty lines.
-- **Combat Engine**: Initiative tracking, turn management, and battle resolution managed by `CombatManager`.
-- **Character Sheets**: Dynamic character management with modifier calculation.
-- **Template System**: Single source of truth for templates - `WORLD_TEMPLATES` in `src/data/worlds.js` and `BEGINNER_TEMPLATES` in `src/data/archetypes.js` are imported into storage initialization, eliminating duplication.
+### Game Engine Architecture
+
+**Processor Pattern**: The game uses a sophisticated modular architecture with 6 specialized processors that handle different aspects of gameplay:
+
+- **CombatProcessor** (`src/engine/processors/CombatProcessor.js`): Handles DAMAGE, HEAL, TEMP_HP, and defense modifiers (resistance, immunity, vulnerability)
+- **InventoryProcessor** (`src/engine/processors/InventoryProcessor.js`): Manages INVENTORY_*, GOLD_CHANGE, and USE_ITEM tags
+- **NarrativeProcessor** (`src/engine/processors/NarrativeProcessor.js`): Processes LOCATION, RELATIONSHIP, ACTION, and XP_GAIN
+- **RestProcessor** (`src/engine/processors/RestProcessor.js`): Handles SHORT_REST, LONG_REST, and HIT_DIE_ROLL
+- **SpellProcessor** (`src/engine/processors/SpellProcessor.js`): Manages CAST_SPELL, LEARN_SPELL, and CONCENTRATION tags
+- **BaseProcessor** (`src/engine/processors/BaseProcessor.js`): Provides shared utilities and state management for all processors
+
+**Tag-Driven Architecture**: The game uses a sophisticated tag system where the AI embeds special markers that trigger game mechanics:
+
+- **20+ Tag Types**: LOCATION, ROLL, COMBAT_*, DAMAGE, HEAL, TEMP_HP, INVENTORY_*, GOLD_CHANGE, STATUS_*, RELATIONSHIP, ACTION, CAST_SPELL, CONCENTRATION_*, XP_GAIN, USE_ITEM, LEARN_SPELL, LEVEL_UP, ENEMY_SPAWN
+- **Real-Time Processing**: Tags are parsed and executed during AI streaming for immediate feedback
+- **Automatic State Updates**: Character stats, inventory, combat state, and relationships update automatically based on tags
+- **Roll Batching**: Multiple rolls collected over 500ms and processed together for better narrative flow
+
+**Core Engines**:
+- **MechanicsEngine** (`src/engine/MechanicsEngine.js`): Handles damage calculations with resistance/immunity/vulnerability, temp HP rules, and concentration checks
+- **EffectsEngine** (`src/engine/EffectsEngine.js`): Manages passive effects from items and spells
+- **CombatManager** (`src/engine/CombatManager.js`): Manages initiative, turn order, enemy spawning, and combat state
+- **SpellcastingManager** (`src/engine/SpellcastingManager.js`): Handles spell slots, concentration, and spell effect durations
+- **EquipmentManager** (`src/engine/EquipmentManager.js`): Calculates AC and manages item effects
+- **ItemGenerator** (`src/engine/ItemGenerator.js`) & **MonsterGenerator** (`src/engine/MonsterGenerator.js`): Dynamic content generation for novel items/monsters
+- **GameLoop** (`src/engine/GameLoop.js`): Message construction, sanitization, and API request coordination
+
+**State Management**: 
+- **Centralized Store** (`src/state/store.js`): Single source of truth wrapping localStorage with in-memory caching
+- **Debounced Persistence**: 300ms delay prevents excessive writes (reduces localStorage operations by ~97%)
+- **Immediate Saves**: Critical operations save immediately (navigation, combat state changes)
+- **Migration System**: Automatic schema updates ensure backward compatibility
+
+**Dice System**: Full D&D 5e dice mechanics in `src/utils/dice.js` and `src/utils/dice5e.js`:
+- Advantage/disadvantage support
+- Automatic modifier calculation from character stats
+- Complex dice expressions (1d20+5, 2d6+3, etc.)
+- Roll batching for multiple rolls in quick succession
+
+**Data Management**:
+- **Compressed Context**: Monster, item, and spell lists summarized (ID, Name, Type) to reduce token usage
+- **Single Source of Truth**: Templates centralized in `src/data/` and imported into storage initialization
+- **Template System**: `WORLD_TEMPLATES` in `src/data/worlds.js` and `BEGINNER_TEMPLATES` in `src/data/archetypes.js`
+
+**Tag Processing** (`src/engine/TagParser.js`):
+- **Real-Time Parsing**: Tags extracted during AI streaming
+- **Nested Support**: Handles complex tags like `STATUS_ADD[Blinded|For ROLL[1d4] turns]`
+- **XSS Protection**: Automatic sanitization of tag content
+- **Pattern Validation**: Strict regex patterns ensure tag format compliance
+
+**Testing**: Comprehensive test coverage with 106/108 tests passing:
+- Processor tests with 20-30 tests each
+- Unit tests for core mechanics
+- Edge case coverage for complex interactions
 
 ### Security & Privacy
 - **Local Storage**: All personal data stored locally in browser

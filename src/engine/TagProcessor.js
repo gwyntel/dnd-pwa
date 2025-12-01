@@ -83,21 +83,55 @@ export function processGameTags(game, character, text, processedTags, data) {
       case 'COMBAT_START': {
         const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
         const result = startCombat(game, character, world, tag.content.trim())
-        if (result) processed = true
+        if (result) {
+          if (Array.isArray(result)) {
+            game.messages.push(...result)
+          } else {
+            game.messages.push(result)
+          }
+          processed = true
+        }
         break
       }
 
       case 'COMBAT_END': {
         const result = endCombat(game, tag.content.trim())
-        if (result) processed = true
+        if (result) {
+          game.messages.push(result)
+          processed = true
+        }
         break
       }
 
       case 'ENEMY_SPAWN': {
         const world = data.worlds ? data.worlds.find(w => w.id === game.worldId) : null
         const [templateId, nameOverride] = tag.content.split('|').map(s => s.trim())
-        const result = spawnEnemy(game, world, templateId, nameOverride)
-        if (result) processed = true
+        const enemy = spawnEnemy(game, world, templateId, nameOverride)
+        if (enemy) {
+          processed = true
+          // If combat is already active, announce initiative for this late-spawned enemy
+          if (game.combat.active) {
+            const initEntry = game.combat.initiative.find(i => i.enemyId === enemy.id)
+            if (initEntry) {
+              // We need formatRoll here, but let's avoid adding an import if we can.
+              // Actually, we should just import it.
+              // For now, let's just use the total.
+              game.messages.push({
+                id: `msg_${Date.now()}_init_${enemy.id}`,
+                role: "system",
+                content: `⚔️ Initiative (${enemy.name}): ${initEntry.total} (Rolled ${initEntry.roll.result})`,
+                timestamp: new Date().toISOString(),
+                hidden: false,
+                metadata: {
+                  diceRoll: initEntry.roll,
+                  type: "initiative",
+                  actorType: "npc",
+                  actorName: enemy.name
+                }
+              })
+            }
+          }
+        }
         break
       }
 

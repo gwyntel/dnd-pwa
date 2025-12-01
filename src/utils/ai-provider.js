@@ -22,14 +22,14 @@ let cachedConfig = null;
 function getProviderConfig() {
   const data = store.get();
   const settings = data.settings || {};
-  const type = settings.provider || "openrouter";
+  const type = import.meta.env.VITE_AI_PROVIDER || settings.provider || "openrouter";
 
   let config = { type, baseUrl: "", apiKey: "", headers: {} };
 
   switch (type) {
     case "openrouter":
-      config.baseUrl = OPENROUTER_BASE;
-      config.apiKey = getAccessToken(); // From auth.js
+      config.baseUrl = import.meta.env.VITE_AI_BASE_URL || OPENROUTER_BASE;
+      config.apiKey = import.meta.env.VITE_AI_API_KEY || getAccessToken(); // From auth.js
       config.headers = {
         "HTTP-Referer": APP_REFERER,
         "X-Title": APP_TITLE,
@@ -37,12 +37,12 @@ function getProviderConfig() {
       break;
 
     case "openai":
-      config.baseUrl = (settings.providers?.openai?.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
-      config.apiKey = settings.providers?.openai?.apiKey || "";
+      config.baseUrl = (import.meta.env.VITE_AI_BASE_URL || settings.providers?.openai?.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+      config.apiKey = import.meta.env.VITE_AI_API_KEY || settings.providers?.openai?.apiKey || "";
       break;
 
     case "lmstudio":
-      config.baseUrl = (settings.providers?.lmstudio?.baseUrl || "http://localhost:1234/v1").replace(/\/$/, "");
+      config.baseUrl = (import.meta.env.VITE_AI_BASE_URL || settings.providers?.lmstudio?.baseUrl || "http://localhost:1234/v1").replace(/\/$/, "");
       config.apiKey = "not-needed"; // Local models don't use keys
       break;
 

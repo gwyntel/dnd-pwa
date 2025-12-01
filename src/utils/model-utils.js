@@ -16,7 +16,7 @@ export function isNitroModel(modelId) {
  * Strip :nitro suffix for API calls
  */
 export function getCleanModelId(modelId) {
-  return modelId ? modelId.replace(":nitro", "") : modelId
+  return modelId // Pass through full model ID including :nitro
 }
 
 /**

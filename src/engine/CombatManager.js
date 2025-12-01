@@ -29,12 +29,12 @@ export function startCombat(game, character, world, description = "") {
 
   // Build initiative entries (player + optional hinted NPCs)
   // IMPORTANT: Preserve any existing initiative entries (from ENEMY_SPAWN tags)
-  const initiativeEntries = Array.isArray(game.combat.initiative) ? [...game.combat.initiative] : []
+  // BUT remove existing player initiative to force a re-roll on new combat start
+  let initiativeEntries = Array.isArray(game.combat.initiative) ? [...game.combat.initiative] : []
+  initiativeEntries = initiativeEntries.filter(entry => entry.type !== 'player')
 
-  // Add player's initiative if not already present
-  const playerInitiativeExists = initiativeEntries.some(entry => entry.type === 'player')
-
-  if (character && !playerInitiativeExists) {
+  // Add player's initiative
+  if (character) {
     const profile = buildDiceProfile(character)
     const dexMod = profile.abilities?.dex ?? 0
     const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)

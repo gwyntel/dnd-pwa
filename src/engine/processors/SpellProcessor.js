@@ -9,7 +9,9 @@ import { castSpell, startConcentration, endConcentration } from '../Spellcasting
 
 export class SpellProcessor extends BaseProcessor {
     processRealtimeTags(text, processedTags, callbacks = {}) {
+        console.log('[SpellProcessor] processRealtimeTags called with text:', text)
         const { tags } = tagParser.parse(text)
+        console.log('[SpellProcessor] Parsed tags:', tags)
         const newMessages = []
 
         for (let i = 0; i < tags.length; i++) {
@@ -22,6 +24,7 @@ export class SpellProcessor extends BaseProcessor {
 
             switch (tag.type) {
                 case 'CAST_SPELL':
+                    console.log('[SpellProcessor] CAST_SPELL tag detected:', tag)
                     // Format: CAST_SPELL[spellId|spellName|level] or CAST_SPELL[spellName|level]
                     const parts = tag.content.split('|').map(s => s.trim())
                     let spellId = null
@@ -41,7 +44,13 @@ export class SpellProcessor extends BaseProcessor {
                         spellId = spellName.toLowerCase().replace(/\s+/g, '-')
                     }
 
+                    console.log('[SpellProcessor] Parsed spell:', { spellId, spellName, spellLevel })
+                    console.log('[SpellProcessor] Calling castSpell with:', { game: this.game, character: this.character })
+
                     const result = castSpell(this.game, this.character, spellName, spellLevel, spellId)
+
+                    console.log('[SpellProcessor] castSpell result:', result)
+
                     if (result.success) {
                         newMessages.push(...result.messages)
                         processed = true

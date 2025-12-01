@@ -1,52 +1,28 @@
 # Current Work Focus
 
-## Session Goal: D&D 5e Mechanics Engine Implementation
+## Session Goal: Context Optimization & Schema Analysis
 
 **Status:** ✅ COMPLETED
 
-The focus was on implementing the **Mechanics Engine** to enforce D&D 5e rules automatically. This addressed critical gaps where the AI narrated mechanics but the game engine failed to apply them.
+The focus was on optimizing the AI context injection to solve the "monster manual dump" problem. We implemented a strategy to compress monster and item lists in the system prompt and added a compressed spell list to support the `LEARN_SPELL` tag.
 
 ## What Was Accomplished
 
-1. **Mechanics Engine Implementation**
-   - Created `MechanicsEngine.js` for centralized rule enforcement.
-   - Implemented `applyDamageWithType` (resistances, immunities, vulnerabilities).
-   - Implemented `applyTempHP` and `checkConcentration`.
-   - Added unit tests in `MechanicsEngine.spec.js`.
+1. **Context Optimization**
+   - Updated `game-dm-prompt.js` to use compressed formats for lists.
+   - **Monsters:** `id (Name, CR, Type)` instead of full stat blocks.
+   - **Items:** `id (Name, Rarity, Type)` for ALL items (seed + custom).
+   - **Spells:** Added `formatSpellList()` to output `id (Name, Level, School)` from `COMMON_SPELLS`.
 
-2. **Tag System Expansion**
-   - Updated `DAMAGE` tag to support types: `DAMAGE[target|amount|type]`.
-   - Added `TEMP_HP`, `APPLY/REMOVE_RESISTANCE`, `APPLY/REMOVE_IMMUNITY`, `APPLY/REMOVE_VULNERABILITY`.
-   - Implemented `EffectsEngine.js` and `EquipmentManager.js` updates for passive item effects (e.g., equipping a ring grants resistance).
-
-3. **Data & Schema Updates**
-   - Updated `monsters.js` with canonical resistances/vulnerabilities.
-   - Updated `items.js` with effect strings.
-   - Created migration script `add-mechanics-fields.js`.
-
-4. **UI Enhancements**
-   - **CharacterHUD:** Displays Temp HP (blue bar) and active defenses.
-   - **CombatHUD:** Displays enemy defenses and Temp HP.
-   - **Chat:** System messages confirm effect application and resistance/immunity triggers.
-
-5. **Dynamic Content Generation (Backfilling)**
-   - **ItemGenerator.js:** Background generation of stats/effects for novel items.
-   - **MonsterGenerator.js:** Background generation of stat blocks for novel enemies.
-   - **seed-items.js:** Auto-seeds worlds with ~25 essential items from `ITEMS` database.
-   - **Integration:** Seamlessly integrated into `TagProcessor` and `CombatManager`.
-
-6. **Verification**
-   - Verified damage calculations, temp HP logic, and concentration saves.
-   - Verified passive item effects (equip/unequip).
-   - Verified AI awareness of system messages.
-   - Verified Item and Monster backfilling flows.
-   - Verified seed items migration and world initialization.
+2. **Verification**
+   - Created `src/utils/prompts/game-dm-prompt.test.js` to verify prompt formatting.
+   - Verified that the system prompt size is significantly reduced while maintaining AI awareness of available content.
 
 ## Next Steps
 
 ### Immediate
-1. **User Feedback** - Gather feedback on the new mechanics in play.
-2. **Refinement** - Monitor for edge cases in complex combat scenarios.
+1. **Monitor Context Usage** - Verify token savings in real gameplay.
+2. **User Feedback** - Ensure AI still correctly identifies and uses items/monsters.
 
 ### Short-term
 1. **Spell Effects** - Expand `EffectsEngine` to handle more complex spell effects beyond simple tags.
@@ -66,14 +42,34 @@ The focus was on implementing the **Mechanics Engine** to enforce D&D 5e rules a
 ## Learnings & Insights
 
 ### What Worked Well
-- **Tag-Based Architecture:** Extending the tag system to handle passive effects (via generated tags) proved very flexible and kept the "AI as Driver" model intact.
-- **System Messages:** Feeding engine outputs back into the chat history is a robust way to keep the AI synchronized with game mechanics.
+- **Context Compression:** Summarizing lists (ID, Name, Type) is a highly effective way to reduce token usage while keeping the AI "aware" of the world. The AI can then use tags to interact with these entities, relying on the engine for the heavy lifting (stats, mechanics).
+- **System Prompt Regeneration:** Regenerating the system prompt every turn ensures the AI always has the latest state, but requires careful management of prompt size to avoid blowing the context window.
 
 ### Challenges Encountered
 - **Legacy Data:** Migration scripts were essential for adding new fields to existing entities.
+
+## Game Review Findings (2025-11-30)
+
+### Design Gaps & Technical Debt
+1. **TagProcessor Complexity**: `TagProcessor.js` is a "God Class" (1300+ lines) handling inventory, combat, spells, and effects. It violates the Single Responsibility Principle and is becoming hard to maintain.
+   - *Recommendation*: Refactor into smaller, specialized processors (e.g., `InventoryProcessor`, `CombatProcessor`) orchestrated by a main `TagDispatcher`.
+2. **UI/Logic Mixing**: `src/views/game.js` mixes UI rendering (HTML string generation) with complex event handling and game logic.
+   - *Recommendation*: Move complex logic to the Engine layer or specialized hooks/controllers.
+3. **AI Migration Mutability**: `src/utils/ai-migration.js` modifies state objects in place before calling `store.update`. While functional due to the current store implementation, it risks subtle bugs if the store implementation changes to use immutable proxies.
+
+### Good Design Practices
+1. **Centralized Store**: The `Store` class (`src/state/store.js`) effectively manages state with in-memory caching and debounced persistence, preventing performance bottlenecks.
+2. **Modular Engines**: The extraction of `CombatManager`, `MechanicsEngine`, and `SpellcastingManager` keeps core logic separate from the UI.
+3. **Robust Initialization**: `init.sh` and `main.js` provide a solid, self-healing startup process with migrations.
+
+### Neat Things
+1. **Roll Batching**: The system in `game.js` that aggregates multiple dice rolls into a single AI follow-up is a clever UX pattern that reduces API chatter and improves narrative flow.
+2. **Real-time Tag Processing**: The ability to execute game mechanics (like damage or location changes) *while* the AI is still streaming the description creates a highly responsive feel.
+3. **Lazy Content Generation**: The "Seed + Backfill" strategy for items and monsters allows the world to feel infinite without a massive initial database.
 
 ## Current Priorities
 
 1. **Monitor Stability**
 2. **Expand Spell Mechanics**
 3. **Enhance UI Feedback**
+4. **Refactor TagProcessor** (New)

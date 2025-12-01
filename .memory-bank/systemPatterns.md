@@ -509,3 +509,18 @@ After 500ms settling period:
 
 ### 3. AI Context Optimization
 - **Problem:** Large games exceed AI context limits
+- **Solution:** Context trimming, summary generation, and sliding window message history
+- **Result:** Infinite gameplay length support
+
+## Architectural Risks & Technical Debt
+
+### 1. TagProcessor Complexity ("God Class")
+- **Risk:** `TagProcessor.js` handles too many distinct responsibilities (inventory, combat, spells, effects).
+- **Impact:** High coupling makes it difficult to modify one system without risking regressions in others.
+- **Mitigation:** Future refactoring should split this into `InventoryProcessor`, `CombatProcessor`, etc., using a Strategy pattern.
+
+### 2. UI/Logic Coupling in Views
+- **Risk:** `game.js` contains significant game logic mixed with UI rendering code.
+- **Impact:** Reduces testability and makes the component harder to read.
+- **Mitigation:** Move logic to Engine layer or specialized hooks.
+

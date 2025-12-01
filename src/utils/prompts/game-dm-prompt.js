@@ -5,6 +5,7 @@
  */
 
 import { TAG_REFERENCE, DAMAGE_TYPES } from '../../data/tags.js';
+import { COMMON_SPELLS } from '../../data/spells.js';
 
 const DND_MECHANICS_EXAMPLES = {
   attack: "Goblin attacks! ROLL[attack|scimitar|15] → (app rolls d20+mods) → Hit! DAMAGE[player|6|slashing]",
@@ -95,6 +96,7 @@ export function buildGameDMPrompt(character, game, world) {
       world.coreFactions ? `**Key Factions:**\n${formatList(world.coreFactions)}` : null,
       world.monsters && world.monsters.length > 0 ? formatMonsterList(world.monsters) : null,
       world.items && world.items.length > 0 ? formatItemList(world.items) : null,
+      formatSpellList(),
     ].filter(Boolean).join('\n\n');
     worldPrompt = `${sections}\n\n`;
   }
@@ -322,18 +324,26 @@ function formatMonsterList(monsters) {
   if (!monsters || !Array.isArray(monsters) || monsters.length === 0) return ""
 
   const monsterSummary = monsters
-    .map(m => `${m.id} (${m.name}, CR ${m.cr})`)
+    .map(m => `${m.id} (${m.name}, CR ${m.cr}, ${m.type})`)
     .join(', ')
 
-  return `**Available Monsters:**\nUse ENEMY_SPAWN[id] to spawn these creatures: ${monsterSummary}\n(Example: ENEMY_SPAWN[goblin] or ENEMY_SPAWN[goblin|Goblin Leader])`
+  return `**Available Monsters:**\nUse ENEMY_SPAWN[id] to spawn these creatures: ${monsterSummary}`
 }
 
 function formatItemList(items) {
   if (!items || !Array.isArray(items) || items.length === 0) return ""
 
   const itemSummary = items
-    .map(i => `${i.id} (${i.name}, ${i.rarity})`)
+    .map(i => `${i.id} (${i.name}, ${i.rarity}, ${i.category})`)
     .join(', ')
 
-  return `**Available Items:**\nUse INVENTORY_ADD[name|qty] to give these items: ${itemSummary}\n(Example: INVENTORY_ADD[Healing Potion|1] or INVENTORY_ADD[Longsword|1])`
+  return `**Available Items:**\nUse INVENTORY_ADD[name|qty] to give these items: ${itemSummary}`
+}
+
+function formatSpellList() {
+  const spellSummary = Object.entries(COMMON_SPELLS)
+    .map(([id, s]) => `${id} (${s.name}, Lvl ${s.level}, ${s.school})`)
+    .join(', ')
+
+  return `**Available Spells:**\nUse LEARN_SPELL[name] to grant spells: ${spellSummary}`
 }

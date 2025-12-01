@@ -13,10 +13,11 @@ export function isNitroModel(modelId) {
 }
 
 /**
- * Strip :nitro suffix for API calls
+ * Get clean model ID (currently a pass-through)
+ * Kept for backward compatibility - now passes :nitro tags to API
  */
 export function getCleanModelId(modelId) {
-  return modelId // Pass through full model ID including :nitro
+  return modelId
 }
 
 /**
@@ -30,40 +31,8 @@ export function getDefaultModelFromEnv() {
 }
 
 /**
- * Get available models or recommended defaults
- */
-export function getRecommendedModels() {
-  return [
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini (Fast, Cheap)", provider: "OpenAI" },
-    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet (Smart)", provider: "Anthropic" },
-    { id: "google/gemini-pro", name: "Gemini Pro (Balanced)", provider: "Google" },
-    { id: "meta-llama/llama-2-70b-chat", name: "Llama 2 70B (Powerful)", provider: "Meta" },
-  ]
-}
-
-/**
- * Validate model string format
- */
-export function isValidModelId(modelId) {
-  if (!modelId || typeof modelId !== "string") return false
-  // Should have format like "provider/model-name" or "provider/model-name:nitro"
-  const cleaned = modelId.replace(":nitro", "")
-  return /^[a-z0-9-]+\/[a-z0-9-]+/.test(cleaned)
-}
-
-/**
  * Get the provider module (Unified)
  */
 export async function getProvider() {
-  // No switch case needed anymore!
   return import("./ai-provider.js");
-}
-
-/**
- * Get the current provider name
- * @returns {string} The current provider name
- */
-export function getCurrentProvider() {
-  const data = store.get()
-  return data.settings?.provider || "openrouter"
 }

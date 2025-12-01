@@ -82,6 +82,94 @@ The focus was on optimizing the AI context injection to solve the "monster manua
 3. **AC Stacking**: "Natural Armor" (e.g., Draconic Resilience) and spell-based AC (e.g., *Mage Armor*) are not explicitly handled in `calculateAC`.
 4. **Range Increments**: Ranged attacks do not automatically apply disadvantage for long range (requires AI or user to manually add disadvantage).
 
+## UI/UX Analysis (2025-11-30)
+
+### Critical Gaps
+
+#### 1. **Spell Slots - No User Interaction**
+- **Issue**: Spell slots are *displayed* as visual dots (lines 123-149 in CharacterHUD.js) but there's NO way for users to manually adjust them.
+- **User Impact**: If the AI makes a mistake or misses a `CAST_SPELL` tag, the user can't fix it. There's no "Use Slot" or "Restore Slot" button.
+- **Recommendation**: Add `+` / `-` buttons next to each spell slot row to manually consume/restore slots.
+
+#### 2. **Spellcasting is AI-Only**
+- **Issue**: There's no UI for the user to *cast a spell directly*. They must ask the AI in chat, and the AI must correctly emit `CAST_SPELL[spellName|level]`.
+- **User Impact**: Unintuitive for players who expect to click a spell to cast it. High friction if AI doesn't understand spell requests.
+- **Recommendation**: Make spell names in the spell list clickable. Clicking opens a modal to confirm casting (consuming the appropriate slot and notifying the AI).
+
+#### 3. **No Direct Item Usage**
+- **Issue**: Items in inventory can only be used via chat commands. The UI shows inventory but has no "Use" button for consumables.
+- **Current**: User must type "I use a healing potion" and hope AI emits `USE_ITEM[healing_potion]`.
+- **Recommendation**: Add a "Use" icon/button for consumable items that directly triggers `useConsumable()` and sends a system message.
+
+#### 4. **No Manual HP/Temp HP Adjustments**
+- **Issue**: Users can't adjust their HP or Temp HP manually if the AI makes an error or for out-of-game corrections.
+- **Recommendation**: Add small `+` / `-` controls or a clickable HP bar that opens a modal for manual adjustment.
+
+#### 5. **Inventory Management is Text-Only**
+- **Issue**: The inventory section shows items but no details (weight, value, properties, equipped status for non-weapons).
+- **Visual Problem**: No clear indication of what's equipped vs. what's in the backpack.
+- **Recommendation**: Add icon indicators (🛡️ for equipped armor, ⚔️ for equipped weapon), tooltips showing item stats, and an "Inspect" button.
+
+### Moderate Gaps
+
+#### 6. **No Status Effect Management**
+- **Issue**: Conditions are displayed in the HUD but there's no way to manually add/remove them or see what they do.
+- **Recommendation**: Make condition chips clickable to show description, add a "Manage Conditions" button.
+
+#### 7. **Initiative/Turn Order Missing from UI**
+- **Issue**: The CombatHUD shows enemies but NOT the full initiative order.
+- **User Impact**: Players don't know when their turn is in relation to all combatants.
+- **Recommendation**: Add an "Initiative Order" section showing all participants sorted by initiative.
+
+#### 8. **No Concentration Indicator Clarity**
+- **Issue**: Concentration is shown as text ("🧠 Concentrating: Spell Name") but no indication of what happens if concentration is broken.
+- **Recommendation**: Add a tooltip or help icon explaining concentration checks and what breaks it.
+
+#### 9. **Class Resources Are Passive**
+- **Issue**: Class resources (Ki, Rage, Channel Divinity) are displayed but not interactive.
+- **Recommendation**: Add buttons to spend/restore resources manually.
+
+#### 10. **Roll History Lacks Context**
+- **Issue**: The RollHistory component shows rolls but doesn't clearly indicate *why* each roll was made or what it was for.
+- **Recommendation**: Add timestamps and "rolled for: [reason]" labels to each entry.
+
+### Minor Gaps
+
+#### 11. **No "Undo" Functionality**
+- **Issue**: Mistakes (accidental rests, wrong spell cast) cannot be undone.
+- **Recommendation**: Add an "Undo Last Action" button (complex but valuable).
+
+#### 12. **Hit Dice Not Spendable During Rest**
+- **Issue**: The short rest UI mentions hit dice but doesn't provide an interface to spend them.
+- **Recommendation**: Add a "Spend Hit Dice" modal during short rests.
+
+#### 13. **No Search/Filter for Spells or Inventory**
+- **Issue**: Long spell lists or inventories are hard to navigate.
+- **Recommendation**: Add a search bar above spell list and inventory.
+
+#### 14. **Missing Tooltips/Help**
+- **Issue**: No tooltips explaining what AC, PROF, SPD mean for new D&D players.
+- **Recommendation**: Add `?` icons or hover tooltips with basic explanations.
+
+#### 15. **Relationship List is Static**
+- **Issue**: Relationships are displayed but not interactive (can't view details or notes).
+- **Recommendation**: Make NPCs clickable to show relationship history or notes.
+
+### Design Inconsistency
+
+#### 16. **CombatHUD Uses Different Styling**
+- **Issue**: CombatHUD uses classes like `bg-green-500`, `bg-surface-2` which look like Tailwind but the rest of the app uses CSS variables.
+- **Impact**: Visual inconsistency and potential missing styles if Tailwind isn't fully set up.
+- **Recommendation**: Refactor CombatHUD to use existing CSS variable-based classes.
+
+### Positive Observations
+- ✅ Spell slots are **visually clear** with filled/empty dots
+- ✅ HP bar includes temp HP visualization (blue overlay)
+- ✅ Death saves have excellent visual design
+- ✅ Dice tray provides quick access to common rolls
+- ✅ Suggested actions (ACTION tags) create good UX flow
+- ✅ Message styling (user/assistant/system) is distinct and readable
+
 ## Current Priorities
 
 1. **Monitor Stability**

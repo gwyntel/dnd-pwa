@@ -63,7 +63,25 @@
 - **Commit**: feat: optimize system prompt with compressed lists for monsters, items, and spells
 - **Notes**: Solved the "monster manual dump" problem by replacing full stat blocks with concise summaries (ID, Name, Type). This reduces token usage while keeping the AI aware of available content. Added spell list to ensure valid spell learning.
 
+---
+
+## Session 2024-12-01-0030
+- **Feature**: Critical Bug Fixes - Initiative & Level-Up
+- **Status**: ✅ COMPLETED
+- **Changes**: 
+  - Fixed player initiative roll bug in `CombatManager.js` (handle both `dexterity` and `dex` stat naming conventions)
+  - Fixed NaN HP on level-up in `LevelUpModal.js` (add validation, fallback logic, and error handling)
+  - Fixed test suite issues: `RestProcessor.test.js`, `CombatProcessor.test.js`, `InventoryProcessor.test.js`
+  - Added comprehensive error handling and logging for combat initialization
+- **Testing**: Test suite now has 106/108 tests passing (2 failing tests related to immunity/vulnerability application)
+- **Issues**: 
+  - Player initiative wasn't rolling due to stat naming mismatch (`character.stats.dexterity` vs `character.stats.dex`)
+  - Level-up HP calculation could produce NaN values due to missing validation
+- **Commit**: `072d492` - "fix: player initiative rolls and level-up HP calculation"
+- **Notes**: The combat system now works end-to-end. Player initiative rolls appear, turn order announcements work, and the combat HUD properly displays initiative order. The level-up system now safely handles HP calculations with multiple fallback layers.
+
 ## Next Actions Required
 1. Monitor context usage in production
 2. Expand spell effects coverage
 3. Deepen condition logic
+4. Implement temporary effect duration system (Shield spell AC bonus tracking)

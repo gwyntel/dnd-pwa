@@ -22,9 +22,30 @@ export class SpellProcessor extends BaseProcessor {
 
             switch (tag.type) {
                 case 'CAST_SPELL':
-                    const [spell, level] = tag.content.split('|').map(s => s.trim())
-                    const result = castSpell(this.game, this.character, spell, parseInt(level, 10) || 0)
-                    if (result) processed = true
+                    // Format: CAST_SPELL[spellId|spellName|level] or CAST_SPELL[spellName|level]
+                    const parts = tag.content.split('|').map(s => s.trim())
+                    let spellId = null
+                    let spellName = parts[0]
+                    let spellLevel = 0
+
+                    if (parts.length === 3) {
+                        // New format with ID
+                        spellId = parts[0]
+                        spellName = parts[1]
+                        spellLevel = parseInt(parts[2], 10) || 0
+                    } else if (parts.length === 2) {
+                        // Legacy format (name|level)
+                        spellName = parts[0]
+                        spellLevel = parseInt(parts[1], 10) || 0
+                        // Try to infer ID from name
+                        spellId = spellName.toLowerCase().replace(/\s+/g, '-')
+                    }
+
+                    const result = castSpell(this.game, this.character, spellName, spellLevel, spellId)
+                    if (result.success) {
+                        newMessages.push(...result.messages)
+                        processed = true
+                    }
                     break
 
                 case 'LEARN_SPELL':

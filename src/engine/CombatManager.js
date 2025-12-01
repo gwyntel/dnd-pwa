@@ -7,6 +7,7 @@ import { rollDice, formatRoll } from "../utils/dice.js"
 import { buildDiceProfile } from "../utils/dice5e.js"
 import { MONSTERS } from "../data/monsters.js"
 import { generateMonster } from "./MonsterGenerator.js"
+import { advanceSpellEffectDurations } from "./SpellcastingManager.js"
 
 /**
  * Initialize combat state for a game
@@ -44,13 +45,13 @@ export function startCombat(game, character, world, description = "") {
       // Robust stat access - handle both dexterity and dex naming conventions
       const dexValue = character?.stats?.dexterity || character?.stats?.dex || 10
       const dexMod = Math.floor((dexValue - 10) / 2)
-      
+
       console.log('[CombatManager] Rolling player initiative:', {
         characterName: character.name,
         dexValue,
         dexMod
       })
-      
+
       const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)
       const meta = createRollMetadata({ sourceType: "initiative" })
 
@@ -82,12 +83,12 @@ export function startCombat(game, character, world, description = "") {
       // Continue without player initiative rather than failing completely
       messages.push({
         id: `msg_${Date.now()}_init_error`,
-        role: "system", 
+        role: "system",
         content: `⚠️ Error rolling initiative for ${character.name || 'Player'}`,
         timestamp: new Date().toISOString(),
         hidden: false,
-        metadata: { 
-          type: "error", 
+        metadata: {
+          type: "error",
           error: error.message,
           actorType: "player"
         }
@@ -362,12 +363,15 @@ export function getCurrentTurnDescription(game) {
 /**
  * Advance to the next turn in combat
  * @param {Object} game - Game state object
+ * @param {Object} character - Character object (optional, for spell effects)
  * @returns {Object|null} - Turn notification message if applicable
  */
-export function advanceTurn(game) {
+export function advanceTurn(game, character = null) {
   if (!game.combat.active || !game.combat.initiative || game.combat.initiative.length === 0) {
     return null
   }
+
+  const oldRound = game.combat.round || 1
 
   // Skip dead enemies?
   let attempts = 0
@@ -383,6 +387,29 @@ export function advanceTurn(game) {
   } while (isCurrentActorDead(game) && attempts < game.combat.initiative.length)
 
   const current = game.combat.initiative[game.combat.currentTurnIndex]
+
+  // If round advanced, decrement spell effect durations
+  const newRound = game.combat.round || 1
+  if (newRound > oldRound && character) {
+    const expiredMessages = advanceSpellEffectDurations(game, character, 'round')
+    // Note: These messages are returned but not added to game.messages here
+    // The caller (TagProcessor or game loop) should handle adding them
+    if (expiredMessages.length > 0) {
+      return {
+        id: `msg_${Date.now()}_turn_change`,
+        role: "system",
+        content: current.type === "player" ? "👉 It's your turn!" : `👉 ${current.name}'s turn.`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: {
+          turnChange: true,
+          actor: current.name,
+          ephemeral: true,
+          expiredSpells: expiredMessages
+        }
+      }
+    }
+  }
 
   // Return a turn notification system message
   return {

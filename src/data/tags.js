@@ -205,13 +205,14 @@ export const TAG_REFERENCE = {
     note: "3-5 contextual suggestions. Only in non-roll turns. Never after ROLL in same message."
   },
   CAST_SPELL: {
-    pattern: "CAST_SPELL[spell_name|level]",
+    pattern: "CAST_SPELL[spell_id|spell_name|level] or CAST_SPELL[spell_name|level]",
     examples: [
-      "You cast! CAST_SPELL[Magic Missile|1]",
-      "Wizard casts CAST_SPELL[Fireball|3]"
+      "You cast shield! CAST_SPELL[shield|Shield|1]",
+      "Wizard casts fireball. CAST_SPELL[Fireball|3]",
+      "You invoke mage armor. CAST_SPELL[mage-armor|Mage Armor|1]"
     ],
     required: true,
-    note: "Auto-consumes spell slot. Cantrips use level 0."
+    note: "Auto-consumes spell slot. Include spell_id for automatic effect application. Cantrips use level 0."
   },
   CONCENTRATION_START: {
     pattern: "CONCENTRATION_START[spell_name]",

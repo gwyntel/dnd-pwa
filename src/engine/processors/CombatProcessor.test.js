@@ -56,7 +56,10 @@ describe('CombatProcessor', () => {
             id: 'char1',
             name: 'Hero',
             maxHP: 30,
-            armorClass: 15
+            armorClass: 15,
+            immunities: [],
+            vulnerabilities: [],
+            resistances: []
         }
 
         data = {

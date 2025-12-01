@@ -19,13 +19,18 @@ import { generateMonster } from "./MonsterGenerator.js"
 export function startCombat(game, character, world, description = "") {
   const messages = []
 
+  // Validate game object
+  if (!game || !game.combat) {
+    console.error('[CombatManager] Invalid game object in startCombat:', game)
+    return messages
+  }
+
   game.combat.active = true
   game.combat.round = 1
   // Don't reset enemies array if it already has enemies! (from ENEMY_SPAWN tags)
   if (!Array.isArray(game.combat.enemies)) {
     game.combat.enemies = []
   }
-
 
   // Build initiative entries (player + optional hinted NPCs)
   // IMPORTANT: Preserve any existing initiative entries (from ENEMY_SPAWN tags)
@@ -35,34 +40,61 @@ export function startCombat(game, character, world, description = "") {
 
   // Add player's initiative
   if (character) {
-    const profile = buildDiceProfile(character)
-    const dexMod = profile.abilities?.dex ?? 0
-    const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)
-    const meta = createRollMetadata({ sourceType: "initiative" })
+    try {
+      // Robust stat access - handle both dexterity and dex naming conventions
+      const dexValue = character?.stats?.dexterity || character?.stats?.dex || 10
+      const dexMod = Math.floor((dexValue - 10) / 2)
+      
+      console.log('[CombatManager] Rolling player initiative:', {
+        characterName: character.name,
+        dexValue,
+        dexMod
+      })
+      
+      const initRoll = rollDice(`1d20${dexMod >= 0 ? `+${dexMod}` : dexMod}`)
+      const meta = createRollMetadata({ sourceType: "initiative" })
 
-    initiativeEntries.push({
-      id: `init_player`,
-      name: character.name || "Player",
-      type: "player",
-      roll: initRoll,
-      total: initRoll.total,
-      ...meta,
-    })
-
-    messages.push({
-      id: `msg_${meta.rollId}_initiative_player`,
-      role: "system",
-      content: `⚔️ Initiative (You): ${formatRoll(initRoll)}`,
-      timestamp: meta.timestamp,
-      hidden: false,
-      metadata: {
-        diceRoll: initRoll,
-        type: "initiative",
-        actorType: "player",
-        actorName: character.name || "Player",
+      initiativeEntries.push({
+        id: `init_player`,
+        name: character.name || "Player",
+        type: "player",
+        roll: initRoll,
+        total: initRoll.total,
         ...meta,
-      },
-    })
+      })
+
+      messages.push({
+        id: `msg_${meta.rollId}_initiative_player`,
+        role: "system",
+        content: `⚔️ Initiative (You): ${formatRoll(initRoll)}`,
+        timestamp: meta.timestamp,
+        hidden: false,
+        metadata: {
+          diceRoll: initRoll,
+          type: "initiative",
+          actorType: "player",
+          actorName: character.name || "Player",
+          ...meta,
+        },
+      })
+    } catch (error) {
+      console.error('[CombatManager] Error rolling player initiative:', error, character)
+      // Continue without player initiative rather than failing completely
+      messages.push({
+        id: `msg_${Date.now()}_init_error`,
+        role: "system", 
+        content: `⚠️ Error rolling initiative for ${character.name || 'Player'}`,
+        timestamp: new Date().toISOString(),
+        hidden: false,
+        metadata: { 
+          type: "error", 
+          error: error.message,
+          actorType: "player"
+        }
+      })
+    }
+  } else {
+    console.error('[CombatManager] Character is null in startCombat')
   }
 
   // Add system messages for any enemy initiative rolls that already happened

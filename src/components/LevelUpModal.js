@@ -284,11 +284,24 @@ export function attachLevelUpHandlers(game, character, onClose) {
 
         // Calculate new HP
         let hpIncrease = 0
+        const conMod = Math.floor((character.stats.constitution - 10) / 2)
+        
         if (hpRoll === 'avg') {
             const dieSize = parseInt(classData.hp_die.substring(2))
-            hpIncrease = (Math.floor(dieSize / 2) + 1) + Math.floor((character.stats.constitution - 10) / 2)
-        } else {
+            hpIncrease = Math.floor(dieSize / 2) + 1 + conMod
+        } else if (hpRoll && typeof hpRoll === 'object' && hpRoll.total) {
             hpIncrease = hpRoll.total
+        } else {
+            // Fallback: use average if hpRoll is not properly set
+            const dieSize = parseInt(classData.hp_die.substring(2))
+            hpIncrease = Math.floor(dieSize / 2) + 1 + conMod
+        }
+        
+        // Validate hpIncrease is a valid number
+        if (isNaN(hpIncrease) || hpIncrease <= 0) {
+            console.error('Invalid HP increase calculated:', { hpIncrease, hpRoll, classData, character })
+            // Emergency fallback: minimum 1 HP
+            hpIncrease = 1 + conMod
         }
 
         await store.update(state => {

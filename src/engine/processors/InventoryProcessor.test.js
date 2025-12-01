@@ -26,6 +26,9 @@ vi.mock('../TagParser.js', () => ({
             if (text.includes('INVENTORY_ADD')) {
                 tags.push({ type: 'INVENTORY_ADD', content: 'Sword|1', index: 0 })
             }
+            if (text.includes('GOLD_CHANGE')) {
+                tags.push({ type: 'GOLD_CHANGE', content: '25', index: 0 })
+            }
             return { tags }
         })
     }

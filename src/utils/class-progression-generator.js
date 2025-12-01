@@ -4,7 +4,8 @@
  * using structured output
  */
 
-import { getProvider } from './model-utils.js'
+import { sendChatCompletion, parseStreamingResponse } from './ai-provider.js'
+import store from '../state/store.js'
 
 // Structured output schema for class progression
 const CLASS_PROGRESSION_SCHEMA = {
@@ -79,7 +80,8 @@ const CLASS_PROGRESSION_SCHEMA = {
  * @returns {Promise<Object>} - Full progression data
  */
 export async function generateClassProgression(className, classDescription = '') {
-    const provider = getProvider()
+    const data = store.get()
+    const model = data.settings.defaultNarrativeModel || "openai/gpt-4o-mini"
 
     const prompt = `Generate a complete D&D 5e-style class progression for the custom class "${className}".
 ${classDescription ? `\nClass concept: ${classDescription}` : ''}
@@ -95,15 +97,47 @@ Requirements:
 Generate the complete progression now.`
 
     try {
-        const response = await provider.generateStructuredOutput(prompt, CLASS_PROGRESSION_SCHEMA)
+        const messages = [{ role: "user", content: prompt }]
 
-        if (!response || !response.progression) {
+        const response = await sendChatCompletion(messages, model, {
+            jsonSchema: {
+                name: "class_progression",
+                strict: true,
+                schema: CLASS_PROGRESSION_SCHEMA
+            }
+        })
+
+        let fullResponse = ""
+        for await (const chunk of parseStreamingResponse(response)) {
+            if (chunk.output_json) {
+                fullResponse = JSON.stringify(chunk.output_json)
+            } else if (chunk.choices && chunk.choices[0]?.delta?.content) {
+                fullResponse += chunk.choices[0].delta.content
+            } else if (chunk.choices && chunk.choices[0]?.message?.content) {
+                fullResponse += chunk.choices[0].message.content
+            }
+        }
+
+        let result
+        try {
+            result = JSON.parse(fullResponse)
+        } catch (e) {
+            console.warn("Failed to parse JSON directly, trying regex extraction", e)
+            const match = fullResponse.match(/\{[\s\S]*\}/)
+            if (match) {
+                result = JSON.parse(match[0])
+            } else {
+                throw new Error("Could not parse JSON from AI response")
+            }
+        }
+
+        if (!result || !result.progression) {
             throw new Error('Invalid progression data generated')
         }
 
         return {
-            hp_die: response.hp_die,
-            ...response.progression
+            hp_die: result.hp_die,
+            ...result.progression
         }
     } catch (error) {
         console.error('[ClassProgression] Failed to generate progression:', error)

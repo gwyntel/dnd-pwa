@@ -351,6 +351,78 @@ export class RenderProcessor {
                 return `<span class="inline-badge item" data-tag-type="item">🧪 Used: ${escape(item)}</span>`
             }
 
+            case "damage": {
+                const target = badgeData.target || ""
+                const amount = badgeData.amount ?? 0
+                const type = badgeData.type || ""
+                const typeText = type ? ` ${type}` : ""
+                return `<span class="inline-badge damage" data-tag-type="damage">💥 ${amount}${typeText} damage${target && target !== 'player' ? ` to ${escape(target)}` : ''}</span>`
+            }
+
+            case "heal": {
+                const target = badgeData.target || ""
+                const amount = badgeData.amount ?? 0
+                return `<span class="inline-badge heal" data-tag-type="heal">💚 +${amount} HP${target && target !== 'player' ? ` to ${escape(target)}` : ''}</span>`
+            }
+
+            case "temp_hp": {
+                const target = badgeData.target || ""
+                const amount = badgeData.amount ?? 0
+                return `<span class="inline-badge temp-hp" data-tag-type="temp_hp">🛡️ ${amount} temp HP${target && target !== 'player' ? ` to ${escape(target)}` : ''}</span>`
+            }
+
+            case "resistance_add": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge resistance" data-tag-type="resistance">🔰 Resist ${escape(type)}</span>`
+            }
+
+            case "resistance_remove": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge resistance-remove" data-tag-type="resistance">❌ Lost ${escape(type)} resistance</span>`
+            }
+
+            case "immunity_add": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge immunity" data-tag-type="immunity">⭐ Immune to ${escape(type)}</span>`
+            }
+
+            case "immunity_remove": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge immunity-remove" data-tag-type="immunity">❌ Lost ${escape(type)} immunity</span>`
+            }
+
+            case "vulnerability_add": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge vulnerability" data-tag-type="vulnerability">⚠️ Vulnerable to ${escape(type)}</span>`
+            }
+
+            case "vulnerability_remove": {
+                const type = badgeData.type || ""
+                return `<span class="inline-badge vulnerability-remove" data-tag-type="vulnerability">✅ No longer vulnerable to ${escape(type)}</span>`
+            }
+
+            case "concentration_start": {
+                const spell = badgeData.spell || ""
+                return `<span class="inline-badge concentration" data-tag-type="concentration">🔮 Concentrating on ${escape(spell)}</span>`
+            }
+
+            case "concentration_end": {
+                const spell = badgeData.spell || ""
+                return `<span class="inline-badge concentration-end" data-tag-type="concentration">💫 Concentration ended${spell ? ': ' + escape(spell) : ''}</span>`
+            }
+
+            case "hit_die_roll": {
+                const count = badgeData.count ?? 1
+                return `<span class="inline-badge hit-die" data-tag-type="hit_die">🎲 Rolled ${count} Hit ${count === 1 ? 'Die' : 'Dice'}</span>`
+            }
+
+            case "relationship": {
+                const entity = badgeData.entity || ""
+                const delta = badgeData.delta ?? 0
+                const sign = delta >= 0 ? "+" : ""
+                return `<span class="inline-badge relationship" data-tag-type="relationship">👥 ${escape(entity)}: ${sign}${delta}</span>`
+            }
+
             case "roll": {
                 const kind = badgeData.kind || ""
                 const key = badgeData.key || ""

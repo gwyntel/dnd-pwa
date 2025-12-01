@@ -19,17 +19,28 @@ We've completed a comprehensive codebase evaluation and started a multi-phase re
 - `openai` for AI integration
 - `vite`, `vitest`, `jsdom`, `terser` for build/test
 
-### Phase 2: Fragment TagProcessor (NEXT UP)
+### Phase 2: Fragment TagProcessor 🚀 IN PROGRESS
 
-Goal: Break down the 1,389-line TagProcessor.js into specialized processors:
-- InventoryProcessor (inventory, gold, equipment)
-- CombatProcessor (combat, damage, enemies)
-- SpellProcessor (spells, slots, concentration)
-- ConditionProcessor (status effects)
-- NarrativeProcessor (location, relationships, actions)
-- RenderProcessor (badges, markdown, HTML)
+**Status:** 7/9 processors created! Main TagProcessor refactoring next.
 
-See `/memory-bank/refactoring-roadmap.md` for detailed plan.
+**What We've Done:**
+1. ✅ Created `BaseProcessor` with shared utilities + tests (all passing!)
+2. ✅ Extracted `InventoryProcessor` (~350 lines) + comprehensive tests
+3. ✅ Extracted `CombatProcessor` (~300 lines) - damage, healing, defense modifiers
+4. ✅ Extracted `SpellProcessor` (~80 lines) - spellcasting, learning, concentration
+5. ✅ Extracted `NarrativeProcessor` (~120 lines) - location, XP, relationships, quests
+6. ✅ Extracted `RollProcessor` (~80 lines) - all dice rolling logic
+7. ✅ Extracted `RestProcessor` (~60 lines) - short/long rest, hit dice
+8. ✅ Committed to git (commit 239e11c)
+
+**Next Steps:**
+1. Refactor main `TagProcessor.js` to use the new processors
+2. Create `RenderProcessor` for badge/markdown rendering
+3. Run full test suite
+4. Manual gameplay testing
+
+**File Count:** 9 new files, ~1,500 lines extracted
+**Estimated Completion:** 90% of Phase 2 done!
 
 ### Phase 3: Simplify game.js (AFTER PHASE 2)
 
@@ -53,6 +64,24 @@ Goal: Extract game.js (1,655 lines) into:
 ### Technical Preferences
 - **Vanilla JS:** Continuing with no-framework approach.
 - **Tag-Driven:** All state changes are driven by tags, maintaining a single flow of control.
+- **AI Provider Usage (PREFERRED):**
+  - **Direct Import**: Always import `sendChatCompletion` and `parseStreamingResponse` directly from `ai-provider.js`
+    ```javascript
+    import { sendChatCompletion, parseStreamingResponse } from "./ai-provider.js"
+    const response = await sendChatCompletion(messages, model, options)
+    for await (const chunk of parseStreamingResponse(response)) { ... }
+    ```
+  - **Structured Outputs**: Use `jsonSchema` option for reliable JSON responses
+    ```javascript
+    const options = {
+      jsonSchema: {
+        name: "schema_name",
+        strict: true,
+        schema: { type: "object", properties: {...}, required: [...] }
+      }
+    }
+    ```
+  - **Legacy `getProvider()`**: Still works but deprecated. Only use for backward compatibility or lazy loading scenarios.
 
 ## Learnings & Insights
 

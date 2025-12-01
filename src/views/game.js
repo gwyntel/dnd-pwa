@@ -6,7 +6,7 @@
 import { normalizeCharacter } from "../utils/storage.js"
 import store from "../state/store.js"
 import { navigateTo } from "../router.js"
-import { getProvider } from "../utils/model-utils.js"
+import { sendChatCompletion, parseStreamingResponse } from "../utils/ai-provider.js"
 import { rollDice, rollAdvantage, rollDisadvantage, formatRoll, parseRollRequests } from "../utils/dice.js"
 import { buildDiceProfile, rollSkillCheck, rollSavingThrow, rollAttack } from "../utils/dice5e.js"
 import { getLocationIcon, getConditionIcon, Icons } from "../data/icons.js"
@@ -901,9 +901,8 @@ async function sendMessage(game, userText, data) {
       reasoningOptions
     })
 
-    // Get the configured provider and send the request
-    const provider = await getProvider()
-    const response = await provider.sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
+    // Send the request using the unified AI provider
+    const response = await sendChatCompletion(apiMessages, gameRef.narrativeModel, reasoningOptions)
 
     console.log('[flow] sendMessage: API response received')
 
@@ -938,7 +937,7 @@ async function sendMessage(game, userText, data) {
     let thinkBuffer = ""
     let contentOutsideThink = ""
 
-    for await (const chunk of provider.parseStreamingResponse(response)) {
+    for await (const chunk of parseStreamingResponse(response)) {
       const choice = chunk.choices?.[0]
       // Use `delta?.content || ""` to ensure delta is not null/undefined for the logic below
       const delta = choice?.delta?.content || ""

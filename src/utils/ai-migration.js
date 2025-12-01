@@ -1,5 +1,5 @@
 import store from "../state/store.js"
-import { getProvider } from "./model-utils.js"
+import { sendChatCompletion, parseStreamingResponse } from "./ai-provider.js"
 import { showMigrationPopup, hideMigrationPopup } from "../components/MigrationPopup.js"
 import { saveData } from "./storage.js"
 
@@ -22,17 +22,6 @@ export async function runPendingMigrations() {
     if (worldsToMigrate.length === 0) return
 
     console.log(`Found ${worldsToMigrate.length} worlds needing AI migration.`)
-
-    // Check if we have a provider/key available
-    try {
-        const provider = await getProvider()
-        // If we get here, we presumably have a provider. 
-        // But we should check if we can actually make calls (e.g. check for API key if needed)
-        // For now, we assume getProvider throws or returns null if not ready.
-    } catch (e) {
-        console.warn("Skipping AI migration: No model provider available.", e)
-        return
-    }
 
     showMigrationPopup()
     const popup = document.getElementById('migration-popup')
@@ -91,7 +80,6 @@ export async function runPendingMigrations() {
 }
 
 async function extractWorldData(systemPrompt, worldName) {
-    const provider = await getProvider()
     const data = store.get()
     const model = data.settings.defaultNarrativeModel
 
@@ -153,10 +141,10 @@ Output ONLY valid JSON satisfying the schema.`
         }
         : {}
 
-    const response = await provider.sendChatCompletion(messages, model, requestOptions)
+    const response = await sendChatCompletion(messages, model, requestOptions)
 
     let fullResponse = ""
-    for await (const chunk of provider.parseStreamingResponse(response)) {
+    for await (const chunk of parseStreamingResponse(response)) {
         if (chunk.output_json) fullResponse = JSON.stringify(chunk.output_json)
         else if (chunk.choices && chunk.choices[0]?.delta?.content) fullResponse += chunk.choices[0].delta.content
         else if (chunk.choices && chunk.choices[0]?.message?.content) fullResponse += chunk.choices[0].message.content

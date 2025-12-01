@@ -3,7 +3,7 @@
  * Manage campaign worlds with custom lore and system prompts
  */
 
-import { getProvider } from "../utils/model-utils.js"
+import { sendChatCompletion, parseStreamingResponse } from "../utils/ai-provider.js"
 import { WORLD_TEMPLATES } from "../data/worlds.js"
 import store from "../state/store.js"
 import { seedWorldItems, worldNeedsSeeding } from "../utils/seed-items.js"
@@ -321,7 +321,6 @@ async function generateWorldWithAI() {
     const models = data.models || []
     const selectedModelMeta = models.find((m) => m.id === model)
     const supportsStructuredOutputs = !!selectedModelMeta?.supportedParameters?.includes("structured_outputs")
-    const provider = await getProvider()
 
     // Helper to run a single generation step with retries
     const generateStep = async (stepName, promptTemplate, schema, context = {}, retries = 3) => {
@@ -350,10 +349,10 @@ async function generateWorldWithAI() {
             : {}
 
           console.log(`[WorldGen] Starting ${stepName} (Attempt ${attempt})...`)
-          const response = await provider.sendChatCompletion(messages, model, requestOptions)
+          const response = await sendChatCompletion(messages, model, requestOptions)
 
           let fullResponse = ""
-          for await (const chunk of provider.parseStreamingResponse(response)) {
+          for await (const chunk of parseStreamingResponse(response)) {
             if (chunk.output_json) {
               fullResponse = JSON.stringify(chunk.output_json)
             } else if (chunk.choices && chunk.choices[0]?.delta?.content) {

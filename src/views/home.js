@@ -7,6 +7,8 @@ import { saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { isAuthenticated, startAuth, setApiKey } from "../utils/auth.js"
 import { fetchModels } from "../utils/ai-provider.js"
+import { detectCorsIssue, getCorsGuidance } from "../utils/cors-detector.js"
+import { isProxyEnabled } from "../utils/proxy.js"
 import store from "../state/store.js"
 
 // Wizard state - tracks setup progress
@@ -352,6 +354,19 @@ async function renderModelStep() {
     renderModelSelector()
   } catch (error) {
     console.error("Error loading models:", error)
+
+    // Detect CORS issues and provide guidance
+    const corsDetection = detectCorsIssue(error)
+    const proxyEnabled = isProxyEnabled()
+
+    let errorMessage = error.message
+    let errorGuidance = ''
+
+    if (corsDetection.isCors) {
+      errorMessage = corsDetection.message
+      errorGuidance = getCorsGuidance(proxyEnabled)
+    }
+
     app.innerHTML = `
       <div class="container text-center mt-4">
         <h1>Welcome to D&D PWA</h1>
@@ -361,18 +376,38 @@ async function renderModelStep() {
         
         <div class="card card-center mt-3">
           <h2>Select AI Model</h2>
-          <p class="text-error mb-3">Failed to load models: ${error.message}</p>
+          <p class="text-error mb-2">${errorMessage}</p>
+          
+          ${corsDetection.isCors ? `
+            <div class="text-secondary text-sm mb-3" style="text-align: left; padding: 0.75rem; background-color: var(--bg-secondary); border-left: 3px solid var(--warning-color); border-radius: 4px;">
+              <p class="mb-2"><strong>💡 CORS Issue Detected</strong></p>
+              <p class="mb-2">${errorGuidance}</p>
+              ${!proxyEnabled ? `
+                <p class="mb-1"><strong>How to fix:</strong></p>
+                <ol style="margin: 0; padding-left: 1.5rem; font-size: 0.85rem;">
+                  <li>Skip model selection for now</li>
+                  <li>Go to Settings after setup</li>
+                  <li>Enable "Use backend proxy"</li>
+                  <li>Return to model selection</li>
+                </ol>
+              ` : `
+                <p><strong>Note:</strong> Proxy is enabled but still failing. Check your Cloudflare Worker configuration.</p>
+              `}
+            </div>
+          ` : ''}
           
           ${provider === "openai" || provider === "lmstudio" ? `
             <div class="mb-3">
               <p class="text-secondary text-sm mb-2">You can enter a model ID manually:</p>
-              <input type="text" id="custom-model-input" placeholder="e.g., gpt-4, llama-3.1-8b" class="mb-2">
+              <input type="text" id="custom-model-input" placeholder="e.g., gpt-4o, deepseek-chat, llama-3.1-8b" class="mb-2">
               <button id="custom-model-btn" class="btn btn-block">Use This Model</button>
             </div>
           ` : ''}
           
-          <button id="retry-models-btn" class="btn-secondary btn-block">Retry Loading</button>
-          <button id="skip-model-btn" class="btn-secondary btn-block mt-2">Skip for Now</button>
+          ${!corsDetection.isCors ? `
+            <button id="retry-models-btn" class="btn-secondary btn-block">Retry Loading</button>
+          ` : ''}
+          <button id="skip-model-btn" class="btn btn-block mt-2">Skip and Set Model Later</button>
         </div>
       </div>
     `

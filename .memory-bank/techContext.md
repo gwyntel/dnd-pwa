@@ -42,38 +42,29 @@ npm run deploy
 - **Build Tool:** Vite 7.1.7 (fast development server, optimized production builds)
 - **Package Manager:** npm (with package-lock.json for deterministic builds)
 - **Testing Framework:** Vitest 4.0.13 with jsdom for DOM testing
-- **CSS Framework:** Tailwind CSS 4.1.17 with custom themes
+- **Styling:** Vanilla CSS with CSS variables (no framework)
 - **Version Control:** Git with conventional commits
 
 ### Key Dependencies
 ```json
 {
   "dependencies": {
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
-    "lucide-react": "0.553.0",
-    "openai": "^4.104.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "tailwind-merge": "3.3.1"
+    "openai": "^4.104.0"
   },
   "devDependencies": {
-    "@types/node": "24.10.0",
     "jsdom": "^27.0.1",
-    "postcss": "8.5.6",
-    "tailwindcss": "4.1.17",
     "terser": "^5.44.1",
-    "typescript": "5.9.3",
     "vite": "^7.1.7",
     "vitest": "^4.0.13"
   }
 }
 ```
 
+> **Note:** React, Tailwind, and 28 other packages were removed during Phase 1 dependency cleanup (2025-11-30). The app now uses vanilla CSS with CSS variables for styling.
+
 ### Development Tools
-- **TypeScript:** Type definitions for better IDE support (not used in runtime code)
-- **PostCSS:** CSS processing with Tailwind integration
 - **Terser:** JavaScript minification for production
+- **jsdom:** DOM simulation for testing
 
 ## Project Configuration Files
 

@@ -80,8 +80,29 @@
 - **Commit**: `072d492` - "fix: player initiative rolls and level-up HP calculation"
 - **Notes**: The combat system now works end-to-end. Player initiative rolls appear, turn order announcements work, and the combat HUD properly displays initiative order. The level-up system now safely handles HP calculations with multiple fallback layers.
 
+## Session 2024-12-06-1415
+- **Feature**: Maintainability Audit & Testing Plan
+- **Status**: ✅ COMPLETED
+- **Changes**: 
+  - Created `.memory-bank/maintainability-audit.md` with ratings for 30+ components
+  - Created `.memory-bank/testing-plan.md` with comprehensive test coverage analysis
+  - Fixed outdated dependencies in `techContext.md` (removed React/Tailwind references)
+  - Identified 2 failing tests (CombatProcessor immunity/vulnerability)
+  - Identified 1 broken test file (SpellProcessor - window not defined)
+  - Documented 12 untested core modules
+- **Testing**: Ran test suite: 103 tests across 9 files (101 passing, 2 failing)
+- **Issues**: 
+  - SpellProcessor.test.js fails due to `window` not being mocked
+  - CombatProcessor tests for immunity/vulnerability need logic fixes
+- **Commit**: (Pending)
+- **Notes**: The codebase is in good health after Phase 2 refactoring. Priority improvements: fix broken tests, add dice.js tests, add CombatManager tests, then proceed with Phase 3 (game.js split).
+
+---
+
 ## Next Actions Required
-1. Monitor context usage in production
-2. Expand spell effects coverage
-3. Deepen condition logic
-4. Implement temporary effect duration system (Shield spell AC bonus tracking)
+1. Fix SpellProcessor.test.js (mock window object)
+2. Fix 2 failing CombatProcessor tests (immunity/vulnerability)
+3. Add dice.js unit tests
+4. Add CombatManager.test.js
+5. Monitor context usage in production
+6. Implement temporary effect duration system (Shield spell AC bonus tracking)

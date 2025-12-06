@@ -1965,3 +1965,151 @@ a,
 .avatar-container {
   position: relative;
 }
+
+/* ============================================
+   Setup Wizard Styles
+   ============================================ */
+
+.setup-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.setup-steps .step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  background-color: var(--bg-tertiary);
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.setup-steps .step.active {
+  opacity: 1;
+}
+
+.setup-steps .step.current {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.setup-steps .step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--bg-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.setup-steps .step.current .step-number {
+  background-color: white;
+  color: var(--accent-color);
+}
+
+.setup-steps .step-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.setup-steps .step-divider {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* Compact model cards for setup wizard */
+.models-list-compact {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.model-card-compact {
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.model-card-compact:hover {
+  border-color: var(--accent-color);
+  background-color: var(--bg-tertiary);
+  transform: translateX(4px);
+}
+
+.model-card-compact.selected {
+  border-color: var(--accent-color);
+  background-color: rgba(var(--accent-color-rgb, 139, 69, 19), 0.1);
+}
+
+.model-card-compact .model-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.model-card-compact .model-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.model-card-compact .badge-selected {
+  background-color: var(--accent-color);
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Scrollbar for models list */
+.models-list-compact::-webkit-scrollbar {
+  width: 6px;
+}
+
+.models-list-compact::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.models-list-compact::-webkit-scrollbar-thumb {
+  background: var(--accent-color);
+  border-radius: 3px;
+}
+
+/* Responsive setup wizard */
+@media (max-width: 768px) {
+  .setup-steps {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .setup-steps .step {
+    padding: 0.4rem 0.75rem;
+  }
+  
+  .setup-steps .step-label {
+    font-size: 0.8rem;
+  }
+  
+  .models-list-compact {
+    max-height: 300px;
+  }
+}

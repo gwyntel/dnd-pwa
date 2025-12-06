@@ -1,26 +1,49 @@
 /**
  * Home view - Dashboard with game list
+ * Includes unified onboarding wizard for first-time setup
  */
 
 import { saveData } from "../utils/storage.js"
 import { navigateTo } from "../router.js"
 import { isAuthenticated, startAuth, setApiKey } from "../utils/auth.js"
+import { fetchModels } from "../utils/ai-provider.js"
 import store from "../state/store.js"
+
+// Wizard state - tracks setup progress
+let setupStep = 1 // 1: provider, 2: credentials (merged into 1), 3: model
+let allModels = []
+let filteredModels = []
+let searchQuery = ""
+let currentFilter = "all"
+let currentSort = "name"
 
 export function renderHome() {
   const app = document.getElementById("app")
   const data = store.get()
 
-  // Check authentication (provider-aware)
+  // Check if first-time setup is needed
   const selectedProvider = data.settings?.provider || "openrouter"
+  const hasModel = !!data.settings?.defaultNarrativeModel
+  const isAuth = selectedProvider === "lmstudio" || isAuthenticated()
 
-  // LM Studio doesn't require authentication
-  if (selectedProvider !== "lmstudio" && !isAuthenticated()) {
-    app.innerHTML = renderAuthPrompt()
-    setupAuthEventListeners()
+  // First-time user or user needs to complete setup
+  if (!isAuth) {
+    // Not authenticated - show provider/credentials step
+    setupStep = 1
+    app.innerHTML = renderSetupWizard(1)
+    setupWizardListeners()
     return
   }
 
+  // Authenticated but no model selected and setupComplete flag not set
+  // This means they just finished auth and need to pick a model
+  if (!hasModel && !data.settings?.setupComplete) {
+    setupStep = 2
+    renderModelStep()
+    return
+  }
+
+  // Normal authenticated home view
   app.innerHTML = `
     <nav>
       <div class="container">
@@ -67,7 +90,29 @@ export function renderHome() {
   })
 }
 
-function renderAuthPrompt() {
+// ============================================
+// Setup Wizard Functions
+// ============================================
+
+function renderStepIndicator(currentStep) {
+  const steps = [
+    { num: 1, label: 'Connect' },
+    { num: 2, label: 'Model' }
+  ]
+  return `
+    <div class="setup-steps">
+      ${steps.map((step, i) => `
+        <div class="step ${step.num <= currentStep ? 'active' : ''} ${step.num === currentStep ? 'current' : ''}">
+          <span class="step-number">${step.num}</span>
+          <span class="step-label">${step.label}</span>
+        </div>
+        ${i < steps.length - 1 ? '<div class="step-divider">→</div>' : ''}
+      `).join('')}
+    </div>
+  `
+}
+
+function renderSetupWizard(step) {
   const data = store.get()
   const currentProvider = data.settings?.provider || "openrouter"
 
@@ -76,7 +121,9 @@ function renderAuthPrompt() {
       <h1>Welcome to D&D PWA</h1>
       <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
       
-      <div class="card card-center">
+      ${renderStepIndicator(step)}
+      
+      <div class="card card-center mt-3">
         <h2>Choose Your AI Provider</h2>
         <p class="text-secondary mb-3">Select how you want to run the AI for your adventures</p>
         
@@ -111,7 +158,11 @@ function renderProviderConfig(provider) {
       <div class="mt-3">
         <p class="text-secondary text-sm mb-1">Or enter your API key directly:</p>
         <input type="password" id="api-key-input" placeholder="sk-or-..." class="mb-2">
-        <button id="api-key-btn" class="btn-secondary btn-block">Use API Key</button>
+        <button id="api-key-btn" class="btn-secondary btn-block">Continue →</button>
+      </div>
+      
+      <div class="text-secondary text-xs mt-3" style="text-align: left;">
+        <p><strong>💡 Tip:</strong> Free models are available, but require a one-time $10 USD credit purchase to prevent abuse. After that, you can use free models at no additional cost!</p>
       </div>
     `
   } else if (provider === "openai") {
@@ -128,7 +179,7 @@ function renderProviderConfig(provider) {
         <input type="password" id="openai-api-key" placeholder="sk-..." class="mb-2">
       </div>
       
-      <button id="openai-save-btn" class="btn btn-block">Save and Continue</button>
+      <button id="openai-save-btn" class="btn btn-block">Continue →</button>
     `
   } else if (provider === "lmstudio") {
     return `
@@ -142,9 +193,9 @@ function renderProviderConfig(provider) {
         <input type="number" id="lmstudio-context-length" placeholder="8192" min="2048" max="200000" step="1024" class="mb-2">
         <p class="text-xs text-secondary" style="margin-top: 0.25rem;">Optional: Set your model's context length (e.g., 8192, 32768, 128000)</p>
       </div>
-      <button id="lmstudio-save-btn" class="btn btn-block">Save and Continue</button>
+      <button id="lmstudio-save-btn" class="btn btn-block">Continue →</button>
       <div class="text-secondary text-xs mt-2" style="text-align: left;">
-        <p class="mb-1"><strong>ℹ️ Before testing:</strong></p>
+        <p class="mb-1"><strong>ℹ️ Before continuing:</strong></p>
         <ol style="margin: 0; padding-left: 1.5rem;">
           <li>Make sure LM Studio is running with a model loaded</li>
           <li>Start the local server in LM Studio</li>
@@ -157,7 +208,8 @@ function renderProviderConfig(provider) {
   return ""
 }
 
-function setupAuthEventListeners() {
+
+function setupWizardListeners() {
   const data = store.get()
 
   // Provider selection change
@@ -166,7 +218,7 @@ function setupAuthEventListeners() {
     const configDiv = document.getElementById("provider-config")
     if (configDiv) {
       configDiv.innerHTML = renderProviderConfig(provider)
-      setupAuthEventListeners() // Re-attach listeners for new config
+      setupWizardListeners() // Re-attach listeners for new config
     }
   })
 
@@ -174,6 +226,7 @@ function setupAuthEventListeners() {
   document.getElementById("auth-btn")?.addEventListener("click", async () => {
     try {
       await startAuth()
+      // OAuth will redirect, then come back - renderHome will transition to model step
     } catch (error) {
       alert("Authentication failed: " + error.message)
     }
@@ -202,8 +255,8 @@ function setupAuthEventListeners() {
     // Set API key
     setApiKey(apiKey)
 
-    // Reload page
-    renderHome()
+    // Transition to model step (not renderHome!)
+    renderModelStep()
   })
 
   // OpenAI-compatible save
@@ -219,15 +272,17 @@ function setupAuthEventListeners() {
     // Save configuration
     data.settings = data.settings || {}
     data.settings.provider = "openai"
-    data.settings.openaiBaseUrl = baseUrl
-    data.settings.openaiApiKey = apiKey
+    if (!data.settings.providers) data.settings.providers = {}
+    if (!data.settings.providers.openai) data.settings.providers.openai = {}
+    data.settings.providers.openai.baseUrl = baseUrl
+    data.settings.providers.openai.apiKey = apiKey
     saveData(data)
 
-    // Set as authenticated (using generic auth for OpenAI)
+    // Set as authenticated
     setApiKey(apiKey)
 
-    // Reload page
-    renderHome()
+    // Transition to model step
+    renderModelStep()
   })
 
   // LM Studio save
@@ -253,9 +308,380 @@ function setupAuthEventListeners() {
 
     saveData(data)
 
-    // LM Studio doesn't need authentication, just reload
+    // Transition to model step
+    renderModelStep()
+  })
+}
+
+// ============================================
+// Model Selection Step
+// ============================================
+
+async function renderModelStep() {
+  const app = document.getElementById("app")
+  const data = store.get()
+  const provider = data.settings?.provider || "openrouter"
+
+  // Show loading state
+  app.innerHTML = `
+    <div class="container text-center mt-4">
+      <h1>Welcome to D&D PWA</h1>
+      <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
+      
+      ${renderStepIndicator(2)}
+      
+      <div class="card card-center mt-3">
+        <h2>Select AI Model</h2>
+        <div class="text-center py-4">
+          <div class="spinner"></div>
+          <p class="text-secondary mt-3">Loading available models...</p>
+        </div>
+      </div>
+    </div>
+  `
+
+  try {
+    // Fetch models from provider
+    allModels = await fetchModels()
+    filteredModels = [...allModels]
+
+    // Sort by name by default
+    applyFiltersAndSort()
+
+    // Render model selector
+    renderModelSelector()
+  } catch (error) {
+    console.error("Error loading models:", error)
+    app.innerHTML = `
+      <div class="container text-center mt-4">
+        <h1>Welcome to D&D PWA</h1>
+        <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
+        
+        ${renderStepIndicator(2)}
+        
+        <div class="card card-center mt-3">
+          <h2>Select AI Model</h2>
+          <p class="text-error mb-3">Failed to load models: ${error.message}</p>
+          
+          ${provider === "openai" || provider === "lmstudio" ? `
+            <div class="mb-3">
+              <p class="text-secondary text-sm mb-2">You can enter a model ID manually:</p>
+              <input type="text" id="custom-model-input" placeholder="e.g., gpt-4, llama-3.1-8b" class="mb-2">
+              <button id="custom-model-btn" class="btn btn-block">Use This Model</button>
+            </div>
+          ` : ''}
+          
+          <button id="retry-models-btn" class="btn-secondary btn-block">Retry Loading</button>
+          <button id="skip-model-btn" class="btn-secondary btn-block mt-2">Skip for Now</button>
+        </div>
+      </div>
+    `
+
+    setupModelErrorListeners()
+  }
+}
+
+function renderModelSelector() {
+  const app = document.getElementById("app")
+  const data = store.get()
+  const provider = data.settings?.provider || "openrouter"
+  const currentModel = data.settings?.defaultNarrativeModel
+
+  // Get unique providers for filter (only relevant for OpenRouter)
+  const providers = [...new Set(allModels.map((m) => m.provider || 'Unknown'))].sort()
+
+  app.innerHTML = `
+    <div class="container text-center mt-4">
+      <h1>Welcome to D&D PWA</h1>
+      <p class="text-secondary mb-4">Single-player text adventures powered by AI</p>
+      
+      ${renderStepIndicator(2)}
+      
+      <div class="card mt-3" style="text-align: left;">
+        <h2 style="text-align: center;">Select AI Model</h2>
+        
+        ${provider === "openrouter" ? `
+          <p class="text-center text-secondary text-sm mb-3">
+            <strong>Stuck?</strong> Check the 
+            <a href="https://openrouter.ai/rankings?category=roleplay#categories" target="_blank" rel="noopener noreferrer">
+              Roleplay Rankings
+            </a> for best models!
+          </p>
+        ` : ''}
+        
+        <div class="mb-2">
+          <input 
+            type="text" 
+            id="model-search-input" 
+            placeholder="Search models..." 
+            value="${searchQuery}"
+          >
+        </div>
+        
+        <div class="flex gap-2 mb-2 flex-wrap">
+          ${provider === "openrouter" && providers.length > 1 ? `
+            <select id="provider-filter" class="provider-filter">
+              <option value="all">All Providers</option>
+              ${providers.map((p) => `<option value="${p}" ${currentFilter === p ? "selected" : ""}>${p}</option>`).join("")}
+            </select>
+          ` : ''}
+          
+          <select id="sort-select" class="sort-select">
+            <option value="name" ${currentSort === "name" ? "selected" : ""}>Sort by Name</option>
+            ${provider === "openrouter" ? `
+              <option value="price-low" ${currentSort === "price-low" ? "selected" : ""}>Price: Low to High</option>
+              <option value="price-high" ${currentSort === "price-high" ? "selected" : ""}>Price: High to Low</option>
+            ` : ''}
+            <option value="context" ${currentSort === "context" ? "selected" : ""}>Context Length</option>
+          </select>
+        </div>
+        
+        <p class="text-secondary text-sm mb-2">
+          Showing ${filteredModels.length} of ${allModels.length} models
+        </p>
+        
+        <div id="models-list" class="models-list-compact">
+          ${renderModelCards(currentModel)}
+        </div>
+        
+        ${provider === "openai" || provider === "lmstudio" ? `
+          <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-color);">
+            <p class="text-secondary text-sm mb-2">Or enter a custom model ID:</p>
+            <div class="flex gap-2">
+              <input type="text" id="custom-model-input" placeholder="e.g., gpt-4o, llama-3.1-8b" style="flex: 1;">
+              <button id="custom-model-btn" class="btn">Use</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+      
+      <button id="skip-model-btn" class="btn-secondary mt-3">Skip for Now</button>
+    </div>
+  `
+
+  setupModelListeners()
+}
+
+function renderModelCards(currentModel) {
+  if (filteredModels.length === 0) {
+    return `
+      <div class="text-center py-3">
+        <p class="text-secondary">No models found matching your search.</p>
+      </div>
+    `
+  }
+
+  const data = store.get()
+  const provider = data.settings?.provider || "openrouter"
+
+  return filteredModels.slice(0, 50).map((model) => {
+    const isSelected = model.id === currentModel
+    const hasReasoning = model.supportsReasoning
+    const supportsStructured = Array.isArray(model.supportedParameters) && model.supportedParameters.includes("structured_outputs")
+
+    // Pricing info (OpenRouter only)
+    let pricingInfo = ''
+    if (provider === "openrouter" && model.pricing) {
+      const promptPrice = Number.parseFloat(model.pricing.prompt) * 1000000
+      const completionPrice = Number.parseFloat(model.pricing.completion) * 1000000
+      pricingInfo = `$${promptPrice.toFixed(2)}/$${completionPrice.toFixed(2)} per 1M`
+    }
+
+    return `
+      <div class="model-card-compact ${isSelected ? 'selected' : ''}" data-model-id="${model.id}">
+        <div class="model-card-header">
+          <strong>${escapeHtml(model.name || model.id)}</strong>
+          ${isSelected ? '<span class="badge-selected">✓</span>' : ''}
+        </div>
+        <div class="model-card-meta">
+          <span>${model.contextLength ? formatNumber(model.contextLength) + ' ctx' : ''}</span>
+          ${pricingInfo ? `<span>${pricingInfo}</span>` : ''}
+          ${supportsStructured ? '<span title="Supports structured outputs">📋</span>' : ''}
+          ${hasReasoning ? '<span title="Reasoning model">🧠</span>' : ''}
+        </div>
+      </div>
+    `
+  }).join("")
+}
+
+function applyFiltersAndSort() {
+  // Start with all models
+  filteredModels = [...allModels]
+
+  // Apply search filter
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase()
+    filteredModels = filteredModels.filter(
+      (model) =>
+        (model.name || '').toLowerCase().includes(query) ||
+        model.id.toLowerCase().includes(query) ||
+        (model.provider || '').toLowerCase().includes(query),
+    )
+  }
+
+  // Apply provider filter
+  if (currentFilter !== "all") {
+    filteredModels = filteredModels.filter((model) => model.provider === currentFilter)
+  }
+
+  // Apply sorting
+  switch (currentSort) {
+    case "name":
+      filteredModels.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+      break
+    case "price-low":
+      filteredModels.sort((a, b) => {
+        const aPrice = Number.parseFloat(a.pricing?.prompt || 0) + Number.parseFloat(a.pricing?.completion || 0)
+        const bPrice = Number.parseFloat(b.pricing?.prompt || 0) + Number.parseFloat(b.pricing?.completion || 0)
+        return aPrice - bPrice
+      })
+      break
+    case "price-high":
+      filteredModels.sort((a, b) => {
+        const aPrice = Number.parseFloat(a.pricing?.prompt || 0) + Number.parseFloat(a.pricing?.completion || 0)
+        const bPrice = Number.parseFloat(b.pricing?.prompt || 0) + Number.parseFloat(b.pricing?.completion || 0)
+        return bPrice - aPrice
+      })
+      break
+    case "context":
+      filteredModels.sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0))
+      break
+  }
+}
+
+function setupModelListeners() {
+  const data = store.get()
+
+  // Search input
+  document.getElementById("model-search-input")?.addEventListener("input", (e) => {
+    searchQuery = e.target.value
+    applyFiltersAndSort()
+    updateModelsList()
+  })
+
+  // Provider filter (OpenRouter)
+  document.getElementById("provider-filter")?.addEventListener("change", (e) => {
+    currentFilter = e.target.value
+    applyFiltersAndSort()
+    updateModelsList()
+  })
+
+  // Sort select
+  document.getElementById("sort-select")?.addEventListener("change", (e) => {
+    currentSort = e.target.value
+    applyFiltersAndSort()
+    updateModelsList()
+  })
+
+  // Model card clicks
+  attachModelCardListeners()
+
+  // Custom model input
+  document.getElementById("custom-model-btn")?.addEventListener("click", () => {
+    const customModel = document.getElementById("custom-model-input")?.value.trim()
+    if (customModel) {
+      selectModel(customModel)
+    } else {
+      alert("Please enter a model ID")
+    }
+  })
+
+  // Skip button
+  document.getElementById("skip-model-btn")?.addEventListener("click", () => {
+    // Mark setup as complete even without model
+    store.update(state => {
+      state.settings.setupComplete = true
+    })
     renderHome()
   })
+}
+
+function attachModelCardListeners() {
+  document.querySelectorAll(".model-card-compact").forEach((card) => {
+    card.addEventListener("click", () => {
+      const modelId = card.dataset.modelId
+      selectModel(modelId)
+    })
+  })
+}
+
+function updateModelsList() {
+  const data = store.get()
+  const currentModel = data.settings?.defaultNarrativeModel
+
+  const listContainer = document.getElementById("models-list")
+  if (listContainer) {
+    listContainer.innerHTML = renderModelCards(currentModel)
+    attachModelCardListeners()
+  }
+
+  // Update count
+  const countEl = document.querySelector(".text-secondary.text-sm.mb-2")
+  if (countEl) {
+    countEl.textContent = `Showing ${filteredModels.length} of ${allModels.length} models`
+  }
+}
+
+function selectModel(modelId) {
+  // Save model and mark setup complete
+  store.update(state => {
+    state.settings.defaultNarrativeModel = modelId
+    state.settings.setupComplete = true
+    // Also persist models for other views
+    state.models = allModels
+  })
+
+  // Show success and redirect to home
+  const app = document.getElementById("app")
+  app.innerHTML = `
+    <div class="container text-center mt-4">
+      <h1>🎉 All Set!</h1>
+      <p class="text-secondary mb-3">Model selected: <strong>${modelId}</strong></p>
+      <p class="text-secondary">Redirecting to your adventures...</p>
+    </div>
+  `
+
+  setTimeout(() => {
+    renderHome()
+  }, 1500)
+}
+
+function setupModelErrorListeners() {
+  document.getElementById("retry-models-btn")?.addEventListener("click", () => {
+    renderModelStep()
+  })
+
+  document.getElementById("custom-model-btn")?.addEventListener("click", () => {
+    const customModel = document.getElementById("custom-model-input")?.value.trim()
+    if (customModel) {
+      selectModel(customModel)
+    } else {
+      alert("Please enter a model ID")
+    }
+  })
+
+  document.getElementById("skip-model-btn")?.addEventListener("click", () => {
+    store.update(state => {
+      state.settings.setupComplete = true
+    })
+    renderHome()
+  })
+}
+
+// ============================================
+// Utility Functions
+// ============================================
+
+function escapeHtml(text) {
+  if (!text) return ''
+  const div = document.createElement("div")
+  div.textContent = text
+  return div.innerHTML
+}
+
+function formatNumber(num) {
+  if (!num) return ''
+  return num.toLocaleString()
 }
 
 function renderEmptyState() {

@@ -51,7 +51,11 @@ export async function processGameTagsRealtime(game, character, text, processedTa
   // Order matters: some processors may generate tags for others
   allMessages.push(...inventory.processRealtimeTags(text, processedTags, callbacks))
   allMessages.push(...combat.processRealtimeTags(text, processedTags, callbacks))
-  allMessages.push(...spell.processRealtimeTags(text, processedTags, callbacks))
+  
+  // SpellProcessor is async, so we need to await it
+  const spellMessages = await spell.processRealtimeTags(text, processedTags, callbacks)
+  allMessages.push(...spellMessages)
+  
   allMessages.push(...narrative.processRealtimeTags(text, processedTags, callbacks))
   allMessages.push(...rest.processRealtimeTags(text, processedTags, callbacks))
 

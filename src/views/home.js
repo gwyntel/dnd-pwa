@@ -83,19 +83,11 @@ export function renderHome() {
       return
     }
 
-    // Delete button
-    const deleteBtn = e.target.closest(".btn-delete-game")
-    if (deleteBtn) {
-      e.stopPropagation()
-      const gameId = deleteBtn.dataset.gameId
-      deleteGame(gameId)
-      return
-    }
-
-    // Game card click (but not delete button)
+    // Game card click
     const gameCard = e.target.closest(".game-card")
     if (gameCard) {
-      if (!gameCard.closest(".btn-delete-game")) {
+      // Prevent navigation if clicking the delete button (extra safety)
+      if (!e.target.closest(".btn-delete-game")) {
         const gameId = gameCard.dataset.gameId
         navigateTo(`/game/${gameId}`)
       }
@@ -768,7 +760,7 @@ function renderGameList(games, characters) {
 
         return `
           <div class="card game-card card-clickable" data-game-id="${game.id}">
-            <button class="btn-icon btn-delete-game" data-game-id="${game.id}" title="Delete">
+            <button class="btn-icon btn-delete-game" onclick="event.stopPropagation(); window.deleteGame('${game.id}')" title="Delete">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -800,7 +792,8 @@ function renderGameList(games, characters) {
   `
 }
 
-async function deleteGame(gameId) {
+// Expose to window for inline onclick handler
+window.deleteGame = async function (gameId) {
   if (!confirm("Are you sure you want to delete this adventure? This cannot be undone.")) {
     return
   }
@@ -812,3 +805,6 @@ async function deleteGame(gameId) {
   // Re-render
   renderHome()
 }
+// Keep backward compatibility for module usage if needed
+const deleteGame = window.deleteGame
+

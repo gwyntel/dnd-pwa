@@ -658,7 +658,8 @@ nav a:hover {
   color: var(--text-secondary);
 }
 
-.delete-btn {
+.delete-btn,
+.btn-delete-game {
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -2100,15 +2101,15 @@ a,
     flex-wrap: wrap;
     gap: 0.25rem;
   }
-  
+
   .setup-steps .step {
     padding: 0.4rem 0.75rem;
   }
-  
+
   .setup-steps .step-label {
     font-size: 0.8rem;
   }
-  
+
   .models-list-compact {
     max-height: 300px;
   }

@@ -68,28 +68,41 @@ export function renderHome() {
     </div>
   `
 
-  // Event listeners
-  document.getElementById("new-game-btn")?.addEventListener("click", () => {
-    navigateTo("/game/new")
-  })
+  // Event listeners using event delegation to prevent duplicate handlers
+  const appContainer = document.getElementById("app")
 
-  // Game card click handlers
-  document.querySelectorAll(".game-card").forEach((card) => {
-    card.addEventListener("click", (e) => {
-      if (!e.target.closest(".delete-btn")) {
-        const gameId = card.dataset.gameId
+  // Remove any existing delegated listener before adding a new one
+  if (appContainer._homeClickHandler) {
+    appContainer.removeEventListener("click", appContainer._homeClickHandler)
+  }
+
+  appContainer._homeClickHandler = (e) => {
+    // New game button
+    if (e.target.closest("#new-game-btn")) {
+      navigateTo("/game/new")
+      return
+    }
+
+    // Delete button
+    const deleteBtn = e.target.closest(".btn-delete-game")
+    if (deleteBtn) {
+      e.stopPropagation()
+      const gameId = deleteBtn.dataset.gameId
+      deleteGame(gameId)
+      return
+    }
+
+    // Game card click (but not delete button)
+    const gameCard = e.target.closest(".game-card")
+    if (gameCard) {
+      if (!gameCard.closest(".btn-delete-game")) {
+        const gameId = gameCard.dataset.gameId
         navigateTo(`/game/${gameId}`)
       }
-    })
-  })
+    }
+  }
 
-  document.querySelectorAll(".delete-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation()
-      const gameId = btn.dataset.gameId
-      deleteGame(gameId)
-    })
-  })
+  appContainer.addEventListener("click", appContainer._homeClickHandler)
 }
 
 // ============================================
@@ -755,7 +768,7 @@ function renderGameList(games, characters) {
 
         return `
           <div class="card game-card card-clickable" data-game-id="${game.id}">
-            <button class="btn-icon delete-btn" data-game-id="${game.id}" title="Delete">
+            <button class="btn-icon btn-delete-game" data-game-id="${game.id}" title="Delete">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -787,14 +800,14 @@ function renderGameList(games, characters) {
   `
 }
 
-function deleteGame(gameId) {
+async function deleteGame(gameId) {
   if (!confirm("Are you sure you want to delete this adventure? This cannot be undone.")) {
     return
   }
 
-  const data = store.get()
-  data.games = data.games.filter((g) => g.id !== gameId)
-  saveData(data)
+  await store.update(state => {
+    state.games = state.games.filter((g) => g.id !== gameId)
+  }, { immediate: true })
 
   // Re-render
   renderHome()

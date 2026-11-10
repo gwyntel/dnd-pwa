@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/gwyntel/dnd-pwa)
+
 # D&D PWA - AI-Powered Dungeons & Dragons Adventures
 
 A progressive web application for single-player D&D-style text adventures powered by AI via OpenRouter. Experience the thrill of tabletop roleplaying with an intelligent AI Dungeon Master that creates dynamic, engaging narratives with full D&D 5e mechanics.
